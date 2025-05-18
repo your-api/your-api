@@ -6,9 +6,7 @@ import {
   renderQuotaWithAmount,
 } from '../../helpers/render';
 import {
-  Col,
   Layout,
-  Row,
   Typography,
   Card,
   Button,
@@ -17,6 +15,8 @@ import {
   Space,
   Modal,
   Toast,
+  RadioGroup,
+  Radio,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -36,7 +36,12 @@ const TopUp = () => {
   const [userQuota, setUserQuota] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-  const [payWay, setPayWay] = useState('');
+  const [payWay, setPayWay] = useState('zfb');
+  const [customAmount, setCustomAmount] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState(50);
+  const [paymentMethod, setPaymentMethod] = useState('platform');
+
+  const predefinedAmounts = [50, 100, 150, 200, 300, 500, 1000];
 
   const topUp = async () => {
     if (redemptionCode === '') {
@@ -83,8 +88,11 @@ const TopUp = () => {
       showError(t('管理员未开启在线充值！'));
       return;
     }
-    await getAmount();
-    if (topUpCount < minTopUp) {
+    
+    const finalAmount = customAmount ? topUpCount : selectedAmount;
+    
+    await getAmount(finalAmount);
+    if (finalAmount < minTopUp) {
       showError(t('充值数量不能小于') + minTopUp);
       return;
     }
@@ -96,20 +104,22 @@ const TopUp = () => {
     if (amount === 0) {
       await getAmount();
     }
-    if (topUpCount < minTopUp) {
+    
+    const finalAmount = customAmount ? topUpCount : selectedAmount;
+    
+    if (finalAmount < minTopUp) {
       showError('充值数量不能小于' + minTopUp);
       return;
     }
     setOpen(false);
     try {
       const res = await API.post('/api/user/pay', {
-        amount: parseInt(topUpCount),
+        amount: parseInt(finalAmount),
         top_up_code: topUpCode,
         payment_method: payWay,
       });
       if (res !== undefined) {
         const { message, data } = res.data;
-        // showInfo(message);
         if (message === 'success') {
           let params = data;
           let url = res.data.url;
@@ -135,15 +145,12 @@ const TopUp = () => {
           document.body.removeChild(form);
         } else {
           showError(data);
-          // setTopUpCount(parseInt(res.data.count));
-          // setAmount(parseInt(data));
         }
       } else {
         showError(res);
       }
     } catch (err) {
       console.log(err);
-    } finally {
     }
   };
 
@@ -175,13 +182,12 @@ const TopUp = () => {
   }, []);
 
   const renderAmount = () => {
-    // console.log(amount);
     return amount + ' ' + t('元');
   };
 
   const getAmount = async (value) => {
     if (value === undefined) {
-      value = topUpCount;
+      value = customAmount ? topUpCount : selectedAmount;
     }
     try {
       const res = await API.post('/api/user/amount', {
@@ -190,26 +196,34 @@ const TopUp = () => {
       });
       if (res !== undefined) {
         const { message, data } = res.data;
-        // showInfo(message);
         if (message === 'success') {
           setAmount(parseFloat(data));
         } else {
           setAmount(0);
           Toast.error({ content: '错误：' + data, id: 'getAmount' });
-          // setTopUpCount(parseInt(res.data.count));
-          // setAmount(parseInt(data));
         }
       } else {
         showError(res);
       }
     } catch (err) {
       console.log(err);
-    } finally {
     }
   };
 
   const handleCancel = () => {
     setOpen(false);
+  };
+
+  const handleAmountChange = (amount) => {
+    if (amount === 'custom') {
+      setCustomAmount(true);
+      setTopUpCount(1);
+      getAmount(1);
+    } else {
+      setCustomAmount(false);
+      setSelectedAmount(amount);
+      getAmount(amount);
+    }
   };
 
   return (
@@ -229,107 +243,170 @@ const TopUp = () => {
             centered={true}
           >
             <p>
-              {t('充值数量')}：{topUpCount}
+              {t('充值数量')}：{customAmount ? topUpCount : selectedAmount}
             </p>
             <p>
               {t('实付金额')}：{renderAmount()}
             </p>
             <p>{t('是否确认充值？')}</p>
           </Modal>
-          <div
-            style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}
-          >
-            <Card style={{ width: '500px', padding: '20px' }}>
-              <Title level={3} style={{ textAlign: 'center' }}>
-                {t('余额')} {renderQuota(userQuota)}
-              </Title>
-              <div style={{ marginTop: 20 }}>
-                <Divider>{t('兑换余额')}</Divider>
-                <Form>
+
+          <div className="mt-6 flex justify-center">
+            <Card className="w-full max-w-3xl shadow-lg rounded-xl overflow-hidden">
+              {/* 余额显示 */}
+              <div className="bg-white p-6 border-b">
+                <div className="flex flex-col items-center">
+                  <h3 className="text-lg font-medium mb-2 text-gray-600">{t('当前余额')}</h3>
+                  <div className="text-3xl font-bold text-gray-800">{renderQuota(userQuota)}</div>
+                </div>
+              </div>
+
+              {/* 兑换码部分 */}
+              <div className="p-6 bg-gray-50 border-b">
+                <h4 className="text-lg font-medium mb-4">{t('兑换码充值')}</h4>
+                <Form className="space-y-4">
                   <Form.Input
-                      field={'redemptionCode'}
-                      label={t('兑换码')}
-                      placeholder={t('兑换码')}
-                      name='redemptionCode'
-                      value={redemptionCode}
-                      onChange={(value) => {
-                        setRedemptionCode(value);
-                      }}
+                    field={'redemptionCode'}
+                    label={t('兑换码')}
+                    placeholder={t('请输入兑换码')}
+                    name='redemptionCode'
+                    value={redemptionCode}
+                    onChange={(value) => {
+                      setRedemptionCode(value);
+                    }}
                   />
-                  <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '8px', marginTop: '8px' }}>
+                  <div className="flex flex-wrap gap-2">
                     {topUpLink && (
-                        <Button
-                            type={'primary'}
-                            theme={'solid'}
-                            onClick={openTopUpLink}
-                        >
-                          {t('获取兑换码')}
-                        </Button>
+                      <Button
+                        type={'primary'}
+                        theme={'solid'}
+                        onClick={openTopUpLink}
+                        className="hover:opacity-90"
+                      >
+                        {t('获取兑换码')}
+                      </Button>
                     )}
                     <Button
-                        type={'warning'}
-                        theme={'solid'}
-                        onClick={topUp}
-                        disabled={isSubmitting}
+                      type={'warning'}
+                      theme={'solid'}
+                      onClick={topUp}
+                      disabled={isSubmitting}
+                      className="hover:opacity-90"
                     >
-                      {isSubmitting ? t('兑换中...') : t('兑换')}
+                      {isSubmitting ? t('兑换中...') : t('立即兑换')}
                     </Button>
                   </div>
                 </Form>
               </div>
-              <div style={{ marginTop: 20 }}>
-                <Divider>{t('在线充值')}</Divider>
-                <Form>
-                  <Form.Input
+
+              {/* 在线充值部分 */}
+              <div className="p-6">
+                <h4 className="text-lg font-medium mb-4">{t('在线充值')}</h4>
+
+                {/* 购买面额选择 */}
+                <div className="mb-6">
+                  <div className="text-sm font-medium text-gray-600 mb-2 text-center">{t('购买面额')}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {predefinedAmounts.map((amountValue) => (
+                      <div
+                        key={amountValue}
+                        onClick={() => handleAmountChange(amountValue)}
+                        className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
+                          !customAmount && selectedAmount === amountValue
+                            ? 'border-blue-500 bg-blue-50 text-blue-600'
+                            : 'border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue}.00元</div>
+                      </div>
+                    ))}
+                    <div
+                      onClick={() => handleAmountChange('custom')}
+                      className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
+                        customAmount
+                          ? 'border-blue-500 bg-blue-50 text-blue-600'
+                          : 'border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="font-bold mb-1 text-lg">{t('自定义金额')}</div>
+                      <div className="flex items-center justify-center h-8">
+                        <span className="text-base mr-1 flex items-center">￥</span>
+                        {customAmount ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={topUpCount}
+                            onChange={(e) => {
+                              const value = Math.max(1, parseFloat(e.target.value) || 0);
+                              setTopUpCount(value);
+                              getAmount(value);
+                            }}
+                            className="w-24 text-center border rounded p-1 text-base focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span className="text-base flex items-center">1.00</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+
+                {/* 支付按钮选择 */}
+                <div className="flex flex-col space-y-4">
+                  <div className="flex flex-wrap gap-4">
+                    <Button
+                      type="primary"
+                      theme="solid"
+                      onClick={() => preTopUp('zfb')}
+                      disabled={!enableOnlineTopUp}
+                      className="flex-1 md:flex-none min-w-[120px] py-3 flex items-center justify-center"
+                      style={{
+                        backgroundColor: '#1677FF',
+                      }}
+                    >
+                      <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
+                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z"></path>
+                        </svg>
+                        <span>{t('支付宝')}</span>
+                      </div>
+                    </Button>
+                    <Button
+                      type="primary"
+                      theme="solid"
+                      onClick={() => preTopUp('wx')}
+                      disabled={!enableOnlineTopUp}
+                      className="flex-1 md:flex-none min-w-[120px] py-3 flex items-center justify-center"
+                      style={{
+                        backgroundColor: '#07C160',
+                      }}
+                    >
+                      <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
+                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z"></path>
+                        </svg>
+                        <span>{t('微信')}</span>
+                      </div>
+                    </Button>
+                  </div>
+                  <Button
+                    type="primary"
+                    theme="solid"
+                    onClick={() => preTopUp(payWay)}
                     disabled={!enableOnlineTopUp}
-                    field={'redemptionCount'}
-                    label={t('实付金额：') + ' ' + renderAmount()}
-                    placeholder={
-                      t('充值数量，最低 ') + renderQuotaWithAmount(minTopUp)
-                    }
-                    name='redemptionCount'
-                    type={'number'}
-                    value={topUpCount}
-                    onChange={async (value) => {
-                      if (value < 1) {
-                        value = 1;
-                      }
-                      setTopUpCount(value);
-                      await getAmount(value);
-                    }}
-                  />
-                  <Space spacing="medium" align="center">
-                    <Button
-                        type="primary"
-                        theme="solid"
-                        onClick={() => preTopUp('zfb')}
-                        style={{ width: '100px' }}
-                    >
-                      {t('支付宝')}
-                    </Button>
-                    <Button
-                        type="primary"
-                        theme="solid"
-                        onClick={() => preTopUp('wx')}
-                        style={{
-                          width: '100px',
-                          backgroundColor: 'rgba(var(--semi-green-5), 1)'
-                        }}
-                    >
-                      {t('微信')}
-                    </Button>
-                  </Space>
-                </Form>
+                    className="w-full py-3"
+                  >
+                    {t('立即充值')}
+                  </Button>
+                </div>
+
+                {/* 支付说明 */}
+                <div className="mt-6 text-sm text-gray-500">
+                  <p>{t('说明：充值后额度将立即到账，如有问题请联系客服')}</p>
+                </div>
               </div>
-              {/*<div style={{ display: 'flex', justifyContent: 'right' }}>*/}
-              {/*    <Text>*/}
-              {/*        <Link onClick={*/}
-              {/*            async () => {*/}
-              {/*                window.location.href = '/topup/history'*/}
-              {/*            }*/}
-              {/*        }>充值记录</Link>*/}
-              {/*    </Text>*/}
-              {/*</div>*/}
             </Card>
           </div>
         </Layout.Content>
