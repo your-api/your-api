@@ -351,55 +351,73 @@ const TopUp = () => {
                     </div>
                   </div>
                 </div>
-                
+
 
                 {/* 支付按钮选择 */}
                 <div className="flex flex-col space-y-4">
                   <div className="flex flex-wrap gap-4">
+                    {/* 支付宝 */}
                     <Button
-                      type="primary"
-                      theme="solid"
-                      onClick={() => preTopUp('zfb')}
-                      disabled={!enableOnlineTopUp}
-                      className="flex-1 md:flex-none min-w-[120px] py-3 flex items-center justify-center"
-                      style={{
-                        backgroundColor: '#1677FF',
-                      }}
+                        type="primary"
+                        theme="solid"
+                        onClick={() => preTopUp('zfb')}
+                        disabled={!enableOnlineTopUp}
+                        className="
+                        flex-1 md:flex-none min-w-[120px]
+                        py-3 px-5 rounded-lg
+                        flex items-center justify-center font-medium
+                        transition-transform transform
+                        shadow-md
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300
+                        bg-gradient-to-r from-blue-500 to-blue-600
+                        hover:scale-105
+                      "
                     >
                       <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
-                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z"></path>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="w-5 h-5 mr-2"
+                        >
+                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />
                         </svg>
                         <span>{t('支付宝')}</span>
                       </div>
                     </Button>
+
+                    {/* 微信 */}
                     <Button
-                      type="primary"
-                      theme="solid"
-                      onClick={() => preTopUp('wx')}
-                      disabled={!enableOnlineTopUp}
-                      className="flex-1 md:flex-none min-w-[120px] py-3 flex items-center justify-center"
-                      style={{
-                        backgroundColor: '#07C160',
-                      }}
+                        type="primary"
+                        theme="solid"
+                        onClick={() => preTopUp('wx')}
+                        disabled={!enableOnlineTopUp}
+                        className="
+                          flex-1 md:flex-none min-w-[120px]
+                          py-3 px-5 rounded-lg
+                          flex items-center justify-center font-medium
+                          transition-transform transform
+                          shadow-md
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-300
+                          bg-gradient-to-r from-green-400 to-green-500
+                          hover:scale-105
+                        "
                     >
                       <div className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
-                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z"></path>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="w-5 h-5 mr-2"
+                        >
+                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />
                         </svg>
                         <span>{t('微信')}</span>
                       </div>
                     </Button>
                   </div>
-                  <Button
-                    type="primary"
-                    theme="solid"
-                    onClick={() => preTopUp(payWay)}
-                    disabled={!enableOnlineTopUp}
-                    className="w-full py-3"
-                  >
-                    {t('立即充值')}
-                  </Button>
                 </div>
 
                 {/* 支付说明 */}
