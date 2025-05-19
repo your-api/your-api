@@ -366,23 +366,31 @@ const TopUp = () => {
           </Modal>
 
           <Modal
-            title={t('请扫码支付')}
+            title={
+              <div className="flex items-center text-[#1677FF] font-medium">
+                <svg className="w-5 h-5 mr-2" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M992 384H32c-17.664 0-32 14.336-32 32v384c0 17.664 14.336 32 32 32h960c17.664 0 32-14.336 32-32V416c0-17.664-14.336-32-32-32z m-24 392c0 4.416-3.584 8-8 8H64c-4.416 0-8-3.584-8-8V448c0-4.416 3.584-8 8-8h896c4.416 0 8 3.584 8 8v328z" fill="#1677FF"></path>
+                  <path d="M96 512h832c8.832 0 16-7.168 16-16s-7.168-16-16-16H96c-8.832 0-16 7.168-16 16s7.168 16 16 16zM512 224c8.832 0 16-7.168 16-16V80c0-8.832-7.168-16-16-16s-16 7.168-16 16v128c0 8.832 7.168 16 16 16zM512 944c-8.832 0-16 7.168-16 16v64c0 8.832 7.168 16 16 16s16-7.168 16-16v-64c0-8.832-7.168-16-16-16z" fill="#1677FF"></path>
+                </svg>
+                {t('支付宝付款')}
+              </div>
+            }
             visible={showPaymentModal}
             onCancel={handleClosePaymentModal}
             footer={null}
             maskClosable={false}
             size={'small'}
             centered={true}
-            className="payment-modal"
+            className="alipay-payment-modal"
           >
             <div className="flex flex-col items-center p-4">
               {paymentLoading ? (
                 <div className="flex justify-center items-center h-64">
-                  <Spin size="large" />
+                  <Spin size="large" style={{ color: "#1677FF" }} />
                 </div>
               ) : paymentStatus === 'success' ? (
                 <div className="flex flex-col items-center justify-center h-64">
-                  <div className="text-green-500 text-6xl mb-4">
+                  <div className="text-[#1677FF] text-6xl mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                     </svg>
@@ -392,33 +400,49 @@ const TopUp = () => {
                 </div>
               ) : (
                 <>
-                  <div className="text-center mb-4">
-                    <p className="text-lg font-semibold mb-2">{t('支付金额')}: ¥{amount}</p>
-                    <p className="text-sm text-gray-500 mb-1">{t('订单号')}: {outTradeNo}</p>
-                    <div className="text-orange-500 font-medium">
-                      {t('支付倒计时')}: {formatCountdown(countdown)}
-                    </div>
+                  <div className="text-center mb-5 bg-[#f0f9ff] w-full py-3 rounded-lg border border-[#e6f4ff]">
+                    <p className="text-xl font-semibold mb-1 text-[#1677FF]">¥{amount}</p>
+                    <p className="text-xs text-gray-500">{t('订单号')}: {outTradeNo}</p>
                   </div>
                   
-                  <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+                  <div className="bg-white p-6 rounded-lg border border-[#e6f4ff] mb-4 flex flex-col items-center">
+                    <div className="mb-2 text-sm text-[#1677FF] font-medium">
+                      {t('请用支付宝扫码支付')}
+                    </div>
+                    
                     {qrCodeUrl ? (
-                      <QRCodeSVG
-                        value={qrCodeUrl}
-                        size={200}
-                        level="H"
-                        includeMargin={true}
-                        className="mx-auto"
-                      />
+                      <div className="p-3 border border-[#1677FF] rounded-lg">
+                        <QRCodeSVG
+                          value={qrCodeUrl}
+                          size={180}
+                          level="H"
+                          includeMargin={true}
+                          className="mx-auto"
+                        />
+                      </div>
                     ) : (
                       <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
                         <p className="text-gray-400">{t('二维码加载失败')}</p>
                       </div>
                     )}
+                    
+                    <div className="mt-3 flex items-center text-[#1677FF]">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 mr-1">
+                        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium">{formatCountdown(countdown)}</span>
+                    </div>
                   </div>
                   
-                  <div className="text-center text-sm text-gray-600 max-w-xs">
-                    <p>{t('请使用支付宝扫描二维码完成支付')}</p>
-                    <p>{t('支付完成后系统将自动处理您的订单')}</p>
+                  <div className="text-center text-xs text-gray-500 max-w-xs px-3">
+                    <div className="flex items-center justify-center mb-2">
+                      <svg className="w-4 h-4 mr-1 text-[#1677FF]" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M512 85.333333c-235.52 0-426.666667 191.146667-426.666667 426.666667s191.146667 426.666667 426.666667 426.666667 426.666667-191.146667 426.666667-426.666667-191.146667-426.666667-426.666667-426.666667z m-26.88 640a45.226667 45.226667 0 0 1-45.226667-45.226666 45.226667 45.226667 0 0 1 45.226667-45.226667 45.226667 45.226667 0 0 1 45.226667 45.226667c0 24.746667-20.48 45.226667-45.226667 45.226666z m72.533333-213.333333c-17.066667 6.826667-29.013333 13.653333-36.693333 24.746667-3.413333 6.826667-5.973333 17.92-5.973333 34.986666h-56.32v-14.506666c0-17.066667 3.413333-31.573333 10.24-43.52 6.826667-11.946667 19.626667-24.746667 39.253333-35.84 17.066667-9.386667 29.013333-17.066667 36.693333-26.453334 6.826667-9.386667 10.24-19.626667 10.24-31.573333 0-13.653333-5.12-24.746667-15.36-33.28-10.24-8.533333-23.893333-13.653333-40.96-13.653333-38.4 0-64.853333 25.6-64.853333 66.56h-56.32c1.706667-30.72 11.946667-56.32 29.866666-75.093334 20.48-21.333333 49.493333-31.573333 87.04-31.573333 32.426667 0 58.88 7.68 80.213334 23.04 21.333333 15.36 31.573333 36.693333 31.573333 64.853333 0 13.653333-4.266667 27.306667-11.093333 39.253334-6.826667 11.946667-16.213333 21.333333-37.546667 31.573333z" fill="#1677FF"></path>
+                      </svg>
+                      <span>{t('请不要关闭此窗口')}</span>
+                    </div>
+                    <p>{t('扫码后请在支付宝中确认付款')}</p>
+                    <p>{t('付款完成后将自动为您处理订单')}</p>
                   </div>
                   
                   {countdown === 0 && (
@@ -427,7 +451,8 @@ const TopUp = () => {
                         type="primary"
                         theme="solid"
                         onClick={() => { setShowPaymentModal(false); setOpen(true); }}
-                        className="w-full py-2"
+                        className="w-full py-2 bg-[#1677FF] hover:bg-[#4096ff] border-none"
+                        style={{ backgroundColor: "#1677FF" }}
                       >
                         {t('二维码已过期，点击重新获取')}
                       </Button>
