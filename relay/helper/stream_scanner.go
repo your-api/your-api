@@ -242,6 +242,11 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 			data = strings.TrimLeft(data, " ")
 			data = strings.TrimSuffix(data, "\r")
 			if !strings.HasPrefix(data, "[DONE]") {
+				// 判断 data 是否为空，不为空，则将data中的filesystem.site替换为file.yourapi.cn
+				if len(data) > 0 && strings.Contains(info.BaseUrl, "gptgod") {
+					data = strings.ReplaceAll(data, "filesystem.site", "file.yourapi.cn")
+				}
+
 				info.SetFirstResponseTime()
 				writeMutex.Lock() // Lock before writing
 				success := dataHandler(data)

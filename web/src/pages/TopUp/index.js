@@ -32,7 +32,7 @@ const TopUp = () => {
   const [amount, setAmount] = useState(0.0);
   const [minTopUp, setMinTopUp] = useState(1);
   const [topUpLink, setTopUpLink] = useState('');
-  const [enableOnlineTopUp, setEnableOnlineTopUp] = useState(false);
+  const [enableOnlineTopUp, setEnableOnlineTopUp] = useState(true);
   const [userQuota, setUserQuota] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -101,6 +101,11 @@ const TopUp = () => {
   };
 
   const onlineTopUp = async () => {
+    if (amount <= minTopUp) {
+      showError('充值数量不能小于' + minTopUp);
+      return;
+    }
+
     if (amount === 0) {
       await getAmount();
     }
@@ -113,10 +118,15 @@ const TopUp = () => {
     }
     setOpen(false);
     try {
-      const res = await API.post('/api/user/pay', {
-        amount: parseInt(finalAmount),
-        top_up_code: topUpCode,
-        payment_method: payWay,
+      let pay_way = 0
+      if (payWay === 'zfb') {
+        pay_way = 0
+      }else if (payWay === 'wx') {
+        pay_way = 1
+      }
+      const res = await API.post('/api/order/getTradeInfo', {
+        amount: parseInt(amount),
+        payWay: pay_way
       });
       if (res !== undefined) {
         const { message, data } = res.data;
@@ -144,7 +154,7 @@ const TopUp = () => {
           form.submit();
           document.body.removeChild(form);
         } else {
-          showError(data);
+          showError(message);
         }
       } else {
         showError(res);
@@ -174,9 +184,9 @@ const TopUp = () => {
       if (status.min_topup) {
         setMinTopUp(status.min_topup);
       }
-      if (status.enable_online_topup) {
-        setEnableOnlineTopUp(status.enable_online_topup);
-      }
+      // if (status.enable_online_topup) {
+      //   setEnableOnlineTopUp(status.enable_online_topup);
+      // }
     }
     getUserQuota().then();
   }, []);
@@ -261,44 +271,6 @@ const TopUp = () => {
                 </div>
               </div>
 
-              {/* 兑换码部分 */}
-              <div className="p-6 bg-gray-50 border-b">
-                <h4 className="text-lg font-medium mb-4">{t('兑换码充值')}</h4>
-                <Form className="space-y-4">
-                  <Form.Input
-                    field={'redemptionCode'}
-                    label={t('兑换码')}
-                    placeholder={t('请输入兑换码')}
-                    name='redemptionCode'
-                    value={redemptionCode}
-                    onChange={(value) => {
-                      setRedemptionCode(value);
-                    }}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {topUpLink && (
-                      <Button
-                        type={'primary'}
-                        theme={'solid'}
-                        onClick={openTopUpLink}
-                        className="hover:opacity-90"
-                      >
-                        {t('获取兑换码')}
-                      </Button>
-                    )}
-                    <Button
-                      type={'warning'}
-                      theme={'solid'}
-                      onClick={topUp}
-                      disabled={isSubmitting}
-                      className="hover:opacity-90"
-                    >
-                      {isSubmitting ? t('兑换中...') : t('立即兑换')}
-                    </Button>
-                  </div>
-                </Form>
-              </div>
-
               {/* 在线充值部分 */}
               <div className="p-6">
                 <h4 className="text-lg font-medium mb-4">{t('在线充值')}</h4>
@@ -308,44 +280,44 @@ const TopUp = () => {
                   <div className="text-sm font-medium text-gray-600 mb-2 text-center">{t('购买面额')}</div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {predefinedAmounts.map((amountValue) => (
-                      <div
-                        key={amountValue}
-                        onClick={() => handleAmountChange(amountValue)}
-                        className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
-                          !customAmount && selectedAmount === amountValue
-                            ? 'border-blue-500 bg-blue-50 text-blue-600'
-                            : 'border-gray-200 hover:border-blue-300'
-                        }`}
-                      >
-                        <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue}.00元</div>
-                      </div>
+                        <div
+                            key={amountValue}
+                            onClick={() => handleAmountChange(amountValue)}
+                            className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
+                                !customAmount && selectedAmount === amountValue
+                                    ? 'border-blue-500 bg-blue-50 text-blue-600'
+                                    : 'border-gray-200 hover:border-blue-300'
+                            }`}
+                        >
+                          <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue}.00元</div>
+                        </div>
                     ))}
                     <div
-                      onClick={() => handleAmountChange('custom')}
-                      className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
-                        customAmount
-                          ? 'border-blue-500 bg-blue-50 text-blue-600'
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}
+                        onClick={() => handleAmountChange('custom')}
+                        className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
+                            customAmount
+                                ? 'border-blue-500 bg-blue-50 text-blue-600'
+                                : 'border-gray-200 hover:border-blue-300'
+                        }`}
                     >
                       <div className="font-bold mb-1 text-lg">{t('自定义金额')}</div>
                       <div className="flex items-center justify-center h-8">
                         <span className="text-base mr-1 flex items-center">￥</span>
                         {customAmount ? (
-                          <input
-                            type="number"
-                            min="1"
-                            value={topUpCount}
-                            onChange={(e) => {
-                              const value = Math.max(1, parseFloat(e.target.value) || 0);
-                              setTopUpCount(value);
-                              getAmount(value);
-                            }}
-                            className="w-24 text-center border rounded p-1 text-base focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                            <input
+                                type="number"
+                                min="1"
+                                value={topUpCount}
+                                onChange={(e) => {
+                                  const value = Math.max(1, parseFloat(e.target.value) || 0);
+                                  setTopUpCount(value);
+                                  getAmount(value);
+                                }}
+                                className="w-24 text-center border rounded p-1 text-base focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                onClick={(e) => e.stopPropagation()}
+                            />
                         ) : (
-                          <span className="text-base flex items-center">1.00</span>
+                            <span className="text-base flex items-center">1.00</span>
                         )}
                       </div>
                     </div>
@@ -388,35 +360,35 @@ const TopUp = () => {
                     </Button>
 
                     {/* 微信 */}
-                    <Button
-                        type="primary"
-                        theme="solid"
-                        onClick={() => preTopUp('wx')}
-                        disabled={!enableOnlineTopUp}
-                        className="
-                          flex-1 md:flex-none min-w-[120px]
-                          py-3 px-5 rounded-lg
-                          flex items-center justify-center font-medium
-                          transition-transform transform
-                          shadow-md
-                          disabled:opacity-50 disabled:cursor-not-allowed
-                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-300
-                          bg-gradient-to-r from-green-400 to-green-500
-                          hover:scale-105
-                        "
-                    >
-                      <div className="flex items-center">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="w-5 h-5 mr-2"
-                        >
-                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />
-                        </svg>
-                        <span>{t('微信')}</span>
-                      </div>
-                    </Button>
+                    {/*<Button*/}
+                    {/*    type="primary"*/}
+                    {/*    theme="solid"*/}
+                    {/*    onClick={() => preTopUp('wx')}*/}
+                    {/*    disabled={!enableOnlineTopUp}*/}
+                    {/*    className="*/}
+                    {/*      flex-1 md:flex-none min-w-[120px]*/}
+                    {/*      py-3 px-5 rounded-lg*/}
+                    {/*      flex items-center justify-center font-medium*/}
+                    {/*      transition-transform transform*/}
+                    {/*      shadow-md*/}
+                    {/*      disabled:opacity-50 disabled:cursor-not-allowed*/}
+                    {/*      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-300*/}
+                    {/*      bg-gradient-to-r from-green-400 to-green-500*/}
+                    {/*      hover:scale-105*/}
+                    {/*    "*/}
+                    {/*>*/}
+                    {/*  <div className="flex items-center">*/}
+                    {/*    <svg*/}
+                    {/*        xmlns="http://www.w3.org/2000/svg"*/}
+                    {/*        viewBox="0 0 24 24"*/}
+                    {/*        fill="currentColor"*/}
+                    {/*        className="w-5 h-5 mr-2"*/}
+                    {/*    >*/}
+                    {/*      <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />*/}
+                    {/*    </svg>*/}
+                    {/*    <span>{t('微信')}</span>*/}
+                    {/*  </div>*/}
+                    {/*</Button>*/}
                   </div>
                 </div>
 
@@ -425,6 +397,46 @@ const TopUp = () => {
                   <p>{t('说明：充值后额度将立即到账，如有问题请联系客服')}</p>
                 </div>
               </div>
+
+              {/* 兑换码部分 */}
+              <div className="p-6 bg-gray-50 border-b">
+                <h4 className="text-lg font-medium mb-4">{t('兑换码充值')}</h4>
+                <Form className="space-y-4">
+                  <Form.Input
+                    field={'redemptionCode'}
+                    label={t('兑换码')}
+                    placeholder={t('请输入兑换码')}
+                    name='redemptionCode'
+                    value={redemptionCode}
+                    onChange={(value) => {
+                      setRedemptionCode(value);
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {topUpLink && (
+                      <Button
+                        type={'primary'}
+                        theme={'solid'}
+                        onClick={openTopUpLink}
+                        className="hover:opacity-90"
+                      >
+                        {t('获取兑换码')}
+                      </Button>
+                    )}
+                    <Button
+                      type={'warning'}
+                      theme={'solid'}
+                      onClick={topUp}
+                      disabled={isSubmitting}
+                      className="hover:opacity-90"
+                    >
+                      {isSubmitting ? t('兑换中...') : t('立即兑换')}
+                    </Button>
+                  </div>
+                </Form>
+              </div>
+
+
             </Card>
           </div>
         </Layout.Content>

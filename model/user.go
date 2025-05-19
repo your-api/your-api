@@ -35,8 +35,12 @@ type User struct {
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
-	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
-	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
+	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`             // 邀请剩余额度
+	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"`   // 邀请历史额度
+	PayCount         int            `json:"pay_count" gorm:"type:int;default:0;column:pay_count"`             // 用户充值的次数，用于前几次奖励使用
+	RewardQuota      int            `json:"reward_quota" gorm:"type:int;default:0;column:reward_quota"`       // 邀请新用户奖励的额度
+	WithdrawQuota    int            `json:"withdraw_quota" gorm:"type:int;default:0;column:withdraw_quota"`   // 邀请新用户奖励的提现额度
+	WithdrawStatus   int            `json:"withdraw_status" gorm:"type:int;default:0;column:withdraw_status"` // 提现的状态
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`

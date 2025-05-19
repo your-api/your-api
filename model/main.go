@@ -206,6 +206,10 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	err = DB.AutoMigrate(&OrderInfo{})
+	if err != nil {
+		return err
+	}
 	err = DB.AutoMigrate(&User{})
 	if err != nil {
 		return err
