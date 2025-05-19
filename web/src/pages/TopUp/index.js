@@ -47,7 +47,9 @@ const TopUp = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [countdown, setCountdown] = useState(300);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('pending');
   const timerRef = useRef(null);
+  const statusCheckRef = useRef(null);
 
   const predefinedAmounts = [50, 100, 150, 200, 300, 500, 1000];
 
@@ -150,6 +152,7 @@ const TopUp = () => {
           setQrCodeUrl(qrCode);
           
           setShowPaymentModal(true);
+          setPaymentStatus('pending');
           
           setCountdown(300);
           if (timerRef.current) clearInterval(timerRef.current);
@@ -157,11 +160,17 @@ const TopUp = () => {
             setCountdown(prev => {
               if (prev <= 1) {
                 clearInterval(timerRef.current);
+                if (statusCheckRef.current) {
+                  clearInterval(statusCheckRef.current);
+                  statusCheckRef.current = null;
+                }
                 return 0;
               }
               return prev - 1;
             });
           }, 1000);
+          
+          startPaymentStatusCheck(outTradeNo);
           
         } else {
           showError(message || '获取支付信息失败');
@@ -175,6 +184,56 @@ const TopUp = () => {
     } finally {
       setPaymentLoading(false);
     }
+  };
+
+  const startPaymentStatusCheck = (orderNo) => {
+    if (statusCheckRef.current) {
+      clearInterval(statusCheckRef.current);
+    }
+    
+    statusCheckRef.current = setInterval(async () => {
+      try {
+        const res = await API.post('/api/order/queryTradeStatus', {
+          outTradeNo: orderNo
+        });
+        
+        if (res && res.data) {
+          const { success, data, message } = res.data;
+          
+          if (success && data) {
+            if (data.paid) {
+              clearInterval(statusCheckRef.current);
+              statusCheckRef.current = null;
+              
+              if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+              }
+              
+              setPaymentStatus('success');
+              
+              if (data.quota) {
+                setUserQuota(data.quota);
+              } else {
+                await getUserQuota();
+              }
+              
+              setTimeout(() => {
+                setShowPaymentModal(false);
+                
+                Modal.success({
+                  title: t('充值成功'),
+                  content: t('您的账户已成功充值，感谢您的使用！'),
+                  centered: true,
+                });
+              }, 1000);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('查询支付状态失败:', error);
+      }
+    }, 3000);
   };
 
   const getUserQuota = async () => {
@@ -258,7 +317,14 @@ const TopUp = () => {
   const handleClosePaymentModal = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+    
+    if (statusCheckRef.current) {
+      clearInterval(statusCheckRef.current);
+      statusCheckRef.current = null;
+    }
+    
     setShowPaymentModal(false);
   };
 
@@ -266,6 +332,10 @@ const TopUp = () => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      
+      if (statusCheckRef.current) {
+        clearInterval(statusCheckRef.current);
       }
     };
   }, []);
@@ -310,6 +380,16 @@ const TopUp = () => {
                 <div className="flex justify-center items-center h-64">
                   <Spin size="large" />
                 </div>
+              ) : paymentStatus === 'success' ? (
+                <div className="flex flex-col items-center justify-center h-64">
+                  <div className="text-green-500 text-6xl mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  </div>
+                  <p className="text-xl font-medium text-gray-800">{t('支付成功')}</p>
+                  <p className="text-sm text-gray-500 mt-2">{t('正在处理您的充值...')}</p>
+                </div>
               ) : (
                 <>
                   <div className="text-center mb-4">
@@ -338,7 +418,7 @@ const TopUp = () => {
                   
                   <div className="text-center text-sm text-gray-600 max-w-xs">
                     <p>{t('请使用支付宝扫描二维码完成支付')}</p>
-                    <p>{t('支付完成后请等待系统自动处理')}</p>
+                    <p>{t('支付完成后系统将自动处理您的订单')}</p>
                   </div>
                   
                   {countdown === 0 && (
