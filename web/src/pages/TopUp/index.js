@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { API, isMobile, showError, showInfo, showSuccess } from '../../helpers';
 import {
   renderNumber,
@@ -17,11 +17,13 @@ import {
   Toast,
   RadioGroup,
   Radio,
+  Spin,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG } from 'qrcode.react';
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -40,6 +42,12 @@ const TopUp = () => {
   const [customAmount, setCustomAmount] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [paymentMethod, setPaymentMethod] = useState('platform');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [outTradeNo, setOutTradeNo] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [countdown, setCountdown] = useState(300);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const timerRef = useRef(null);
 
   const predefinedAmounts = [50, 100, 150, 200, 300, 500, 1000];
 
@@ -117,6 +125,8 @@ const TopUp = () => {
       return;
     }
     setOpen(false);
+    setPaymentLoading(true);
+    
     try {
       let pay_way = 0
       if (payWay === 'zfb') {
@@ -124,43 +134,46 @@ const TopUp = () => {
       }else if (payWay === 'wx') {
         pay_way = 1
       }
+      
       const res = await API.post('/api/order/getTradeInfo', {
         amount: parseInt(amount),
         payWay: pay_way
       });
+      
       if (res !== undefined) {
-        const { message, data } = res.data;
-        if (message === 'success') {
-          let params = data;
-          let url = res.data.url;
-          let form = document.createElement('form');
-          form.action = url;
-          form.method = 'POST';
-          // 判断是否为safari浏览器
-          let isSafari =
-            navigator.userAgent.indexOf('Safari') > -1 &&
-            navigator.userAgent.indexOf('Chrome') < 1;
-          if (!isSafari) {
-            form.target = '_blank';
-          }
-          for (let key in params) {
-            let input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = params[key];
-            form.appendChild(input);
-          }
-          document.body.appendChild(form);
-          form.submit();
-          document.body.removeChild(form);
+        const { success, message, data } = res.data;
+        
+        if (success) {
+          const { outTradeNo, qrCode } = data;
+          
+          setOutTradeNo(outTradeNo);
+          setQrCodeUrl(qrCode);
+          
+          setShowPaymentModal(true);
+          
+          setCountdown(300);
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = setInterval(() => {
+            setCountdown(prev => {
+              if (prev <= 1) {
+                clearInterval(timerRef.current);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+          
         } else {
-          showError(message);
+          showError(message || '获取支付信息失败');
         }
       } else {
-        showError(res);
+        showError('请求失败');
       }
     } catch (err) {
       console.log(err);
+      showError('支付请求失败，请稍后重试');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -236,6 +249,27 @@ const TopUp = () => {
     }
   };
 
+  const formatCountdown = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleClosePaymentModal = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    setShowPaymentModal(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div>
       <Layout>
@@ -261,9 +295,71 @@ const TopUp = () => {
             <p>{t('是否确认充值？')}</p>
           </Modal>
 
+          <Modal
+            title={t('请扫码支付')}
+            visible={showPaymentModal}
+            onCancel={handleClosePaymentModal}
+            footer={null}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+            className="payment-modal"
+          >
+            <div className="flex flex-col items-center p-4">
+              {paymentLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Spin size="large" />
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-4">
+                    <p className="text-lg font-semibold mb-2">{t('支付金额')}: ¥{amount}</p>
+                    <p className="text-sm text-gray-500 mb-1">{t('订单号')}: {outTradeNo}</p>
+                    <div className="text-orange-500 font-medium">
+                      {t('支付倒计时')}: {formatCountdown(countdown)}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
+                    {qrCodeUrl ? (
+                      <QRCodeSVG
+                        value={qrCodeUrl}
+                        size={200}
+                        level="H"
+                        includeMargin={true}
+                        className="mx-auto"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
+                        <p className="text-gray-400">{t('二维码加载失败')}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="text-center text-sm text-gray-600 max-w-xs">
+                    <p>{t('请使用支付宝扫描二维码完成支付')}</p>
+                    <p>{t('支付完成后请等待系统自动处理')}</p>
+                  </div>
+                  
+                  {countdown === 0 && (
+                    <div className="mt-4 w-full">
+                      <Button
+                        type="primary"
+                        theme="solid"
+                        onClick={() => { setShowPaymentModal(false); setOpen(true); }}
+                        className="w-full py-2"
+                      >
+                        {t('二维码已过期，点击重新获取')}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Modal>
+
           <div className="mt-6 flex justify-center">
             <Card className="w-full max-w-3xl shadow-lg rounded-xl overflow-hidden">
-              {/* 余额显示 */}
               <div className="bg-white p-6 border-b">
                 <div className="flex flex-col items-center">
                   <h3 className="text-lg font-medium mb-2 text-gray-600">{t('当前余额')}</h3>
@@ -271,11 +367,9 @@ const TopUp = () => {
                 </div>
               </div>
 
-              {/* 在线充值部分 */}
               <div className="p-6">
                 <h4 className="text-lg font-medium mb-4">{t('在线充值')}</h4>
 
-                {/* 购买面额选择 */}
                 <div className="mb-6">
                   <div className="text-sm font-medium text-gray-600 mb-2 text-center">{t('购买面额')}</div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -324,11 +418,8 @@ const TopUp = () => {
                   </div>
                 </div>
 
-
-                {/* 支付按钮选择 */}
                 <div className="flex flex-col space-y-4">
                   <div className="flex flex-wrap gap-4">
-                    {/* 支付宝 */}
                     <Button
                         type="primary"
                         theme="solid"
@@ -358,47 +449,14 @@ const TopUp = () => {
                         <span>{t('支付宝')}</span>
                       </div>
                     </Button>
-
-                    {/* 微信 */}
-                    {/*<Button*/}
-                    {/*    type="primary"*/}
-                    {/*    theme="solid"*/}
-                    {/*    onClick={() => preTopUp('wx')}*/}
-                    {/*    disabled={!enableOnlineTopUp}*/}
-                    {/*    className="*/}
-                    {/*      flex-1 md:flex-none min-w-[120px]*/}
-                    {/*      py-3 px-5 rounded-lg*/}
-                    {/*      flex items-center justify-center font-medium*/}
-                    {/*      transition-transform transform*/}
-                    {/*      shadow-md*/}
-                    {/*      disabled:opacity-50 disabled:cursor-not-allowed*/}
-                    {/*      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-300*/}
-                    {/*      bg-gradient-to-r from-green-400 to-green-500*/}
-                    {/*      hover:scale-105*/}
-                    {/*    "*/}
-                    {/*>*/}
-                    {/*  <div className="flex items-center">*/}
-                    {/*    <svg*/}
-                    {/*        xmlns="http://www.w3.org/2000/svg"*/}
-                    {/*        viewBox="0 0 24 24"*/}
-                    {/*        fill="currentColor"*/}
-                    {/*        className="w-5 h-5 mr-2"*/}
-                    {/*    >*/}
-                    {/*      <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />*/}
-                    {/*    </svg>*/}
-                    {/*    <span>{t('微信')}</span>*/}
-                    {/*  </div>*/}
-                    {/*</Button>*/}
                   </div>
                 </div>
 
-                {/* 支付说明 */}
                 <div className="mt-6 text-sm text-gray-500">
                   <p>{t('说明：充值后额度将立即到账，如有问题请联系客服')}</p>
                 </div>
               </div>
 
-              {/* 兑换码部分 */}
               <div className="p-6 bg-gray-50 border-b">
                 <h4 className="text-lg font-medium mb-4">{t('兑换码充值')}</h4>
                 <Form className="space-y-4">
@@ -435,7 +493,6 @@ const TopUp = () => {
                   </div>
                 </Form>
               </div>
-
 
             </Card>
           </div>
