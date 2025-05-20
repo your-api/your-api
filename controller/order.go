@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +25,7 @@ var httpClient = &http.Client{
 // 支付网关地址
 // const paymentGatewayURL = "https://api.aicnn.cn/app-api/pay/getTradeAll"
 const paymentGatewayURL = "http://localhost:31020/app-api/pay/getTradeAll"
+const ueryGatewayURL = "http://localhost:31020/app-api/pay/queryQRStatusAll"
 
 // 鉴权 Token
 const authToken = "zzzqqqfsadfsa"
@@ -49,6 +52,17 @@ type tradeData struct {
 	OutTradeNo string `json:"outTradeNo"`
 }
 
+type qrStatusResp struct {
+	Code int           `json:"code"`
+	Msg  string        `json:"msg"`
+	Data *qrStatusData `json:"data"`
+}
+
+type qrStatusData struct {
+	OutTradeNo string `json:"outTradeNo"`
+	Status     string `json:"status"`
+}
+
 // 统一成功响应格式
 type successResp struct {
 	Success bool        `json:"success"`
@@ -57,7 +71,7 @@ type successResp struct {
 
 // —— Handler ——
 
-// GET /order/info
+// GET /order/getTradeInfo
 func GetOrderInfo(c *gin.Context) {
 
 	var req OrderReq
@@ -93,6 +107,44 @@ func GetOrderInfo(c *gin.Context) {
 		"success": true,
 		"data":    td,
 	})
+}
+
+// GET /order/queryTradeStatus
+func QueryTradeStatus(c *gin.Context) {
+	// 获取 outTradeNo 参数
+	outTradeNo := c.Query("outTradeNo")
+	// 获取 payWay 参数
+	payWay := c.Query("payWay")
+
+	resp, err := queryQRStatusAll(c, outTradeNo, payWay)
+
+	if err != nil {
+		respondError(c, err.Error())
+		return
+	}
+
+	// 判断status是否等于OK
+	if strings.EqualFold(resp.Status, "OK") {
+		err := model.CompleteOrder(outTradeNo)
+		if err != nil {
+			return
+		}
+		// 返回前端
+		c.JSON(http.StatusOK, gin.H{
+			"message": "",
+			"success": true,
+			"data":    "OK",
+		})
+		return
+	} else {
+		// 返回前端
+		c.JSON(http.StatusOK, gin.H{
+			"message": "",
+			"success": true,
+			"data":    "false",
+		})
+		return
+	}
 }
 
 // —— 支付服务调用 ——
@@ -141,6 +193,43 @@ func fetchTrade(ctx context.Context, req *OrderReq) (*tradeData, error) {
 		return nil, errors.New(msg)
 	}
 	return pr.Data, nil
+}
+
+func queryQRStatusAll(ctx context.Context, outTradeNo string, payWay string) (*qrStatusData, error) {
+	// 构建 URL 带参数
+	url := fmt.Sprintf("%s?outTradeNo=%s&payWay=%s", ueryGatewayURL, outTradeNo, payWay)
+
+	// 创建 GET 请求
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// 设置头
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	if err != nil {
+		return nil, errors.New("构建支付状态请求失败: " + err.Error())
+	}
+
+	// 发送请求
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, errors.New("调用支付状态查询接口失败: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	// 解析响应
+	var qrResp qrStatusResp
+	if err := json.NewDecoder(resp.Body).Decode(&qrResp); err != nil {
+		return nil, errors.New("解析支付状态响应失败: " + err.Error())
+	}
+
+	// 返回错误状态
+	if qrResp.Code != 0 || qrResp.Data == nil {
+		msg := qrResp.Msg
+		if msg == "" {
+			msg = "支付状态返回失败"
+		}
+		return nil, errors.New(msg)
+	}
+
+	return qrResp.Data, nil
 }
 
 // —— 错误统一响应 ——

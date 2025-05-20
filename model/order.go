@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"one-api/common"
 	"time"
 )
 
@@ -44,4 +45,36 @@ func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmo
 		return nil, err
 	}
 	return order, nil
+}
+
+// CompleteOrder 根据订单号完成订单，设置状态为 2（完成），可选更新 Msg 字段
+func CompleteOrder(outTradeNo string) error {
+	if outTradeNo == "" {
+		return errors.New("订单号不能为空")
+	}
+
+	// 查询订单
+	var order OrderInfo
+	if err := DB.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
+		return errors.New("订单未找到: " + err.Error())
+	}
+
+	user, err := GetUserById(order.UserId, false)
+	if err != nil {
+		return err
+	}
+
+	// 更新用户token
+	user.Quota += (int)(order.GetAmount * common.QuotaPerUnit)
+	if err := DB.Save(&user).Error; err != nil {
+		return errors.New("订单失败: " + err.Error())
+	}
+
+	// 更新状态和消息
+	order.Status = 2
+
+	if err := DB.Save(&order).Error; err != nil {
+		return errors.New("更新订单状态失败: " + err.Error())
+	}
+	return nil
 }

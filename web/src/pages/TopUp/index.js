@@ -51,7 +51,7 @@ const TopUp = () => {
   const timerRef = useRef(null);
   const statusCheckRef = useRef(null);
 
-  const predefinedAmounts = [50, 100, 150, 200, 300, 500, 1000];
+  const predefinedAmounts = [2, 100, 150, 200, 300, 500, 1000];
 
   const topUp = async () => {
     if (redemptionCode === '') {
@@ -193,34 +193,29 @@ const TopUp = () => {
     
     statusCheckRef.current = setInterval(async () => {
       try {
-        const res = await API.post('/api/order/queryTradeStatus', {
-          outTradeNo: orderNo
-        });
+        const res = await API
+            .get(`/api/order/queryTradeStatus?outTradeNo=${orderNo}&payWay=${payWay === 'zfb' ? 0 : 1}`);
         
         if (res && res.data) {
           const { success, data, message } = res.data;
           
           if (success && data) {
-            if (data.paid) {
+            if (data == 'OK') {
               clearInterval(statusCheckRef.current);
               statusCheckRef.current = null;
-              
+
               if (timerRef.current) {
                 clearInterval(timerRef.current);
                 timerRef.current = null;
               }
-              
+
               setPaymentStatus('success');
-              
-              if (data.quota) {
-                setUserQuota(data.quota);
-              } else {
-                await getUserQuota();
-              }
-              
+
+              await getUserQuota();
+
               setTimeout(() => {
                 setShowPaymentModal(false);
-                
+
                 Modal.success({
                   title: t('充值成功'),
                   content: t('您的账户已成功充值，感谢您的使用！'),
@@ -488,7 +483,7 @@ const TopUp = () => {
                                     : 'border-gray-200 hover:border-blue-300'
                             }`}
                         >
-                          <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue}.00元</div>
+                          <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue} 元</div>
                         </div>
                     ))}
                     <div

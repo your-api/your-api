@@ -40,7 +40,7 @@ func SetApiRouter(router *gin.Engine) {
 		orderRoute.Use(middleware.UserAuth())
 		{
 			orderRoute.POST("/getTradeInfo", middleware.CriticalRateLimit(), controller.GetOrderInfo)
-			orderRoute.GET("/queryTradeStatus", middleware.CriticalRateLimit(), controller.Register)
+			orderRoute.GET("/queryTradeStatus", controller.QueryTradeStatus)
 		}
 
 		userRoute := apiRouter.Group("/user")
