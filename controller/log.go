@@ -10,14 +10,17 @@ import (
 )
 
 func GetAllLogs(c *gin.Context) {
+	// 1) 解析分页参数
 	p, _ := strconv.Atoi(c.Query("p"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size"))
 	if p < 1 {
 		p = 1
 	}
-	if pageSize < 0 {
+	if pageSize <= 0 {
 		pageSize = common.ItemsPerPage
 	}
+
+	// 2) 解析其他查询条件
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -26,7 +29,16 @@ func GetAllLogs(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, (p-1)*pageSize, pageSize, channel, group)
+
+	// 3) 调用 Model 层
+	startIdx := (p - 1) * pageSize
+	logs, total, err := model.GetAllLogs(
+		logType,
+		startTimestamp, endTimestamp,
+		modelName, username, tokenName,
+		startIdx, pageSize, channel,
+		group,
+	)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -34,6 +46,8 @@ func GetAllLogs(c *gin.Context) {
 		})
 		return
 	}
+
+	// 4) 返回结果
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

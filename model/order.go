@@ -59,7 +59,7 @@ func CompleteOrder(outTradeNo string) error {
 		return errors.New("订单未找到: " + err.Error())
 	}
 
-	user, err := GetUserById(order.UserId, false)
+	user, err := GetUserById(order.UserId, true)
 	if err != nil {
 		return err
 	}

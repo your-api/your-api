@@ -226,7 +226,11 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
-	err = DB.AutoMigrate(&Log{})
+	//err = DB.AutoMigrate(&Log{})
+	//if err != nil {
+	//	return err
+	//}
+	err = MigrateShardedLogs(DB)
 	if err != nil {
 		return err
 	}
