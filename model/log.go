@@ -377,24 +377,44 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return token
 }
 
+// DeleteOldLog 会依次对 “logs” 及所有 “logs_XX” 分表执行批量删除
+// 每次在单表上删除不超过 limit 条，直到该表所有符合条件的行被清理完毕
 func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
-	var total int64 = 0
-	for {
-		if err := ctx.Err(); err != nil {
-			return total, err
+	// 构造要清理的表名列表：先原表，再所有分表
+	tables := make([]string, 0, shardCount+1)
+	tables = append(tables, "logs")
+	for i := 0; i < shardCount; i++ {
+		tables = append(tables, fmt.Sprintf("logs_%02d", i))
+	}
+
+	var totalDeleted int64
+
+	for _, table := range tables {
+		// 跳过不存在的表
+		if !LOG_DB.Migrator().HasTable(table) {
+			continue
 		}
-		// 老数据删除走原始 logs 表
-		res := LOG_DB.Table("logs").
-			Where("created_at < ?", targetTimestamp).
-			Limit(limit).
-			Delete(&Log{})
-		if res.Error != nil {
-			return total, res.Error
-		}
-		total += res.RowsAffected
-		if res.RowsAffected < int64(limit) {
-			break
+		// 这张表按批次删除，直到删不满 limit
+		for {
+			// 支持外部取消/超时
+			if err := ctx.Err(); err != nil {
+				return totalDeleted, err
+			}
+			res := LOG_DB.
+				Table(table).
+				Where("created_at < ?", targetTimestamp).
+				Limit(limit).
+				Delete(&Log{})
+			if res.Error != nil {
+				return totalDeleted, res.Error
+			}
+			totalDeleted += res.RowsAffected
+			// 若本次删除行数 < limit，说明已无更多老数据
+			if res.RowsAffected < int64(limit) {
+				break
+			}
 		}
 	}
-	return total, nil
+
+	return totalDeleted, nil
 }
