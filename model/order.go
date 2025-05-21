@@ -15,7 +15,7 @@ type OrderInfo struct {
 	QRCode     string    `json:"qr_code" gorm:"size:100;not null;comment:'QRCode'"`
 	Status     int       `json:"status" gorm:"not null;comment:'状态 0未完成 1终止 2完成'"`
 	Msg        string    `json:"msg" gorm:"size:2064;default:'';comment:'原因'"`
-	CreateTime time.Time `json:"create_time" gorm:"not null;default:CURRENT_TIMESTAMP;comment:'创建时间'"`
+	CreateTime time.Time `json:"create_time" gorm:"autoCreateTime;comment:'创建时间'"`
 }
 
 // CreateOrder 创建新订单并写入数据库
