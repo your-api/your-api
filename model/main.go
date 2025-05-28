@@ -189,7 +189,7 @@ func InitLogDB() (err error) {
 		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY status VARCHAR(20);")   // TODO: delete this line when most users have upgraded
 		//}
 		common.SysLog("database migration started")
-		err = migrateLOGDB()
+		//err = migrateLOGDB()
 		return err
 	} else {
 		common.FatalLog(err)
@@ -219,6 +219,14 @@ func migrateDB() error {
 		return err
 	}
 	err = DB.AutoMigrate(&Ability{})
+	if err != nil {
+		return err
+	}
+	err = DB.AutoMigrate(&OrderInfo{})
+	if err != nil {
+		return err
+	}
+	err = DB.AutoMigrate(&WithdrawHistory{})
 	if err != nil {
 		return err
 	}
