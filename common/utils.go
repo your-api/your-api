@@ -183,9 +183,23 @@ func GenerateKey() (string, error) {
 	return GenerateRandomCharsKey(48)
 }
 
-func GetRandomInt(max int) int {
+func GetRandomInt(args ...int) int {
 	//rand.Seed(time.Now().UnixNano())
-	return rand.Intn(max)
+	switch len(args) {
+	case 1:
+		// 只有一个参数，表示最大值（不包含）
+		return rand.Intn(args[0])
+	case 2:
+		// 两个参数，表示最小值（包含）和最大值（不包含）
+		min, max := args[0], args[1]
+		if max <= min {
+			return min
+		}
+		return rand.Intn(max-min) + min
+	default:
+		// 默认返回0
+		return 0
+	}
 }
 
 func GetTimestamp() int64 {

@@ -259,6 +259,12 @@ func migrateDB() error {
 		return err
 	}
 
+	// 添加签到表迁移
+	err = DB.AutoMigrate(&CheckIn{})
+	if err != nil {
+		return err
+	}
+
 	// 修复现有表的字符集问题
 	//err = FixCharsetForExistingTables(DB)
 	//if err != nil {
