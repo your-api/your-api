@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { API, showError, showSuccess } from '../helpers';
 import { useTranslation } from 'react-i18next';
+import { Modal } from '@douyinfe/semi-ui';
+import ImageCaptcha from './ImageCaptcha';
 
 const CheckInCalendar = () => {
   const { t } = useTranslation();
@@ -10,6 +12,8 @@ const CheckInCalendar = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [showImageCaptcha, setShowImageCaptcha] = useState(false);
+  const [imageCaptchaData, setImageCaptchaData] = useState(null);
 
   // 获取签到状态
   const fetchCheckInStatus = async () => {
@@ -53,13 +57,30 @@ const CheckInCalendar = () => {
     }
   };
 
-  // 签到
-  const handleCheckIn = async () => {
+  // 处理图片验证码验证成功
+  const handleImageCaptchaVerified = async (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowImageCaptcha(false);
+    await performCheckIn(captchaData);
+  };
+
+  // 图片验证码验证失败或错误
+  const handleImageCaptchaError = (error) => {
+    console.error('图片验证码错误:', error);
+    setImageCaptchaData(null);
+    setShowImageCaptcha(true);
+  };
+
+  // 执行签到
+  const performCheckIn = async (captchaData) => {
     if (!checkInStatus?.can_check_in) return;
 
     setCheckingIn(true);
     try {
-      const res = await API.post('/api/user/check_in');
+      const res = await API.post('/api/user/check_in', {
+        image_captcha_id: captchaData.captcha_id,
+        image_captcha_code: captchaData.captcha_code
+      });
       if (res.data.success) {
         showSuccess(
           `${t('签到成功')}！${t('获得奖励')}: ${res.data.data.quota_reward_text}，${t('连续签到')}: ${res.data.data.consecutive_days} ${t('天')}`
@@ -72,12 +93,23 @@ const CheckInCalendar = () => {
         ]);
       } else {
         showError(res.data.message);
+        // 如果是验证码错误，重新显示验证码
+        if (res.data.message.includes('图片验证码') || res.data.message.includes('验证码错误') || res.data.message.includes('已过期')) {
+          setShowImageCaptcha(true);
+        }
       }
     } catch (error) {
       showError(t('签到失败'));
+      setShowImageCaptcha(true);
     } finally {
       setCheckingIn(false);
     }
+  };
+
+  // 签到按钮点击处理
+  const handleCheckIn = () => {
+    if (!checkInStatus?.can_check_in) return;
+    setShowImageCaptcha(true);
   };
 
   // 切换月份
@@ -409,6 +441,27 @@ const CheckInCalendar = () => {
           </div>
         </div>
       </div>
+
+      {/* 图片验证码模态框 */}
+      <Modal
+        title={t('请完成图片验证码验证')}
+        visible={showImageCaptcha}
+        onCancel={() => setShowImageCaptcha(false)}
+        footer={null}
+        width={400}
+        centered
+      >
+        <div style={{ padding: '20px 0' }}>
+          <p style={{ marginBottom: '20px', textAlign: 'center', color: '#666' }}>
+            {t('为了防止恶意操作，请先完成图片验证码验证')}
+          </p>
+          <ImageCaptcha
+            onVerified={handleImageCaptchaVerified}
+            onError={handleImageCaptchaError}
+            style={{ display: 'flex', justifyContent: 'center' }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };
