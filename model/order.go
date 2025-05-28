@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"one-api/common"
 	"time"
 )
@@ -72,6 +73,9 @@ func CompleteOrder(outTradeNo string) error {
 
 	// 更新状态和消息
 	order.Status = 2
+
+	RecordLog(order.UserId, LogTypeTopup,
+		fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%v", int(order.GetAmount), int(order.PayAmount)))
 
 	if err := DB.Save(&order).Error; err != nil {
 		return errors.New("更新订单状态失败: " + err.Error())

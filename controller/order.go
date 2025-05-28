@@ -24,8 +24,10 @@ var httpClient = &http.Client{
 
 // 支付网关地址
 // const paymentGatewayURL = "https://api.aicnn.cn/app-api/pay/getTradeAll"
-const paymentGatewayURL = "http://localhost:31020/app-api/pay/getTradeAll"
-const ueryGatewayURL = "http://localhost:31020/app-api/pay/queryQRStatusAll"
+// const paymentGatewayURL = "http://localhost:31020/app-api/pay/getTradeAll"
+// const ueryGatewayURL = "http://localhost:31020/app-api/pay/queryQRStatusAll"
+const paymentGatewayURL = "https://api.aicnn.cn/app-api/pay/getTradeAll"
+const ueryGatewayURL = "https://api.aicnn.cn/app-api/pay/queryQRStatusAll"
 
 // 鉴权 Token
 const authToken = "zzzqqqfsadfsa"
