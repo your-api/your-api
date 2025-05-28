@@ -878,6 +878,11 @@ const TopUp = () => {
                         <span className="text-sm font-medium text-gray-700">{t('待使用收益')}</span>
                         <span className="text-xl font-bold text-purple-700">$0.00</span>
                       </div>
+
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm font-medium text-gray-700">{t('正在提现收益')}</span>
+                        <span className="text-xl font-bold text-purple-700">$0.00</span>
+                      </div>
                       
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
