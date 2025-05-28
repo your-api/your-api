@@ -27,40 +27,48 @@ export default function SettingGeminiModel(props) {
   const [inputs, setInputs] = useState({
     'gemini.safety_settings': '',
     'gemini.version_settings': '',
-    'gemini.supported_imagine_models': [],
+    'gemini.supported_imagine_models': '',
     'gemini.thinking_adapter_enabled': false,
     'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
 
-  function onSubmit() {
-    const updateArray = compareObjects(inputs, inputsRow);
-    if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
-    const requestQueue = updateArray.map((item) => {
-      let value = String(inputs[item.key]);
-      return API.put('/api/option/', {
-        key: item.key,
-        value,
-      });
-    });
-    setLoading(true);
-    Promise.all(requestQueue)
-      .then((res) => {
-        if (requestQueue.length === 1) {
-          if (res.includes(undefined)) return;
-        } else if (requestQueue.length > 1) {
-          if (res.includes(undefined))
-            return showError(t('部分保存失败，请重试'));
-        }
-        showSuccess(t('保存成功'));
-        props.refresh();
+  async function onSubmit() {
+    await refForm.current
+      .validate()
+      .then(() => {
+        const updateArray = compareObjects(inputs, inputsRow);
+        if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
+        const requestQueue = updateArray.map((item) => {
+          let value = String(inputs[item.key]);
+          return API.put('/api/option/', {
+            key: item.key,
+            value,
+          });
+        });
+        setLoading(true);
+        Promise.all(requestQueue)
+          .then((res) => {
+            if (requestQueue.length === 1) {
+              if (res.includes(undefined)) return;
+            } else if (requestQueue.length > 1) {
+              if (res.includes(undefined))
+                return showError(t('部分保存失败，请重试'));
+            }
+            showSuccess(t('保存成功'));
+            props.refresh();
+          })
+          .catch(() => {
+            showError(t('保存失败，请重试'));
+          })
+          .finally(() => {
+            setLoading(false);
+          });
       })
-      .catch(() => {
-        showError(t('保存失败，请重试'));
-      })
-      .finally(() => {
-        setLoading(false);
+      .catch((error) => {
+        console.error('Validation failed:', error);
+        showError(t('请检查输入'));
       });
   }
 
@@ -146,6 +154,14 @@ export default function SettingGeminiModel(props) {
                   label={t('支持的图像模型')}
                   placeholder={t('例如：') + '\n' + JSON.stringify(['gemini-2.0-flash-exp-image-generation'], null, 2)}
                   onChange={(value) => setInputs({ ...inputs, 'gemini.supported_imagine_models': value })}
+                  trigger='blur'
+                  stopValidateWithError
+                  rules={[
+                    {
+                      validator: (rule, value) => verifyJSON(value),
+                      message: t('不是合法的 JSON 字符串'),
+                    },
+                  ]}
                 />
               </Col>
             </Row>

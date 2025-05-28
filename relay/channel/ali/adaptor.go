@@ -57,6 +57,12 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
+
+	// fix: ali parameter.enable_thinking must be set to false for non-streaming calls
+	if !info.IsStream {
+		request.EnableThinking = false
+	}
+
 	switch info.RelayMode {
 	default:
 		aliReq := requestOpenAI2Ali(*request)

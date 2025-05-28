@@ -53,6 +53,7 @@ type GeneralOpenAIRequest struct {
 	Audio            any               `json:"audio,omitempty"`
 	EnableThinking   any               `json:"enable_thinking,omitempty"` // ali
 	ExtraBody        any               `json:"extra_body,omitempty"`
+	WebSearchOptions *WebSearchOptions `json:"web_search_options,omitempty"`
 }
 
 type ToolCallRequest struct {
@@ -369,6 +370,11 @@ func (m *Message) ParseContent() []MediaContent {
 		m.parsedContent = contentList
 	}
 	return contentList
+}
+
+type WebSearchOptions struct {
+	SearchContextSize string          `json:"search_context_size,omitempty"`
+	UserLocation      json.RawMessage `json:"user_location,omitempty"`
 }
 
 type OpenAIResponsesRequest struct {
