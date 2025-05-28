@@ -90,6 +90,7 @@ const PersonalSetting = () => {
   const [withdrawContact, setWithdrawContact] = useState('');
   const [pendingWithdrawQuota, setPendingWithdrawQuota] = useState(0);
   const [withdrawHistory, setWithdrawHistory] = useState([]);
+  const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -544,18 +545,7 @@ const PersonalSetting = () => {
                           type="tertiary"
                           theme="light"
                           size="small"
-                          onClick={() => {
-                            // 切换到提现记录tab
-                            const tabs = document.querySelector('[role="tablist"]');
-                            if (tabs) {
-                              const withdrawTab = Array.from(tabs.children).find(tab => 
-                                tab.textContent.includes(t('提现记录'))
-                              );
-                              if (withdrawTab) {
-                                withdrawTab.click();
-                              }
-                            }
-                          }}
+                          onClick={() => setShowWithdrawHistory(true)}
                           className="text-purple-600 hover:text-purple-800 hover:bg-purple-50"
                         >
                           <div className="inline-flex items-center">
@@ -894,6 +884,77 @@ const PersonalSetting = () => {
               <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
                 {t('提现将转入您的支付宝账户，处理时间为1-3个工作日，请确保信息准确无误')}
               </Typography.Text>
+            </div>
+          </Modal>
+
+          {/* 提现记录模态框 */}
+          <Modal
+            title={t('提现记录')}
+            visible={showWithdrawHistory}
+            onCancel={() => setShowWithdrawHistory(false)}
+            footer={null}
+            width={800}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              {withdrawHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '50px 0', color: '#999' }}>
+                  {t('暂无提现记录')}
+                </div>
+              ) : (
+                <div>
+                  {withdrawHistory.map((withdraw) => (
+                    <Card 
+                      key={withdraw.id} 
+                      style={{ marginBottom: 16 }}
+                      bodyStyle={{ padding: '16px' }}
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('提现金额')}: </span>
+                            <span className="font-bold">{renderQuota(withdraw.withdraw_quota)}</span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('状态')}: </span>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              withdraw.withdraw_status === 0 ? 'bg-orange-100 text-orange-800' :
+                              withdraw.withdraw_status === 1 ? 'bg-blue-100 text-blue-800' :
+                              withdraw.withdraw_status === 2 ? 'bg-red-100 text-red-800' :
+                              withdraw.withdraw_status === 3 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {withdraw.withdraw_status === 0 ? t('待处理') :
+                               withdraw.withdraw_status === 1 ? t('已通过') :
+                               withdraw.withdraw_status === 2 ? t('已拒绝') :
+                               withdraw.withdraw_status === 3 ? t('已支付') : t('未知')}
+                            </span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('申请时间')}: </span>
+                            <span className="text-sm">{new Date(withdraw.create_time).toLocaleString()}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('支付宝账号')}: </span>
+                            <span className="text-sm">{withdraw.alipay_account}</span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('联系方式')}: </span>
+                            <span className="text-sm">{withdraw.contact}</span>
+                          </div>
+                          {withdraw.admin_comment && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium text-gray-600">{t('管理员备注')}: </span>
+                              <span className="text-sm">{withdraw.admin_comment}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           </Modal>
         </Layout.Content>
