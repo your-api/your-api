@@ -61,6 +61,10 @@ const TopUp = () => {
   const [transferAmount, setTransferAmount] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState(0);
   const [transferType, setTransferType] = useState('reward');
+  const [withdrawHistory, setWithdrawHistory] = useState([]);
+  const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
+  const [withdrawAlipayAccount, setWithdrawAlipayAccount] = useState('');
+  const [withdrawContact, setWithdrawContact] = useState('');
   const timerRef = useRef(null);
   const statusCheckRef = useRef(null);
 
@@ -267,6 +271,19 @@ const TopUp = () => {
     }
   };
 
+  // 获取提现状态
+  const getWithdrawStatus = async () => {
+    try {
+      const res = await API.get('/api/user/withdraw_status');
+      const { success, data } = res.data;
+      if (success) {
+        setWithdrawHistory(data.withdraws || []);
+      }
+    } catch (error) {
+      console.error('获取提现状态失败:', error);
+    }
+  };
+
   const handleAffLinkClick = async (e) => {
     e.target.select();
     await copy(e.target.value);
@@ -279,7 +296,13 @@ const TopUp = () => {
       showError(t('划转金额最低为') + ' ' + renderQuota(getQuotaPerUnit()));
       return;
     }
-    const res = await API.post(`/api/user/aff_transfer`, {
+    
+    let apiUrl = '/api/user/aff_transfer';
+    if (transferType === 'commission') {
+      apiUrl = '/api/user/commission_transfer';
+    }
+    
+    const res = await API.post(apiUrl, {
       quota: transferAmount,
     });
     const { success, message } = res.data;
@@ -287,24 +310,38 @@ const TopUp = () => {
       showSuccess(message);
       setOpenTransfer(false);
       getUserQuota().then();
+      getWithdrawStatus().then();
     } else {
       showError(message);
     }
   };
 
   const withdraw = async () => {
-    if (withdrawAmount < getQuotaPerUnit()) {
-      showError(t('提现金额最低为') + ' ' + renderQuota(getQuotaPerUnit()));
+    if (withdrawAmount < getQuotaPerUnit() * 10) { // 最少十块钱
+      showError(t('提现金额最低为') + ' ' + renderQuota(getQuotaPerUnit() * 10));
       return;
     }
-    const res = await API.post(`/api/user/aff_withdraw`, {
+    if (!withdrawAlipayAccount) {
+      showError(t('请输入支付宝账号'));
+      return;
+    }
+    if (!withdrawContact) {
+      showError(t('请输入联系方式'));
+      return;
+    }
+    const res = await API.post(`/api/user/commission_withdraw`, {
       quota: withdrawAmount,
+      alipay_account: withdrawAlipayAccount,
+      contact: withdrawContact,
     });
     const { success, message } = res.data;
     if (success) {
       showSuccess(message);
       setOpenWithdraw(false);
+      setWithdrawAlipayAccount('');
+      setWithdrawContact('');
       getUserQuota().then();
+      getWithdrawStatus().then();
     } else {
       showError(message);
     }
@@ -321,7 +358,7 @@ const TopUp = () => {
   };
 
   const openWithdrawModal = () => {
-    setWithdrawAmount(getQuotaPerUnit());
+    setWithdrawAmount(getQuotaPerUnit() * 10);
     setOpenWithdraw(true);
   };
 
@@ -345,6 +382,7 @@ const TopUp = () => {
     }
     getUserQuota().then();
     getAffLink().then();
+    getWithdrawStatus().then();
   }, []);
 
   const renderAmount = () => {
@@ -588,7 +626,7 @@ const TopUp = () => {
           
           {/* 提现模态框 */}
           <Modal
-            title={t('请输入要提现的数量')}
+            title={t('申请提现')}
             visible={openWithdraw}
             onOk={withdraw}
             onCancel={handleWithdrawCancel}
@@ -598,11 +636,12 @@ const TopUp = () => {
           >
             <div style={{ marginTop: 20 }}>
               <Typography.Text>
-                {t('可提现额度')} $0.00
+                {t('可提现额度')}
+                {renderQuotaWithPrompt((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0))}
               </Typography.Text>
               <Input
                 style={{ marginTop: 5 }}
-                value="$0.00"
+                value={renderQuota((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0))}
                 disabled={true}
               />
             </div>
@@ -610,7 +649,7 @@ const TopUp = () => {
               <Typography.Text>
                 {t('提现额度')}
                 {renderQuotaWithPrompt(withdrawAmount)}{' '}
-                {t('最低') + renderQuota(getQuotaPerUnit())}
+                {t('最低') + renderQuota(getQuotaPerUnit() * 10)}
               </Typography.Text>
               <div>
                 <InputNumber
@@ -623,150 +662,100 @@ const TopUp = () => {
               </div>
             </div>
             <div style={{ marginTop: 20 }}>
+              <Typography.Text>{t('支付宝账号')} *</Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                placeholder={t('请输入支付宝账号（邮箱或手机号）')}
+                value={withdrawAlipayAccount}
+                onChange={(value) => setWithdrawAlipayAccount(value)}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>{t('联系方式')} *</Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                placeholder={t('请输入您的联系方式（微信/QQ/手机号）')}
+                value={withdrawContact}
+                onChange={(value) => setWithdrawContact(value)}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
               <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
-                {t('提现将转入您绑定的支付宝账户，处理时间为1-3个工作日')}
+                {t('提现将转入您的支付宝账户，处理时间为1-3个工作日，请确保信息准确无误')}
               </Typography.Text>
             </div>
           </Modal>
 
-          <div className="mt-6 flex justify-center">
-            <Card className="w-full max-w-3xl shadow-lg rounded-xl overflow-hidden">
-              <div className="bg-white p-6 border-b">
-                <div className="flex flex-col items-center">
-                  <h3 className="text-lg font-medium mb-2 text-gray-600">{t('当前余额')}</h3>
-                  <div className="text-3xl font-bold text-gray-800">{renderQuota(userQuota)}</div>
+          {/* 提现记录模态框 */}
+          <Modal
+            title={t('提现记录')}
+            visible={showWithdrawHistory}
+            onCancel={() => setShowWithdrawHistory(false)}
+            footer={null}
+            width={800}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              {withdrawHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '50px 0', color: '#999' }}>
+                  {t('暂无提现记录')}
                 </div>
-              </div>
-
-              <div className="p-6">
-                <h4 className="text-lg font-medium mb-4">{t('在线充值')}</h4>
-
-                <div className="mb-6">
-                  <div className="text-sm font-medium text-gray-600 mb-2 text-center">{t('购买面额')}</div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {predefinedAmounts.map((amountValue) => (
-                        <div
-                            key={amountValue}
-                            onClick={() => handleAmountChange(amountValue)}
-                            className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
-                                !customAmount && selectedAmount === amountValue
-                                    ? 'border-blue-500 bg-blue-50 text-blue-600'
-                                    : 'border-gray-200 hover:border-blue-300'
-                            }`}
-                        >
-                          <div className="font-bold text-lg flex items-center justify-center h-full">{amountValue} 元</div>
+              ) : (
+                <div>
+                  {withdrawHistory.map((withdraw) => (
+                    <Card 
+                      key={withdraw.id} 
+                      style={{ marginBottom: 16 }}
+                      bodyStyle={{ padding: '16px' }}
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('提现金额')}: </span>
+                            <span className="font-bold">{renderQuota(withdraw.withdraw_quota)}</span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('状态')}: </span>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              withdraw.withdraw_status === 0 ? 'bg-orange-100 text-orange-800' :
+                              withdraw.withdraw_status === 1 ? 'bg-blue-100 text-blue-800' :
+                              withdraw.withdraw_status === 2 ? 'bg-red-100 text-red-800' :
+                              withdraw.withdraw_status === 3 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {withdraw.withdraw_status === 0 ? t('待处理') :
+                               withdraw.withdraw_status === 1 ? t('已通过') :
+                               withdraw.withdraw_status === 2 ? t('已拒绝') :
+                               withdraw.withdraw_status === 3 ? t('已支付') : t('未知')}
+                            </span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('申请时间')}: </span>
+                            <span className="text-sm">{new Date(withdraw.create_time).toLocaleString()}</span>
+                          </div>
                         </div>
-                    ))}
-                    <div
-                        onClick={() => handleAmountChange('custom')}
-                        className={`cursor-pointer p-3 border rounded-lg text-center transition-all ${
-                            customAmount
-                                ? 'border-blue-500 bg-blue-50 text-blue-600'
-                                : 'border-gray-200 hover:border-blue-300'
-                        }`}
-                    >
-                      <div className="font-bold mb-1 text-lg">{t('自定义金额')}</div>
-                      <div className="flex items-center justify-center h-8">
-                        <span className="text-base mr-1 flex items-center">￥</span>
-                        {customAmount ? (
-                            <input
-                                type="number"
-                                min="1"
-                                value={topUpCount}
-                                onChange={(e) => {
-                                  const value = Math.max(1, parseFloat(e.target.value) || 0);
-                                  setTopUpCount(value);
-                                  getAmount(value);
-                                }}
-                                className="w-24 text-center border rounded p-1 text-base focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                        ) : (
-                            <span className="text-base flex items-center">1.00</span>
-                        )}
+                        <div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('支付宝账号')}: </span>
+                            <span className="text-sm">{withdraw.alipay_account}</span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="text-sm font-medium text-gray-600">{t('联系方式')}: </span>
+                            <span className="text-sm">{withdraw.contact}</span>
+                          </div>
+                          {withdraw.admin_comment && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium text-gray-600">{t('管理员备注')}: </span>
+                              <span className="text-sm">{withdraw.admin_comment}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </Card>
+                  ))}
                 </div>
-
-                <div className="flex flex-col space-y-4">
-                  <div className="flex flex-wrap gap-4">
-                    <Button
-                        type="primary"
-                        theme="solid"
-                        onClick={() => preTopUp('zfb')}
-                        disabled={!enableOnlineTopUp}
-                        className="
-                        flex-1 md:flex-none min-w-[120px]
-                        py-3 px-5 rounded-lg
-                        flex items-center justify-center font-medium
-                        transition-transform transform
-                        shadow-md
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300
-                        bg-gradient-to-r from-blue-500 to-blue-600
-                        hover:scale-105
-                      "
-                    >
-                      <div className="flex items-center">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="w-5 h-5 mr-2"
-                        >
-                          <path d="M22.5 12.25c0-5.66-4.59-10.25-10.25-10.25S2 6.59 2 12.25c0 4.84 3.33 8.9 7.83 10.04v-7.12H7.25v-2.92h2.58v-2.23c0-2.54 1.51-3.95 3.82-3.95 1.11 0 2.27.2 2.27.2v2.49h-1.28c-1.26 0-1.65.78-1.65 1.58v1.9h2.8l-.45 2.92h-2.35v7.12c4.5-1.14 7.83-5.2 7.83-10.04z" />
-                        </svg>
-                        <span>{t('支付宝')}</span>
-                      </div>
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-6 text-sm text-gray-500">
-                  <p>{t('说明：充值后额度将立即到账，如有问题请联系客服')}</p>
-                </div>
-              </div>
-
-              <div className="p-6 bg-gray-50 border-b">
-                <h4 className="text-lg font-medium mb-4">{t('兑换码充值')}</h4>
-                <Form className="space-y-4">
-                  <Form.Input
-                    field={'redemptionCode'}
-                    label={t('兑换码')}
-                    placeholder={t('请输入兑换码')}
-                    name='redemptionCode'
-                    value={redemptionCode}
-                    onChange={(value) => {
-                      setRedemptionCode(value);
-                    }}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {topUpLink && (
-                      <Button
-                        type={'primary'}
-                        theme={'solid'}
-                        onClick={openTopUpLink}
-                        className="hover:opacity-90"
-                      >
-                        {t('获取兑换码')}
-                      </Button>
-                    )}
-                    <Button
-                      type={'warning'}
-                      theme={'solid'}
-                      onClick={topUp}
-                      disabled={isSubmitting}
-                      className="hover:opacity-90"
-                    >
-                      {isSubmitting ? t('兑换中...') : t('立即兑换')}
-                    </Button>
-                  </div>
-                </Form>
-              </div>
-
-            </Card>
-          </div>
+              )}
+            </div>
+          </Modal>
 
           {/* 邀请返利模块 - 高对比度版本 */}
           <div className="mt-8 flex justify-center">
@@ -876,36 +865,59 @@ const TopUp = () => {
                     <div className="space-y-4">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('待使用收益')}</span>
-                        <span className="text-xl font-bold text-purple-700">$0.00</span>
+                        <span className="text-xl font-bold text-purple-700">
+                          {renderQuota(((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) - (userState?.user?.withdrawing_quota || 0))}
+                        </span>
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">{t('正在提现' +
-                            '收益')}</span>
-                        <span className="text-xl font-bold text-purple-700">$0.00</span>
+                        <span className="text-sm font-medium text-gray-700">{t('正在提现收益')}</span>
+                        <span className="text-xl font-bold text-purple-700">
+                          {renderQuota(userState?.user?.withdrawing_quota || 0)}
+                        </span>
+                      </div>
+                      
+                      {/* 查看提现记录按钮 */}
+                      <div className="py-2">
+                        <Button
+                          type="tertiary"
+                          theme="light"
+                          size="small"
+                          onClick={() => setShowWithdrawHistory(true)}
+                          className="text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                        >
+                          <div className="inline-flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>{t('查看提现记录')}</span>
+                          </div>
+                        </Button>
                       </div>
                       
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
-                        <span className="text-sm font-bold text-gray-900">$0.00</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {renderQuota(userState?.user?.reward_quota || 0)}
+                        </span>
                       </div>
 
-                      
                       <div className="pt-3 space-y-3">
                         <Button
                           type="primary"
                           theme="solid"
-                          disabled={true}
+                          onClick={() => openTransferModal('commission')}
+                          disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
                           style={{ 
                             backgroundColor: '#7c3aed', 
                             borderColor: '#7c3aed',
-                            opacity: 0.6
+                            opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0) ? 0.6 : 1
                           }}
                         >
                           <div className="inline-flex items-center justify-center">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                             </svg>
                             <span className="ml-2 my-auto">{t('划转')}</span>
                           </div>
@@ -913,17 +925,18 @@ const TopUp = () => {
                         <Button
                           type="tertiary"
                           theme="solid"
-                          disabled={true}
+                          onClick={openWithdrawModal}
+                          disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
                           style={{ 
                             backgroundColor: '#ea580c', 
                             borderColor: '#ea580c',
-                            opacity: 0.6
+                            opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10) ? 0.6 : 1
                           }}
                         >
                           <div className="inline-flex items-center justify-center">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                             </svg>
                             <span className="ml-2 my-auto">{t('提现')}</span>
                           </div>

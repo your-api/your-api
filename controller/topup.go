@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type EpayRequest struct {
@@ -216,22 +217,73 @@ func EpayNotify(c *gin.Context) {
 			return
 		}
 		if topUp.Status == "pending" {
+			// 开始事务
+			tx := model.DB.Begin()
+			if tx.Error != nil {
+				log.Printf("易支付回调事务开始失败: %v", tx.Error)
+				return
+			}
+			defer tx.Rollback()
+
+			// 更新订单状态
 			topUp.Status = "success"
-			err := topUp.Update()
+			err := tx.Save(topUp).Error
 			if err != nil {
 				log.Printf("易支付回调更新订单失败: %v", topUp)
 				return
 			}
-			//user, _ := model.GetUserById(topUp.UserId, false)
-			//user.Quota += topUp.Amount * 500000
+
+			// 获取用户信息
+			user, err := model.GetUserById(topUp.UserId, true)
+			if err != nil {
+				log.Printf("易支付回调获取用户失败: %v", err)
+				return
+			}
+
+			// 计算要增加的额度
 			dAmount := decimal.NewFromInt(int64(topUp.Amount))
 			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 			quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
-			err = model.IncreaseUserQuota(topUp.UserId, quotaToAdd, true)
+
+			// 增加用户额度并更新支付次数
+			user.PayCount++
+			err = tx.Model(&model.User{}).Where("id = ?", topUp.UserId).Updates(map[string]interface{}{
+				"quota":     gorm.Expr("quota + ?", quotaToAdd),
+				"pay_count": user.PayCount,
+			}).Error
 			if err != nil {
 				log.Printf("易支付回调更新用户失败: %v", topUp)
 				return
 			}
+
+			// 处理邀请充值返利：用户前三次充值时给邀请者返利
+			if user.InviterId > 0 && user.PayCount <= 3 {
+				// 计算返利额度：充值额度的5%
+				commissionQuota := int(float64(quotaToAdd) * 0.05)
+				
+				// 给邀请者分配返利
+				if commissionQuota > 0 {
+					err = tx.Model(&model.User{}).
+						Where("id = ?", user.InviterId).
+						Update("reward_quota", gorm.Expr("reward_quota + ?", commissionQuota)).Error
+					if err != nil {
+						log.Printf("易支付回调分配邀请充值返利失败: %v", err)
+						return
+					}
+					
+					// 记录邀请者的返利日志
+					model.RecordLog(user.InviterId, model.LogTypeSystem, 
+						fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)", 
+							common.LogQuota(commissionQuota), user.Username, user.PayCount))
+				}
+			}
+
+			// 提交事务
+			if err := tx.Commit().Error; err != nil {
+				log.Printf("易支付回调事务提交失败: %v", err)
+				return
+			}
+
 			log.Printf("易支付回调更新用户成功 %v", topUp)
 			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", common.LogQuota(quotaToAdd), topUp.Money))
 		}

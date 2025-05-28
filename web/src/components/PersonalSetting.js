@@ -538,6 +538,35 @@ const PersonalSetting = () => {
                         </span>
                       </div>
 
+                      {/* 查看提现记录按钮 */}
+                      <div className="py-2">
+                        <Button
+                          type="tertiary"
+                          theme="light"
+                          size="small"
+                          onClick={() => {
+                            // 切换到提现记录tab
+                            const tabs = document.querySelector('[role="tablist"]');
+                            if (tabs) {
+                              const withdrawTab = Array.from(tabs.children).find(tab => 
+                                tab.textContent.includes(t('提现记录'))
+                              );
+                              if (withdrawTab) {
+                                withdrawTab.click();
+                              }
+                            }
+                          }}
+                          className="text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                        >
+                          <div className="inline-flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>{t('查看提现记录')}</span>
+                          </div>
+                        </Button>
+                      </div>
+
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
                         <span className="text-sm font-bold text-gray-900">
