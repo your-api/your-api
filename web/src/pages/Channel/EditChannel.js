@@ -29,6 +29,7 @@ import {
 } from '@douyinfe/semi-ui';
 import { getChannelModels, loadChannelModels } from '../../components/utils.js';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
+import BubbleText from "../../components/BubbleText.js";
 
 const MODEL_MAPPING_EXAMPLE = {
   'gpt-3.5-turbo': 'gpt-3.5-turbo-0125',
@@ -201,50 +202,54 @@ const EditChannel = (props) => {
     //   showError(t('仅支持 OpenAI 接口格式'));
     //   return;
     // }
-    setLoading(true);
-    const models = inputs['models'] || [];
-    let err = false;
 
-    if (isEdit) {
-      // 如果是编辑模式，使用已有的channel id获取模型列表
-      const res = await API.get('/api/channel/fetch_models/' + channelId);
-      if (res.data && res.data?.success) {
-        models.push(...res.data.data);
-      } else {
-        err = true;
-      }
-    } else {
-      // 如果是新建模式，通过后端代理获取模型列表
-      if (!inputs?.['key']) {
-        showError(t('请填写密钥'));
-        err = true;
-      } else {
-        try {
-          const res = await API.post('/api/channel/fetch_models', {
-            base_url: inputs['base_url'],
-            type: inputs['type'],
-            key: inputs['key'],
-          });
+    try {
+      setLoading(true);
+      const models = inputs['models'] || [];
+      let err = false;
 
-          if (res.data && res.data.success) {
-            models.push(...res.data.data);
-          } else {
-            err = true;
-          }
-        } catch (error) {
-          console.error('Error fetching models:', error);
+      if (isEdit) {
+        // 如果是编辑模式，使用已有的channel id获取模型列表
+        const res = await API.get('/api/channel/fetch_models/' + channelId);
+        if (res.data && res.data?.success) {
+          models.push(...res.data.data);
+        } else {
           err = true;
         }
-      }
-    }
+      } else {
+        // 如果是新建模式，通过后端代理获取模型列表
+        if (!inputs?.['key']) {
+          showError(t('请填写密钥'));
+          err = true;
+        } else {
+          try {
+            const res = await API.post('/api/channel/fetch_models', {
+              base_url: inputs['base_url'],
+              type: inputs['type'],
+              key: inputs['key'],
+            });
 
-    if (!err) {
-      handleInputChange(name, Array.from(new Set(models)));
-      showSuccess(t('获取模型列表成功'));
-    } else {
-      showError(t('获取模型列表失败'));
+            if (res.data && res.data.success) {
+              models.push(...res.data.data);
+            } else {
+              err = true;
+            }
+          } catch (error) {
+            console.error('Error fetching models:', error);
+            err = true;
+          }
+        }
+      }
+
+      if (!err) {
+        handleInputChange(name, Array.from(new Set(models)));
+        showSuccess(t('获取模型列表成功'));
+      } else {
+        showError(t('获取模型列表失败'));
+      }
+    }finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchModels = async () => {
@@ -409,20 +414,23 @@ const EditChannel = (props) => {
         bodyStyle={{ borderBottom: '1px solid var(--semi-color-border)' }}
         visible={props.visible}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Space>
-              <Button theme='solid' size={'large'} onClick={submit}>
-                {t('提交')}
-              </Button>
-              <Button
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <Button theme='solid' size={'large'} onClick={submit}>
+              {t('提交')}
+            </Button>
+            <Button
                 theme='solid'
                 size={'large'}
                 type={'tertiary'}
                 onClick={handleCancel}
-              >
-                {t('取消')}
-              </Button>
-            </Space>
+            >
+              {t('取消')}
+            </Button>
           </div>
         }
         closeIcon={null}
@@ -748,6 +756,7 @@ const EditChannel = (props) => {
             multiple
             selection
             allowAdditions
+            size='small'
             additionLabel={t('请在系统设置页面编辑分组倍率以添加新的分组：')}
             onChange={(value) => {
               handleInputChange('groups', value);
@@ -874,6 +883,7 @@ const EditChannel = (props) => {
             selection
             filter
             searchPosition='dropdown'
+            size='small'
             onChange={(value) => {
               handleInputChange('models', value);
             }}
@@ -881,58 +891,66 @@ const EditChannel = (props) => {
             autoComplete='new-password'
             optionList={modelOptions}
           />
-          <div style={{ lineHeight: '40px', marginBottom: '12px' }}>
-            <Space>
-              <Button
-                type='primary'
-                onClick={() => {
-                  handleInputChange('models', basicModels);
+          <div style={{ marginBottom: '12px', marginTop: '10px' }}>
+            <div
+                style={{
+                  marginBottom: '8px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  alignItems: 'center'
                 }}
+            >
+              <Button
+                  type='primary'
+                  onClick={() => {
+                    handleInputChange('models', basicModels);
+                  }}
               >
                 {t('填入相关模型')}
               </Button>
               <Button
-                type='secondary'
-                onClick={() => {
-                  handleInputChange('models', fullModels);
-                }}
+                  type='secondary'
+                  onClick={() => {
+                    handleInputChange('models', fullModels);
+                  }}
               >
                 {t('填入所有模型')}
               </Button>
               <Tooltip
-                content={t(
-                  '新建渠道时，请求通过当前浏览器发出；编辑已有渠道，请求通过后端服务器发出',
-                )}
+                  content={t(
+                      '新建渠道时，请求通过当前浏览器发出；编辑已有渠道，请求通过后端服务器发出',
+                  )}
               >
                 <Button
-                  type='tertiary'
-                  onClick={() => {
-                    fetchUpstreamModelList('models');
-                  }}
+                    type='tertiary'
+                    onClick={() => {
+                      fetchUpstreamModelList('models');
+                    }}
                 >
                   {t('获取模型列表')}
                 </Button>
               </Tooltip>
               <Button
-                type='warning'
-                onClick={() => {
-                  handleInputChange('models', []);
-                }}
+                  type='warning'
+                  onClick={() => {
+                    handleInputChange('models', []);
+                  }}
               >
                 {t('清除所有模型')}
               </Button>
-            </Space>
+            </div>
             <Input
-              addonAfter={
-                <Button type='primary' onClick={addCustomModels}>
-                  {t('填入')}
-                </Button>
-              }
-              placeholder={t('输入自定义模型名称')}
-              value={customModel}
-              onChange={(value) => {
-                setCustomModel(value.trim());
-              }}
+                addonAfter={
+                  <Button type='primary' onClick={addCustomModels}>
+                    {t('填入')}
+                  </Button>
+                }
+                placeholder={t('输入自定义模型名称')}
+                value={customModel}
+                onChange={(value) => {
+                  setCustomModel(value.trim());
+                }}
             />
           </div>
           <div style={{ marginTop: 10 }}>

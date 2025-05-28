@@ -402,23 +402,22 @@ const ChannelsTable = () => {
             <div>
               <Space spacing={1}>
                 <Tooltip content={t('已用额度')}>
-                  <Tag color='white' type='ghost' size='large'>
-                    {renderQuota(record.used_quota)}
-                  </Tag>
+                  <BubbleText
+                      bubbleText={renderQuota(record.used_quota)}
+                  />
                 </Tooltip>
                 <Tooltip
                   content={t('剩余额度') + record.balance + t('，点击更新')}
                 >
-                  <Tag
-                    color='white'
-                    type='ghost'
-                    size='large'
+                  <div style={{marginLeft: "3px"}}
                     onClick={() => {
                       updateChannelBalance(record);
                     }}
                   >
-                    ${renderNumberWithPoint(record.balance)}
-                  </Tag>
+                    <BubbleText
+                        bubbleText={renderNumberWithPoint(record.balance)}
+                    />
+                  </div>
                 </Tooltip>
               </Space>
             </div>

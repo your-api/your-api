@@ -112,6 +112,15 @@ const TokensTable = () => {
     {
       title: t('名称'),
       dataIndex: 'name',
+      render: (text, record) => {
+        return (
+          <>
+            <BubbleText
+                bubbleText={text}
+            />
+          </>
+        );
+      }
     },
     {
       title: t('状态'),
@@ -120,7 +129,7 @@ const TokensTable = () => {
       render: (text, record, index) => {
         return (
           <div>
-            <Space wrap={false} align="start" style={{ flexWrap: 'nowrap', overflow: 'auto' }}>
+            <Space wrap={false} align="start" style={{ flexWrap: 'nowrap', overflow: 'auto', marginTop: '8px' }}>
               {renderStatus(text, record.model_limits_enabled)}
               {renderGroup(record.group)}
             </Space>
@@ -177,7 +186,8 @@ const TokensTable = () => {
       render: (text, record, index) => {
         return (
           <div>
-            {record.expired_time === -1 ? t('永不过期') : renderTimestamp(text)}
+
+            {record.expired_time === -1 ? <BubbleText bubbleText={t('永不过期')}/> : <BubbleText bubbleText={renderTimestamp(text)}/>}
           </div>
         );
       },

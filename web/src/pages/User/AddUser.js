@@ -50,21 +50,26 @@ const AddUser = (props) => {
         bodyStyle={{ borderBottom: '1px solid var(--semi-color-border)' }}
         visible={props.visible}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Space>
-              <Button theme='solid' size={'large'} onClick={submit}>
-                提交
-              </Button>
-              <Button
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <Button theme='solid' size={'large'} onClick={submit}>
+              提交
+            </Button>
+            <Button
                 theme='solid'
                 size={'large'}
                 type={'tertiary'}
                 onClick={handleCancel}
-              >
-                取消
-              </Button>
-            </Space>
+            >
+              取消
+            </Button>
           </div>
+
+
         }
         closeIcon={null}
         onCancel={() => handleCancel()}

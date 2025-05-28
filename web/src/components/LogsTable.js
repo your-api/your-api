@@ -161,7 +161,7 @@ const LogsTable = () => {
   function renderFirstUseTime(type) {
     let time = parseFloat(type) / 1000.0;
     time = time.toFixed(1);
-    if (time < 3) {
+    if (time < 15) {
       return (
           <BubbleText
               bubbleText={`${time} s`}
@@ -172,7 +172,7 @@ const LogsTable = () => {
               borderStyle="solid"
           />
       );
-    } else if (time < 10) {
+    } else if (time < 50) {
       return (
           <BubbleText
               bubbleText={`${time} s`}
@@ -250,6 +250,17 @@ const LogsTable = () => {
                   }}
               >
                 <BubbleText bubbleText={record.model_name}/>
+                <IconRefresh
+                    style={{
+                      width: '0.75em',
+                      height: '0.75em',
+                      opacity: 0.7,
+                      marginLeft: '3px',
+                      marginBottom: '3px',
+                      verticalAlign: 'middle',
+                      color: 'var(--semi-color-text-2)'
+                    }}
+                />
               </div>
 
 

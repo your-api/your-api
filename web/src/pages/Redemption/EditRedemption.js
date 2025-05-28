@@ -142,20 +142,23 @@ const EditRedemption = (props) => {
         bodyStyle={{ borderBottom: '1px solid var(--semi-color-border)' }}
         visible={props.visiable}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Space>
-              <Button theme='solid' size={'large'} onClick={submit}>
-                {t('提交')}
-              </Button>
-              <Button
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <Button theme='solid' size={'large'} onClick={submit}>
+              {t('提交')}
+            </Button>
+            <Button
                 theme='solid'
                 size={'large'}
                 type={'tertiary'}
                 onClick={handleCancel}
-              >
-                {t('取消')}
-              </Button>
-            </Space>
+            >
+              {t('取消')}
+            </Button>
           </div>
         }
         closeIcon={null}

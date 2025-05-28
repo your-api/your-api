@@ -775,7 +775,7 @@ const PersonalSetting = () => {
                 </div>
               </div>
               <div style={{ marginTop: 10 }}>
-                <Space>
+                <div className="flex gap-2.5">
                   <Button onClick={generateAccessToken}>
                     {t('生成系统访问令牌')}
                   </Button>
@@ -794,7 +794,7 @@ const PersonalSetting = () => {
                   >
                     {t('删除个人账户')}
                   </Button>
-                </Space>
+                </div>
 
                 {systemToken && (
                   <Input

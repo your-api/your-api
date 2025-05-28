@@ -36,7 +36,7 @@ func MigrateShardedLogs(db *gorm.DB) error {
 			if err := db.Table(shard).Migrator().CreateTable(&Log{}); err != nil {
 				return fmt.Errorf("create shard %s: %w", shard, err)
 			}
-			
+
 			// 如果是MySQL，确保表使用utf8mb4字符集
 			if common.UsingMySQL {
 				if err := db.Exec(fmt.Sprintf("ALTER TABLE `%s` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", shard)).Error; err != nil {
