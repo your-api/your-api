@@ -11,7 +11,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.7.4
 	github.com/bytedance/gopkg v0.0.0-20220118071334-3db87571198b
-	github.com/bytedance/sonic v1.11.6
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-contrib/sessions v0.0.5
@@ -29,6 +28,7 @@ require (
 	github.com/samber/lo v1.39.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shopspring/decimal v1.4.0
+	github.com/steambap/captcha v1.4.1
 	golang.org/x/crypto v0.35.0
 	golang.org/x/image v0.23.0
 	golang.org/x/net v0.35.0
@@ -43,6 +43,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.5 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.5 // indirect
 	github.com/aws/smithy-go v1.20.2 // indirect
+	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
@@ -58,6 +59,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect

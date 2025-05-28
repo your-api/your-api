@@ -23,6 +23,12 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.TryUserAuth(), controller.GetPricing)
+		
+		// 图片验证码相关路由
+		apiRouter.GET("/captcha/image", middleware.CriticalRateLimit(), controller.GenerateImageCaptcha)
+		apiRouter.GET("/captcha/image/base64", middleware.CriticalRateLimit(), controller.GenerateImageCaptchaBase64)
+		apiRouter.GET("/captcha/verify", controller.VerifyImageCaptchaAPI)
+		
 		apiRouter.GET("/verification", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), controller.ResetPassword)

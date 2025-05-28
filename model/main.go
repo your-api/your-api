@@ -260,11 +260,11 @@ func migrateDB() error {
 	}
 
 	// 修复现有表的字符集问题
-	err = FixCharsetForExistingTables(DB)
-	if err != nil {
-		common.SysError("修复数据库字符集时出现错误: " + err.Error())
-		// 不返回错误，因为这不应该阻止系统启动
-	}
+	//err = FixCharsetForExistingTables(DB)
+	//if err != nil {
+	//	common.SysError("修复数据库字符集时出现错误: " + err.Error())
+	//	// 不返回错误，因为这不应该阻止系统启动
+	//}
 
 	common.SysLog("database migrated")
 	//err = createRootAccountIfNeed()

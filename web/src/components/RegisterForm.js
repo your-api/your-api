@@ -29,6 +29,7 @@ import {
 import OIDCIcon from './OIDCIcon.js';
 import LinuxDoIcon from './LinuxDoIcon.js';
 import WeChatIcon from './WeChatIcon.js';
+import ImageCaptcha from './ImageCaptcha.js';
 import TelegramLoginButton from 'react-telegram-login/src';
 import { setUserData } from '../helpers/data.js';
 import { UserContext } from '../context/User/index.js';
@@ -52,6 +53,8 @@ const RegisterForm = () => {
   const [loading, setLoading] = useState(false);
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
   const [status, setStatus] = useState({});
+  const [imageCaptchaData, setImageCaptchaData] = useState(null);
+  const [showImageCaptcha, setShowImageCaptcha] = useState(false);
   let navigate = useNavigate();
   const logo = getLogo();
 
@@ -137,23 +140,66 @@ const RegisterForm = () => {
     }
   }
 
-  const sendVerificationCode = async () => {
+  // 处理图片验证码验证成功
+  const handleImageCaptchaVerified = (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowImageCaptcha(false);
+    showSuccess('图片验证码验证成功！');
+    // 验证成功后自动发送邮箱验证码
+    sendEmailVerificationAfterCaptcha(captchaData);
+  };
+
+  // 图片验证码验证失败或错误
+  const handleImageCaptchaError = (error) => {
+    console.error('图片验证码错误:', error);
+    setImageCaptchaData(null);
+    // 重新显示验证码对话框
+    setShowImageCaptcha(true);
+  };
+
+  // 发送邮箱验证码（在图片验证码验证成功后）
+  const sendEmailVerificationAfterCaptcha = async (captchaData) => {
     if (inputs.email === '') return;
     if (turnstileEnabled && turnstileToken === '') {
       showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
       return;
     }
     setLoading(true);
-    const res = await API.get(
-      `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
-    );
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess('验证码发送成功，请检查你的邮箱！');
-    } else {
-      showError(message);
+    try {
+      const res = await API.get(
+        `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}&image_captcha_id=${captchaData.captcha_id}&image_captcha_code=${captchaData.captcha_code}`,
+      );
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess('验证码发送成功，请检查你的邮箱！');
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo('请重新完成图片验证码验证');
+          setImageCaptchaData(null);
+          setShowImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      showError('发送验证码失败，请重试');
+      // 网络错误时也提示重新验证
+      showInfo('请重新完成图片验证码验证');
+      setImageCaptchaData(null);
+      setShowImageCaptcha(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  // 点击获取验证码按钮
+  const sendVerificationCode = async () => {
+    if (inputs.email === '') {
+      showError('请先输入邮箱地址');
+      return;
+    }
+    // 显示图片验证码模态框
+    setShowImageCaptcha(true);
   };
 
   const onTelegramLoginClicked = async (response) => {
@@ -367,6 +413,28 @@ const RegisterForm = () => {
                   <></>
                 )}
               </Card>
+
+              {/* 图片验证码模态框 */}
+              <Modal
+                title={t('请完成图片验证码验证')}
+                visible={showImageCaptcha}
+                onCancel={() => setShowImageCaptcha(false)}
+                footer={null}
+                width={400}
+                centered
+              >
+                <div style={{ padding: '20px 0' }}>
+                  <p style={{ marginBottom: '20px', textAlign: 'center', color: '#666' }}>
+                    {t('为了防止恶意操作，请先完成图片验证码验证')}
+                  </p>
+                  <ImageCaptcha
+                    onVerified={handleImageCaptchaVerified}
+                    onError={handleImageCaptchaError}
+                    style={{ display: 'flex', justifyContent: 'center' }}
+                  />
+                </div>
+              </Modal>
+
               <Modal
                 title={t('微信扫码登录')}
                 visible={showWeChatLoginModal}

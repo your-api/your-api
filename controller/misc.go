@@ -125,6 +125,26 @@ func GetHomePageContent(c *gin.Context) {
 
 func SendEmailVerification(c *gin.Context) {
 	email := c.Query("email")
+	imageCaptchaId := c.Query("image_captcha_id")
+	imageCaptchaCode := c.Query("image_captcha_code")
+
+	// 验证图片验证码
+	if imageCaptchaId != "" && imageCaptchaCode != "" {
+		if !VerifyImageCaptcha(imageCaptchaId, imageCaptchaCode) {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "图片验证码错误或已过期",
+			})
+			return
+		}
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "请先完成图片验证码验证",
+		})
+		return
+	}
+
 	if err := common.Validate.Var(email, "required,email"); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
