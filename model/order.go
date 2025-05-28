@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"one-api/common"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // OrderInfo 表示订单信息的数据库结构体
@@ -65,20 +67,55 @@ func CompleteOrder(outTradeNo string) error {
 		return err
 	}
 
-	// 更新用户token
+	// 开始事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+
+	// 更新用户额度
 	user.Quota += (int)(order.GetAmount * common.QuotaPerUnit)
-	if err := DB.Save(&user).Error; err != nil {
+	user.PayCount++
+	if err := tx.Save(&user).Error; err != nil {
 		return errors.New("订单失败: " + err.Error())
 	}
 
-	// 更新状态和消息
-	order.Status = 2
+	// 处理邀请充值返利：用户前三次充值时给邀请者返利
+	if user.InviterId > 0 && user.PayCount <= 3 {
+		// 计算返利额度：充值额度的5%
+		commissionQuota := int(float64(order.GetAmount * common.QuotaPerUnit) * 0.05)
+		
+		// 给邀请者分配返利
+		if commissionQuota > 0 {
+			err = tx.Model(&User{}).
+				Where("id = ?", user.InviterId).
+				Update("reward_quota", gorm.Expr("reward_quota + ?", commissionQuota)).Error
+			if err != nil {
+				return fmt.Errorf("分配邀请充值返利失败: %v", err)
+			}
+			
+			// 记录邀请者的返利日志
+			RecordLog(user.InviterId, LogTypeSystem, 
+				fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)", 
+					common.LogQuota(commissionQuota), user.Username, user.PayCount))
+		}
+	}
 
+	// 更新订单状态
+	order.Status = 2
+	if err := tx.Save(&order).Error; err != nil {
+		return errors.New("更新订单状态失败: " + err.Error())
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 记录用户充值日志
 	RecordLog(order.UserId, LogTypeTopup,
 		fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%v", int(order.GetAmount), int(order.PayAmount)))
 
-	if err := DB.Save(&order).Error; err != nil {
-		return errors.New("更新订单状态失败: " + err.Error())
-	}
 	return nil
 }

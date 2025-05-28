@@ -869,7 +869,7 @@ const TopUp = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 my-auto">{t('邀请返利')}</h3>
+                        <h3 className="text-xl font-bold text-gray-900 my-auto">{t('邀请充值返利')}</h3>
                       </div>
                     </div>
                     
@@ -880,7 +880,8 @@ const TopUp = () => {
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">{t('正在提现收益')}</span>
+                        <span className="text-sm font-medium text-gray-700">{t('正在提现' +
+                            '收益')}</span>
                         <span className="text-xl font-bold text-purple-700">$0.00</span>
                       </div>
                       
@@ -888,11 +889,7 @@ const TopUp = () => {
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
                         <span className="text-sm font-bold text-gray-900">$0.00</span>
                       </div>
-                      
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">{t('邀请人数')}</span>
-                        <span className="text-sm font-bold text-gray-900">0</span>
-                      </div>
+
                       
                       <div className="pt-3 space-y-3">
                         <Button

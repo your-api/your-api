@@ -35,11 +35,12 @@ type User struct {
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
-	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`              // 邀请剩余额度
-	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"`    // 邀请历史额度
-	PayCount         int            `json:"pay_count" gorm:"type:int;default:0;column:pay_count"`              // 用户充值的次数，用于前几次奖励使用
-	WithdrawedQuota  int            `json:"withdrawed_quota" gorm:"type:int;default:0;column:withdraw_quota"`  // 已提现的额度
-	WithdrawingQuota int            `json:"withdrawing_quota" gorm:"type:int;default:0;column:withdraw_quota"` // 邀请新用户奖励的提现额度
+	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`                 // 邀请剩余额度
+	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"`       // 邀请历史额度
+	PayCount         int            `json:"pay_count" gorm:"type:int;default:0;column:pay_count"`                 // 用户充值的次数，用于前几次奖励使用
+	RewardQuota      int            `json:"reward_quota" gorm:"type:int;default:0;column:reward_quota"`           // 邀请新用户充值奖励的额度
+	WithdrawedQuota  int            `json:"withdrawed_quota" gorm:"type:int;default:0;column:withdraw_quota"`     // 已提现的额度
+	WithdrawingQuota int            `json:"withdrawing_quota" gorm:"type:int;default:0;column:withdrawing_quota"` // 邀请新用户充值奖励的提现额度
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
@@ -296,6 +297,105 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 	user.Quota += quota
 
 	// 保存用户状态
+	if err := tx.Save(user).Error; err != nil {
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
+}
+
+// TransferWithdrawingQuotaToQuota 将邀请充值返利待使用收益转移到余额
+func (user *User) TransferWithdrawingQuotaToQuota(quota int) error {
+	// 检查quota是否小于最小额度
+	if float64(quota) < common.QuotaPerUnit {
+		return fmt.Errorf("转移额度最小为%s！", common.LogQuota(int(common.QuotaPerUnit)))
+	}
+
+	// 开始数据库事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback() // 确保在函数退出时事务能回滚
+
+	// 加锁查询用户以确保数据一致性
+	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
+	if err != nil {
+		return err
+	}
+
+	// 计算待使用收益（RewardQuota - WithdrawedQuota）
+	availableQuota := user.RewardQuota - user.WithdrawedQuota
+	if availableQuota < quota {
+		return errors.New("邀请充值返利待使用收益不足！")
+	}
+
+	// 增加已提现额度，减少待使用收益，增加用户余额
+	user.WithdrawedQuota += quota
+	user.Quota += quota
+
+	// 保存用户状态
+	if err := tx.Save(user).Error; err != nil {
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
+}
+
+// WithdrawCommissionQuota 申请提现邀请充值返利额度
+func (user *User) WithdrawCommissionQuota(quota int, alipayAccount, contact string) error {
+	// 检查quota是否达到最小提现额度（十块钱）
+	minWithdrawQuota := int(common.QuotaPerUnit * 10) // 10块钱
+	if quota < minWithdrawQuota {
+		return fmt.Errorf("提现额度最小为%s！", common.LogQuota(minWithdrawQuota))
+	}
+
+	// 检查必填信息
+	if alipayAccount == "" {
+		return errors.New("支付宝账号不能为空！")
+	}
+	if contact == "" {
+		return errors.New("联系方式不能为空！")
+	}
+
+	// 开始数据库事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback() // 确保在函数退出时事务能回滚
+
+	// 加锁查询用户以确保数据一致性
+	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
+	if err != nil {
+		return err
+	}
+
+	// 计算可提现金额（RewardQuota - WithdrawedQuota - WithdrawingQuota）
+	availableQuota := user.RewardQuota - user.WithdrawedQuota - user.WithdrawingQuota
+	if availableQuota < quota {
+		return errors.New("可提现金额不足！")
+	}
+
+	// 检查是否有待处理的提现申请
+	hasPending, err := IsUserHasPendingWithdraw(user.Id)
+	if err != nil {
+		return err
+	}
+	if hasPending {
+		return errors.New("您还有待处理的提现申请，请等待处理完成后再申请！")
+	}
+
+	// 创建提现申请记录
+	_, err = CreateWithdrawHistory(user.Id, quota, alipayAccount, contact)
+	if err != nil {
+		return err
+	}
+
+	// 增加正在提现的额度
+	user.WithdrawingQuota += quota
 	if err := tx.Save(user).Error; err != nil {
 		return err
 	}

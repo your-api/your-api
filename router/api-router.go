@@ -72,6 +72,9 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/pay", controller.RequestEpay)
 				selfRoute.POST("/amount", controller.RequestAmount)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
+				selfRoute.POST("/commission_transfer", controller.TransferCommissionQuota)
+				selfRoute.POST("/commission_withdraw", controller.WithdrawCommissionQuota)
+				selfRoute.GET("/withdraw_status", controller.GetWithdrawStatus)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 				
 				// 签到相关路由

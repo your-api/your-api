@@ -81,6 +81,16 @@ const PersonalSetting = () => {
   const [isModelsExpanded, setIsModelsExpanded] = useState(false);
   const MODELS_DISPLAY_COUNT = 10;
 
+  // 新增状态变量
+  const [openCommissionTransfer, setOpenCommissionTransfer] = useState(false);
+  const [openCommissionWithdraw, setOpenCommissionWithdraw] = useState(false);
+  const [commissionTransferAmount, setCommissionTransferAmount] = useState(0);
+  const [commissionWithdrawAmount, setCommissionWithdrawAmount] = useState(0);
+  const [withdrawAlipayAccount, setWithdrawAlipayAccount] = useState('');
+  const [withdrawContact, setWithdrawContact] = useState('');
+  const [pendingWithdrawQuota, setPendingWithdrawQuota] = useState(0);
+  const [withdrawHistory, setWithdrawHistory] = useState([]);
+
   useEffect(() => {
     let status = localStorage.getItem('status');
     if (status) {
@@ -94,7 +104,10 @@ const PersonalSetting = () => {
     getUserData();
     loadModels();
     getAffLink();
+    getWithdrawStatus();
     setTransferAmount(getQuotaPerUnit());
+    setCommissionTransferAmount(getQuotaPerUnit());
+    setCommissionWithdrawAmount(getQuotaPerUnit() * 10);
   }, []);
 
   useEffect(() => {
@@ -206,6 +219,72 @@ const PersonalSetting = () => {
       return userState.user.username;
     } else {
       return 'null';
+    }
+  };
+
+  // 新增邀请充值返利划转方法
+  const commissionTransfer = async () => {
+    if (commissionTransferAmount < getQuotaPerUnit()) {
+      showError(t('划转金额最低为') + ' ' + renderQuota(getQuotaPerUnit()));
+      return;
+    }
+    const res = await API.post(`/api/user/commission_transfer`, {
+      quota: commissionTransferAmount,
+    });
+    const { success, message } = res.data;
+    if (success) {
+      showSuccess(message);
+      setOpenCommissionTransfer(false);
+      getUserData();
+      getWithdrawStatus();
+    } else {
+      showError(message);
+    }
+  };
+
+  // 新增邀请充值返利提现方法
+  const commissionWithdraw = async () => {
+    if (commissionWithdrawAmount < getQuotaPerUnit() * 10) { // 最少十块钱
+      showError(t('提现金额最低为') + ' ' + renderQuota(getQuotaPerUnit() * 10));
+      return;
+    }
+    if (!withdrawAlipayAccount) {
+      showError(t('请输入支付宝账号'));
+      return;
+    }
+    if (!withdrawContact) {
+      showError(t('请输入联系方式'));
+      return;
+    }
+    const res = await API.post(`/api/user/commission_withdraw`, {
+      quota: commissionWithdrawAmount,
+      alipay_account: withdrawAlipayAccount,
+      contact: withdrawContact,
+    });
+    const { success, message } = res.data;
+    if (success) {
+      showSuccess(message);
+      setOpenCommissionWithdraw(false);
+      setWithdrawAlipayAccount('');
+      setWithdrawContact('');
+      getUserData();
+      getWithdrawStatus();
+    } else {
+      showError(message);
+    }
+  };
+
+  // 获取提现状态
+  const getWithdrawStatus = async () => {
+    try {
+      const res = await API.get('/api/user/withdraw_status');
+      const { success, data } = res.data;
+      if (success) {
+        setPendingWithdrawQuota(data.pending_quota || 0);
+        setWithdrawHistory(data.withdraws || []);
+      }
+    } catch (error) {
+      console.error('获取提现状态失败:', error);
     }
   };
 
@@ -441,36 +520,49 @@ const PersonalSetting = () => {
                     </div>
 
                     <div className="space-y-4">
+                      {/* 调试信息 */}
+                      <div style={{ fontSize: '12px', color: '#999', marginBottom: '10px' }}>
+                        Debug: reward_quota={userState?.user?.reward_quota}, withdrawed_quota={userState?.user?.withdrawed_quota}, withdrawing_quota={userState?.user?.withdrawing_quota}
+                      </div>
+                      
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('待使用收益')}</span>
-                        <span className="text-xl font-bold text-purple-700">$0.00</span>
+                        <span className="text-xl font-bold text-purple-700">
+{renderQuota(((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) - (userState?.user?.withdrawing_quota || 0))}                        </span>
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('正在提现收益')}</span>
-                        <span className="text-xl font-bold text-purple-700">$0.00</span>
+                        <span className="text-xl font-bold text-purple-700">
+                          {renderQuota(userState?.user?.withdrawing_quota || 0)}
+                        </span>
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
-                        <span className="text-sm font-bold text-gray-900">$0.00</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {renderQuota(userState?.user?.reward_quota || 0)}
+                        </span>
                       </div>
 
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('邀请人数')}</span>
-                        <span className="text-sm font-bold text-gray-900">0</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {userState?.user?.aff_count || 0}
+                        </span>
                       </div>
 
                       <div className="pt-3 space-y-3">
                         <Button
                           type="primary"
                           theme="solid"
-                          disabled={true}
+                          onClick={() => setOpenCommissionTransfer(true)}
+                          disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
                           style={{
                             backgroundColor: '#7c3aed',
                             borderColor: '#7c3aed',
-                            opacity: 0.6
+                            opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0) ? 0.6 : 1
                           }}
                         >
                           <div className="inline-flex items-center justify-center">
@@ -483,12 +575,13 @@ const PersonalSetting = () => {
                         <Button
                           type="tertiary"
                           theme="solid"
-                          disabled={true}
+                          onClick={() => setOpenCommissionWithdraw(true)}
+                          disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
                           style={{
                             backgroundColor: '#ea580c',
                             borderColor: '#ea580c',
-                            opacity: 0.6
+                            opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10) ? 0.6 : 1
                           }}
                         >
                           <div className="inline-flex items-center justify-center">
@@ -563,6 +656,60 @@ const PersonalSetting = () => {
               <TabPane tab={t('签到日历')} itemKey='checkin'>
                 <CheckInCalendar />
               </TabPane>
+              <TabPane tab={t('提现记录')} itemKey='withdraw'>
+                <div style={{ marginTop: 20 }}>
+                  {withdrawHistory.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '50px 0', color: '#999' }}>
+                      {t('暂无提现记录')}
+                    </div>
+                  ) : (
+                    <div>
+                      {withdrawHistory.map((withdraw) => (
+                        <Card 
+                          key={withdraw.id} 
+                          style={{ marginBottom: 16 }}
+                          bodyStyle={{ padding: '16px' }}
+                        >
+                          <Descriptions row>
+                            <Descriptions.Item itemKey={t('提现金额')}>
+                              {renderQuota(withdraw.withdraw_quota)}
+                            </Descriptions.Item>
+                            <Descriptions.Item itemKey={t('状态')}>
+                              <Tag 
+                                color={
+                                  withdraw.withdraw_status === 0 ? 'orange' :
+                                  withdraw.withdraw_status === 1 ? 'blue' :
+                                  withdraw.withdraw_status === 2 ? 'red' :
+                                  withdraw.withdraw_status === 3 ? 'green' : 'default'
+                                }
+                              >
+                                {withdraw.withdraw_status === 0 ? t('待处理') :
+                                 withdraw.withdraw_status === 1 ? t('已通过') :
+                                 withdraw.withdraw_status === 2 ? t('已拒绝') :
+                                 withdraw.withdraw_status === 3 ? t('已支付') : t('未知')}
+                              </Tag>
+                            </Descriptions.Item>
+                            <Descriptions.Item itemKey={t('申请时间')}>
+                              {new Date(withdraw.create_time).toLocaleString()}
+                            </Descriptions.Item>
+                            <Descriptions.Item itemKey={t('支付宝账号')}>
+                              {withdraw.alipay_account}
+                            </Descriptions.Item>
+                            <Descriptions.Item itemKey={t('联系方式')}>
+                              {withdraw.contact}
+                            </Descriptions.Item>
+                            {withdraw.admin_comment && (
+                              <Descriptions.Item itemKey={t('管理员备注')}>
+                                {withdraw.admin_comment}
+                              </Descriptions.Item>
+                            )}
+                          </Descriptions>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabPane>
               <TabPane tab={t('个人设置')} itemKey='settings'>
                 <div style={{ marginTop: 20 }}>
                   <Button onClick={generateAccessToken}>
@@ -617,6 +764,107 @@ const PersonalSetting = () => {
                   disabled={false}
                 />
               </div>
+            </div>
+          </Modal>
+
+          {/* 邀请充值返利划转模态框 */}
+          <Modal
+            title={t('请输入要划转的数量')}
+            visible={openCommissionTransfer}
+            onOk={commissionTransfer}
+            onCancel={() => setOpenCommissionTransfer(false)}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>
+                {t('可用额度')}
+                {renderQuotaWithPrompt((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0))}
+              </Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                value={renderQuota((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0))}
+                disabled={true}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>
+                {t('划转额度')}
+                {renderQuotaWithPrompt(commissionTransferAmount)}{' '}
+                {t('最低') + renderQuota(getQuotaPerUnit())}
+              </Typography.Text>
+              <div>
+                <InputNumber
+                  min={0}
+                  style={{ marginTop: 5 }}
+                  value={commissionTransferAmount}
+                  onChange={(value) => setCommissionTransferAmount(value)}
+                  disabled={false}
+                />
+              </div>
+            </div>
+          </Modal>
+
+          {/* 邀请充值返利提现模态框 */}
+          <Modal
+            title={t('申请提现')}
+            visible={openCommissionWithdraw}
+            onOk={commissionWithdraw}
+            onCancel={() => setOpenCommissionWithdraw(false)}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>
+                {t('可提现额度')}
+                {renderQuotaWithPrompt((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0))}
+              </Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                value={renderQuota((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0))}
+                disabled={true}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>
+                {t('提现额度')}
+                {renderQuotaWithPrompt(commissionWithdrawAmount)}{' '}
+                {t('最低') + renderQuota(getQuotaPerUnit() * 10)}
+              </Typography.Text>
+              <div>
+                <InputNumber
+                  min={0}
+                  style={{ marginTop: 5 }}
+                  value={commissionWithdrawAmount}
+                  onChange={(value) => setCommissionWithdrawAmount(value)}
+                  disabled={false}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>{t('支付宝账号')} *</Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                placeholder={t('请输入支付宝账号（邮箱或手机号）')}
+                value={withdrawAlipayAccount}
+                onChange={(value) => setWithdrawAlipayAccount(value)}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text>{t('联系方式')} *</Typography.Text>
+              <Input
+                style={{ marginTop: 5 }}
+                placeholder={t('请输入您的联系方式（微信/QQ/手机号）')}
+                value={withdrawContact}
+                onChange={(value) => setWithdrawContact(value)}
+              />
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                {t('提现将转入您的支付宝账户，处理时间为1-3个工作日，请确保信息准确无误')}
+              </Typography.Text>
             </div>
           </Modal>
         </Layout.Content>
