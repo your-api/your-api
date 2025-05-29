@@ -33,6 +33,11 @@ type ModelDescription struct {
 	Description string `json:"description"`
 }
 
+type DiscountTier struct {
+	MinAmount float64 `json:"min_amount"`
+	Rate      float64 `json:"rate"`
+}
+
 // 默认配置
 var generalSetting = GeneralSetting{
 	DocsLink:            "https://openai.apifox.cn",
@@ -104,6 +109,17 @@ var (
 )
 
 var (
+	DiscountTiers = []DiscountTier{
+		{MinAmount: 10, Rate: 0.98},  // 满 10 元享 9.8 折 —— “10 元套餐”，小额加购引导
+		{MinAmount: 99, Rate: 0.96},  // 满 99 元享 9.6 折 —— “不到百元”尾数定价
+		{MinAmount: 199, Rate: 0.94}, // 满 199 元享 9.4 折 —— 中档跃层，省幅度明显
+		{MinAmount: 499, Rate: 0.92}, // 满 499 元享 9.2 折 —— 大额门槛＋锁定高客单
+		{MinAmount: 999, Rate: 0.90}, // 满 999 元享 9 折 —— 最高折扣，锚定最优价值
+	}
+	discountTiersMutex = sync.RWMutex{}
+)
+
+var (
 	ModelDescriptions = map[string]string{
 		"gpt-4o-mini": "GPT-4o-Mini是OpenAI最新推出的多模态模型，支持文本、图像和音频输入，适用于多种应用场景。",
 		"gpt-4o":      "GPT-4o是OpenAI最新推出的多模态模型，支持文本、图像和音频输入，适用于多种应用场景。",
@@ -128,6 +144,20 @@ var (
 	imageReadProxyMutex = sync.RWMutex{}
 )
 
+func GetDiscountRateForOrder(amount float64) float64 {
+	// 按金额从大到小排序（确保逻辑正确）
+	//sort.Slice(DiscountTiers, func(i, j int) bool {
+	//	return DiscountTiers[i].MinAmount > DiscountTiers[j].MinAmount
+	//})
+
+	for _, tier := range DiscountTiers {
+		if amount >= tier.MinAmount {
+			return tier.Rate
+		}
+	}
+	return 1.0 // 无折扣
+}
+
 func init() {
 	// 注册到全局配置管理器
 	config.GlobalConfig.Register("general_setting", &generalSetting)
@@ -135,6 +165,28 @@ func init() {
 
 func GetCustomNavLinks() []CustomNavLink {
 	return CustomNavLinks
+}
+
+func GetDiscountTiers() []DiscountTier {
+	return DiscountTiers
+}
+
+func UpdateDiscountTiers(jsonStr string) error {
+	discountTiersMutex.Lock()
+	defer discountTiersMutex.Unlock()
+
+	// 创建临时变量
+	var newDiscountTiers []DiscountTier
+
+	// 反序列化到临时变量
+	err := json.Unmarshal([]byte(jsonStr), &newDiscountTiers)
+	if err != nil {
+		return err
+	}
+
+	// 更新全局变量
+	DiscountTiers = newDiscountTiers
+	return nil
 }
 
 func UpdateCustomNavLinks(jsonStr string) error {

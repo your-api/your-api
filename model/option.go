@@ -388,6 +388,8 @@ func updateOptionMap(key string, value string) (err error) {
 		operation_setting.UpdateImageReadProxy(value)
 	case "CustemNavLinks":
 		operation_setting.UpdateCustomNavLinks(value)
+	case "UpdateDiscountTiers":
+		operation_setting.UpdateDiscountTiers(value)
 
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)

@@ -33,6 +33,16 @@ func GetCustomNavLinks(c *gin.Context) {
 	return
 }
 
+func GetDiscountTiers(c *gin.Context) {
+	disCountTiers := operation_setting.GetDiscountTiers()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    disCountTiers,
+	})
+	return
+}
+
 func GetAdvantages(c *gin.Context) {
 	advantages := operation_setting.GetAdvantages()
 	c.JSON(http.StatusOK, gin.H{

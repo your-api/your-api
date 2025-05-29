@@ -13,25 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"one-api/model"
+	"one-api/setting/operation_setting"
 )
 
 // 根据充值金额计算折扣
 func getDiscountRateForOrder(amount float64) float64 {
-	// 金额已经是元为单位
-	if amount >= 1000 {
-		return 0.93 // 93折
-	} else if amount >= 500 {
-		return 0.95 // 95折
-	} else if amount >= 200 {
-		return 0.96 // 96折
-	} else if amount >= 100 {
-		return 0.97 // 97折
-	} else if amount >= 50 {
-		return 0.98 // 98折
-	} else if amount >= 10 {
-		return 0.99 // 99折
-	}
-	return 1.0 // 无折扣
+	return operation_setting.GetDiscountRateForOrder(amount)
 }
 
 // 计算实际到账金额
@@ -44,7 +31,7 @@ func getCreditAmountForOrder(amount float64, group string) float64 {
 func getDiscountPayAmountForOrder(amount float64, group string) float64 {
 	// 获取折扣率
 	discountRate := getDiscountRateForOrder(amount)
-	
+
 	// 计算折扣后的支付金额，保留2位小数
 	result := amount * discountRate
 	return math.Round(result*100) / 100
@@ -131,14 +118,14 @@ func GetOrderInfo(c *gin.Context) {
 		respondError(c, "获取用户分组失败")
 		return
 	}
-	
+
 	// 直接使用请求金额进行折扣计算（元为单位）
 	discountPayAmount := getDiscountPayAmountForOrder(req.Amount, group)
 	creditAmount := getCreditAmountForOrder(req.Amount, group)
-	
+
 	// 修改请求金额为折扣后的金额，传递给支付网关
 	req.Amount = discountPayAmount
-	
+
 	// 调用支付服务
 	td, err := fetchTrade(c.Request.Context(), &req)
 	if err != nil {

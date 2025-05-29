@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
+	"one-api/setting/operation_setting"
 )
 
 type EpayRequest struct {
@@ -261,7 +262,7 @@ func EpayNotify(c *gin.Context) {
 			if user.InviterId > 0 && user.PayCount <= 3 {
 				// 计算返利额度：充值额度的5%
 				commissionQuota := int(float64(quotaToAdd) * 0.05)
-				
+
 				// 给邀请者分配返利
 				if commissionQuota > 0 {
 					err = tx.Model(&model.User{}).
@@ -271,10 +272,10 @@ func EpayNotify(c *gin.Context) {
 						log.Printf("易支付回调分配邀请充值返利失败: %v", err)
 						return
 					}
-					
+
 					// 记录邀请者的返利日志
-					model.RecordLog(user.InviterId, model.LogTypeSystem, 
-						fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)", 
+					model.RecordLog(user.InviterId, model.LogTypeSystem,
+						fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)",
 							common.LogQuota(commissionQuota), user.Username, user.PayCount))
 				}
 			}
@@ -295,21 +296,7 @@ func EpayNotify(c *gin.Context) {
 
 // 新增：根据充值金额计算折扣
 func getDiscountRate(amount float64) float64 {
-	// 金额已经是元为单位
-	if amount >= 1000 {
-		return 0.93 // 93折
-	} else if amount >= 500 {
-		return 0.95 // 95折
-	} else if amount >= 200 {
-		return 0.96 // 96折
-	} else if amount >= 100 {
-		return 0.97 // 97折
-	} else if amount >= 50 {
-		return 0.98 // 98折
-	} else if amount >= 10 {
-		return 0.99 // 99折
-	}
-	return 1.0 // 无折扣
+	return operation_setting.GetDiscountRateForOrder(amount)
 }
 
 // 新增：计算实际到账金额
@@ -337,10 +324,10 @@ func getDiscountPayAmount(amount float64, group string) float64 {
 	dPrice := decimal.NewFromFloat(setting.Price)
 
 	originalPayMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio)
-	
+
 	// 获取折扣率
 	discountRate := getDiscountRate(amount)
-	
+
 	// 返回折扣后的支付金额，保留2位小数
 	result := originalPayMoney.InexactFloat64() * discountRate
 	return math.Round(result*100) / 100
@@ -372,23 +359,23 @@ func RequestAmount(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "error", "data": "获取用户分组失败"})
 		return
 	}
-	
+
 	// 计算折扣后的支付金额
 	discountPayMoney := getDiscountPayAmount(req.Amount, group)
 	if discountPayMoney <= 0.01 {
 		c.JSON(200, gin.H{"message": "error", "data": "充值金额过低"})
 		return
 	}
-	
+
 	// 计算折扣率和实际到账金额
 	discountRate := getDiscountRate(req.Amount)
 	creditAmount := getCreditAmount(req.Amount, group) // 到账金额就是原价
-	
+
 	response := AmountResponse{
-		PayAmount:    discountPayMoney,  // 折扣后的支付金额
-		CreditAmount: creditAmount,      // 原价额度
+		PayAmount:    discountPayMoney, // 折扣后的支付金额
+		CreditAmount: creditAmount,     // 原价额度
 		Discount:     discountRate,
 	}
-	
+
 	c.JSON(200, gin.H{"message": "success", "data": response})
 }

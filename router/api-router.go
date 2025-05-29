@@ -23,12 +23,12 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.TryUserAuth(), controller.GetPricing)
-		
+
 		// 图片验证码相关路由
 		apiRouter.GET("/captcha/image", middleware.CriticalRateLimit(), controller.GenerateImageCaptcha)
 		apiRouter.GET("/captcha/image/base64", middleware.CriticalRateLimit(), controller.GenerateImageCaptchaBase64)
 		apiRouter.GET("/captcha/verify", controller.VerifyImageCaptchaAPI)
-		
+
 		apiRouter.GET("/verification", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), controller.ResetPassword)
@@ -76,7 +76,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/commission_withdraw", controller.WithdrawCommissionQuota)
 				selfRoute.GET("/withdraw_status", controller.GetWithdrawStatus)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
-				
+
 				// 签到相关路由
 				selfRoute.POST("/check_in", controller.CheckInUser)
 				selfRoute.GET("/check_in/status", controller.GetCheckInStatus)
@@ -102,6 +102,7 @@ func SetApiRouter(router *gin.Engine) {
 		optionRoute.GET("/getTypingList", middleware.TryUserAuth(), controller.GetTypingList)
 		optionRoute.GET("/getModelDescriptions", middleware.TryUserAuth(), controller.GetModelDescriptions)
 		optionRoute.GET("/getCustomNavLinks", middleware.TryUserAuth(), controller.GetCustomNavLinks)
+		optionRoute.GET("/getDiscountTiers", middleware.TryUserAuth(), controller.GetDiscountTiers)
 
 		optionRoute.Use(middleware.RootAuth())
 		{
