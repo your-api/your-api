@@ -882,46 +882,12 @@ const TopUp = () => {
               {t('当前余额')}
             </Title>
             <div style={{ fontSize: 24, color: 'var(--semi-color-text-0)' }}>
-              {renderQuotaWithAmount(userQuota)}
+              {/*{renderQuotaWithAmount(userQuota)}*/}
+              {renderQuota(userQuota)}
             </div>
           </Card>
 
-          {/* 兑换码充值 */}
-          <Card
-            style={{
-              marginBottom: isMobile() ? 20 : 24,
-            }}
-          >
-            <Title level={3}>{t('兑换')}</Title>
-            <div style={{ marginTop: 10 }}>
-              <Typography.Text style={{ fontSize: 16 }}>
-                {t('请输入充值卡密进行充值')}
-              </Typography.Text>
-            </div>
-            <div style={{ marginTop: 20 }}>
-              <Form layout='horizontal' style={{ marginTop: 16 }}>
-                <Form.Section text={t('兑换卡密')}>
-                  <Form.Input
-                    label={t('卡密')}
-                    placeholder={t('请输入卡密')}
-                    name='redemptionCode'
-                    value={redemptionCode}
-                    onChange={(e) => setRedemptionCode(e)}
-                  />
-                  <Button
-                    theme='solid'
-                    type={'primary'}
-                    htmlType={'submit'}
-                    size='large'
-                    loading={isSubmitting}
-                    onClick={topUp}
-                  >
-                    {t('兑换')}
-                  </Button>
-                </Form.Section>
-              </Form>
-            </div>
-          </Card>
+
 
           {/* 在线充值 */}
           <Card
@@ -941,7 +907,7 @@ const TopUp = () => {
               </div>
               <Typography.Text style={{ fontSize: 16, color: '#666' }}>
                 {discountTiersLoaded && discountTiers.length > 0
-                  ? t('根据充值金额享受不同折扣，最高可享') + ' ' + Math.round((1 - Math.min(...discountTiers.map(tier => tier.rate || tier.Rate))) * 100) + t('折优惠')
+                  ? t('根据充值金额享受不同折扣，最高可享') + ' ' + Math.round((Math.min(...discountTiers.map(tier => tier.rate || tier.Rate))) * 100) + t('折优惠')
                   : t('选择充值金额，享受超值折扣优惠')
                 }
               </Typography.Text>
@@ -1210,6 +1176,43 @@ const TopUp = () => {
                   </Button>
                 </div>
               )}
+            </div>
+          </Card>
+
+          {/* 兑换码充值 */}
+          <Card
+              style={{
+                marginBottom: isMobile() ? 20 : 24,
+              }}
+          >
+            <Title level={3}>{t('兑换')}</Title>
+            <div style={{ marginTop: 10 }}>
+              <Typography.Text style={{ fontSize: 16 }}>
+                {t('请输入充值卡密进行充值')}
+              </Typography.Text>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Form layout='horizontal' style={{ marginTop: 16 }}>
+                <Form.Section text={t('兑换卡密')}>
+                  <Form.Input
+                      label={t('卡密')}
+                      placeholder={t('请输入卡密')}
+                      name='redemptionCode'
+                      value={redemptionCode}
+                      onChange={(e) => setRedemptionCode(e)}
+                  />
+                  <Button
+                      theme='solid'
+                      type={'primary'}
+                      htmlType={'submit'}
+                      size='large'
+                      loading={isSubmitting}
+                      onClick={topUp}
+                  >
+                    {t('兑换')}
+                  </Button>
+                </Form.Section>
+              </Form>
             </div>
           </Card>
 

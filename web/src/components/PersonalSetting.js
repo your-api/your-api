@@ -325,84 +325,84 @@ const PersonalSetting = () => {
                 </Space>
               </>
             }
-            footer={
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Typography.Title heading={6}>
-                    {t('可用模型')}
-                  </Typography.Title>
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  {models.length <= MODELS_DISPLAY_COUNT ? (
-                    <Space wrap>
-                      {models.map((model) => (
-                        <Tag
-                          key={model}
-                          color='cyan'
-                          onClick={() => {
-                            copyText(model);
-                          }}
-                        >
-                          {model}
-                        </Tag>
-                      ))}
-                    </Space>
-                  ) : (
-                    <>
-                      <Collapsible isOpen={isModelsExpanded}>
-                        <Space wrap>
-                          {models.map((model) => (
-                            <Tag
-                              key={model}
-                              color='cyan'
-                              onClick={() => {
-                                copyText(model);
-                              }}
-                            >
-                              {model}
-                            </Tag>
-                          ))}
-                          <Tag
-                            color='blue'
-                            type='light'
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setIsModelsExpanded(false)}
-                          >
-                            {t('收起')}
-                          </Tag>
-                        </Space>
-                      </Collapsible>
-                      {!isModelsExpanded && (
-                        <Space wrap>
-                          {models
-                            .slice(0, MODELS_DISPLAY_COUNT)
-                            .map((model) => (
-                              <Tag
-                                key={model}
-                                color='cyan'
-                                onClick={() => {
-                                  copyText(model);
-                                }}
-                              >
-                                {model}
-                              </Tag>
-                            ))}
-                          <Tag
-                            color='blue'
-                            type='light'
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setIsModelsExpanded(true)}
-                          >
-                            {t('更多')} {models.length - MODELS_DISPLAY_COUNT}{' '}
-                            {t('个模型')}
-                          </Tag>
-                        </Space>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            }
+            // footer={
+            //   <>
+            //     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            //       <Typography.Title heading={6}>
+            //         {t('可用模型')}
+            //       </Typography.Title>
+            //     </div>
+            //     <div style={{ marginTop: 10 }}>
+            //       {models.length <= MODELS_DISPLAY_COUNT ? (
+            //         <Space wrap>
+            //           {models.map((model) => (
+            //             <Tag
+            //               key={model}
+            //               color='cyan'
+            //               onClick={() => {
+            //                 copyText(model);
+            //               }}
+            //             >
+            //               {model}
+            //             </Tag>
+            //           ))}
+            //         </Space>
+            //       ) : (
+            //         <>
+            //           <Collapsible isOpen={isModelsExpanded}>
+            //             <Space wrap>
+            //               {models.map((model) => (
+            //                 <Tag
+            //                   key={model}
+            //                   color='cyan'
+            //                   onClick={() => {
+            //                     copyText(model);
+            //                   }}
+            //                 >
+            //                   {model}
+            //                 </Tag>
+            //               ))}
+            //               <Tag
+            //                 color='blue'
+            //                 type='light'
+            //                 style={{ cursor: 'pointer' }}
+            //                 onClick={() => setIsModelsExpanded(false)}
+            //               >
+            //                 {t('收起')}
+            //               </Tag>
+            //             </Space>
+            //           </Collapsible>
+            //           {!isModelsExpanded && (
+            //             <Space wrap>
+            //               {models
+            //                 .slice(0, MODELS_DISPLAY_COUNT)
+            //                 .map((model) => (
+            //                   <Tag
+            //                     key={model}
+            //                     color='cyan'
+            //                     onClick={() => {
+            //                       copyText(model);
+            //                     }}
+            //                   >
+            //                     {model}
+            //                   </Tag>
+            //                 ))}
+            //               <Tag
+            //                 color='blue'
+            //                 type='light'
+            //                 style={{ cursor: 'pointer' }}
+            //                 onClick={() => setIsModelsExpanded(true)}
+            //               >
+            //                 {t('更多')} {models.length - MODELS_DISPLAY_COUNT}{' '}
+            //                 {t('个模型')}
+            //               </Tag>
+            //             </Space>
+            //           )}
+            //         </>
+            //       )}
+            //     </div>
+            //   </>
+            // }
           >
             <Descriptions row>
               <Descriptions.Item itemKey={t('当前余额')}>

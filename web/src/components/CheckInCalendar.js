@@ -414,7 +414,7 @@ const CheckInCalendar = () => {
           <div className="space-y-2">
             <div className="flex items-center">
               <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-              {t('每日签到可随机获得 0.1~0.5 额度')}
+              {t('每日签到可随机获得 随机 额度')}
             </div>
             <div className="flex items-center">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
