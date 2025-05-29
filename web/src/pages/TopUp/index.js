@@ -65,10 +65,14 @@ const TopUp = () => {
   const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
   const [withdrawAlipayAccount, setWithdrawAlipayAccount] = useState('');
   const [withdrawContact, setWithdrawContact] = useState('');
+  // 新增：存储从后台获取的折扣层级
+  const [discountTiers, setDiscountTiers] = useState([]);
+  const [discountTiersLoaded, setDiscountTiersLoaded] = useState(false);
   const timerRef = useRef(null);
   const statusCheckRef = useRef(null);
 
-  const predefinedAmounts = [2, 10, 50, 100, 200, 500, 1000];
+  // 默认预设金额（将根据折扣层级动态调整）
+  const [predefinedAmounts, setPredefinedAmounts] = useState([10, 99, 199, 499, 999]);
   
   // 状态变量存储后端返回的金额信息
   const [amountInfo, setAmountInfo] = useState({
@@ -77,30 +81,67 @@ const TopUp = () => {
     discount: 0        // 折扣比例
   });
 
-  // 预设档位的折扣信息（仅用于前端显示）
-  const getDiscountInfo = (amount) => {
-    const discountMap = {
-      2: { rate: 1, label: null },      // 原价
-      10: { rate: 0.99, label: '99折' },
-      50: { rate: 0.98, label: '98折' },
-      100: { rate: 0.97, label: '97折' },
-      200: { rate: 0.96, label: '96折' },
-      500: { rate: 0.95, label: '95折' },
-      1000: { rate: 0.93, label: '93折' }
-    };
-    
-    // 对于自定义金额，计算最接近的折扣
-    if (!discountMap[amount]) {
-      if (amount >= 1000) return { rate: 0.93, label: '93折' };
-      if (amount >= 500) return { rate: 0.95, label: '95折' };
-      if (amount >= 200) return { rate: 0.96, label: '96折' };
-      if (amount >= 100) return { rate: 0.97, label: '97折' };
-      if (amount >= 50) return { rate: 0.98, label: '98折' };
-      if (amount >= 10) return { rate: 0.99, label: '99折' };
-      return { rate: 1, label: null };
+  // 获取折扣层级信息
+  const getDiscountTiers = async () => {
+    try {
+      const res = await API.get('/api/option/getDiscountTiers');
+      const { success, data } = res.data;
+      if (success && data && Array.isArray(data)) {
+        setDiscountTiers(data);
+        // 根据折扣层级更新预设金额
+        const amounts = data.map(tier => tier.min_amount || tier.MinAmount);
+        if (amounts.length > 0) {
+          setPredefinedAmounts(amounts);
+          // 设置默认选中金额为第一个，并获取对应的价格
+          if (!customAmount) {
+            const defaultAmount = amounts[0];
+            setSelectedAmount(defaultAmount);
+            // 获取默认金额的价格信息
+            setTimeout(() => {
+              getAmount(defaultAmount);
+            }, 100);
+          }
+        }
+        setDiscountTiersLoaded(true);
+      } else {
+        console.warn('折扣层级数据格式不正确:', data);
+        setDiscountTiersLoaded(true);
+      }
+    } catch (error) {
+      console.error('获取折扣层级失败:', error);
+      setDiscountTiersLoaded(true);
     }
-    
-    return discountMap[amount];
+  };
+
+  // 根据金额获取折扣信息（使用后台数据）
+  const getDiscountInfo = (amount) => {
+    if (!discountTiersLoaded || !discountTiers.length) {
+      // 如果还没加载完成，返回默认值
+      return { rate: 1, label: null, tier: null };
+    }
+
+    // 按最小金额倒序排序，找到适用的最高折扣
+    const sortedTiers = [...discountTiers].sort((a, b) => {
+      const aMin = a.min_amount || a.MinAmount;
+      const bMin = b.min_amount || b.MinAmount;
+      return bMin - aMin;
+    });
+
+    for (const tier of sortedTiers) {
+      const minAmount = tier.min_amount || tier.MinAmount;
+      const rate = tier.rate || tier.Rate;
+      
+      if (amount >= minAmount) {
+        const discount = Math.round((rate* 100));
+        return {
+          rate: rate,
+          label: discount > 0 ? `${discount}折` : null,
+          tier: tier
+        };
+      }
+    }
+
+    return { rate: 1, label: null, tier: null };
   };
 
   const topUp = async () => {
@@ -413,6 +454,8 @@ const TopUp = () => {
       //   setEnableOnlineTopUp(status.enable_online_topup);
       // }
     }
+    // 获取折扣层级信息
+    getDiscountTiers().then();
     getUserQuota().then();
     getAffLink().then();
     getWithdrawStatus().then();
@@ -890,11 +933,17 @@ const TopUp = () => {
               <div className="flex items-center justify-between mb-4">
                 <Title level={3} className="!mb-0">{t('在线充值')}</Title>
                 <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                  {t('充值越多折扣越大')}
+                  {discountTiersLoaded && discountTiers.length > 0 
+                    ? t('限时福利，阶梯折扣，充值越多越划算')
+                    : t('充值越多折扣越大')
+                  }
                 </div>
               </div>
               <Typography.Text style={{ fontSize: 16, color: '#666' }}>
-                {t('选择充值金额，享受超值折扣优惠')}
+                {discountTiersLoaded && discountTiers.length > 0
+                  ? t('根据充值金额享受不同折扣，最高可享') + ' ' + Math.round((1 - Math.min(...discountTiers.map(tier => tier.rate || tier.Rate))) * 100) + t('折优惠')
+                  : t('选择充值金额，享受超值折扣优惠')
+                }
               </Typography.Text>
             </div>
             
@@ -903,6 +952,7 @@ const TopUp = () => {
                 {predefinedAmounts.map((amount) => {
                   const discountInfo = getDiscountInfo(amount);
                   const isSelected = !customAmount && selectedAmount === amount;
+                  // 使用动态折扣计算实际支付金额
                   const estimatedPayAmount = Math.round(amount * discountInfo.rate * 100) / 100;
                   const estimatedSavings = amount - estimatedPayAmount;
                   
@@ -930,8 +980,8 @@ const TopUp = () => {
                           </div>
                         )}
                         
-                        {/* 推荐标签 */}
-                        {amount === 500 && (
+                        {/* 推荐标签 - 根据折扣层级动态判断 */}
+                        {discountInfo.tier && discountInfo.rate <= 0.92 && (
                           <div className="absolute -top-2 -left-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
                             {t('推荐')}
                           </div>
@@ -940,23 +990,23 @@ const TopUp = () => {
                         {/* 原价显示 */}
                         <div className="mb-2">
                           <div className="text-xs text-gray-500 mb-1">{t('原价')}</div>
-                          <div className="text-lg font-bold text-gray-400 line-through">
+                          <div className={`text-lg font-bold ${estimatedSavings > 0 ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                             ¥{amount}
                           </div>
                         </div>
                         
-                        {/* 实付金额 */}
-                        <div className="mb-2">
-                          <div className="text-xs text-gray-500 mb-1">{t('实付')}</div>
-                          <div className="text-2xl font-bold text-red-500">
-                            ¥{estimatedPayAmount}
-                          </div>
-                          {estimatedSavings > 0 && (
+                        {/* 实付金额 - 只有有折扣时才显示 */}
+                        {estimatedSavings > 0 && (
+                          <div className="mb-2">
+                            <div className="text-xs text-gray-500 mb-1">{t('实付')}</div>
+                            <div className="text-2xl font-bold text-red-500">
+                              ¥{estimatedPayAmount}
+                            </div>
                             <div className="text-xs text-green-600 font-medium">
                               {t('立省')} ¥{estimatedSavings.toFixed(2)}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                         
                         {/* 到账额度 */}
                         <div className="mb-2">
@@ -1042,14 +1092,31 @@ const TopUp = () => {
                   />
                   {topUpCount >= minTopUp && amountInfo.payAmount > 0 && (
                     <div className="mt-3 text-center">
-                      <div className="text-sm text-gray-600">
-                        {t('原价')}: ¥{topUpCount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
-                      </div>
-                      {amountInfo.payAmount < topUpCount && (
-                        <div className="text-sm text-red-500 font-medium">
-                          {t('立省')} ¥{(topUpCount - amountInfo.payAmount).toFixed(2)}
-                        </div>
-                      )}
+                      {/* 使用动态折扣信息显示 */}
+                      {(() => {
+                        const customDiscountInfo = getDiscountInfo(topUpCount);
+                        const estimatedPayAmount = Math.round(topUpCount * customDiscountInfo.rate * 100) / 100;
+                        const estimatedSavings = topUpCount - estimatedPayAmount;
+                        
+                        return (
+                          <>
+                            <div className="text-sm text-gray-600">
+                              {t('原价')}: ¥{topUpCount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
+                            </div>
+                            {/* 显示适用的折扣信息 */}
+                            {customDiscountInfo.label && (
+                              <div className="text-sm text-blue-600 font-medium">
+                                {t('适用折扣')}: {customDiscountInfo.label}
+                              </div>
+                            )}
+                            {amountInfo.payAmount < topUpCount && (
+                              <div className="text-sm text-red-500 font-medium">
+                                {t('立省')} ¥{(topUpCount - amountInfo.payAmount).toFixed(2)}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
