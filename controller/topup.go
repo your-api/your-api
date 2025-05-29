@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"one-api/common"
 	"one-api/model"
@@ -26,8 +27,8 @@ type EpayRequest struct {
 }
 
 type AmountRequest struct {
-	Amount    int64  `json:"amount"`
-	TopUpCode string `json:"top_up_code"`
+	Amount    float64 `json:"amount"`
+	TopUpCode string  `json:"top_up_code"`
 }
 
 func GetEpayClient() *epay.Client {
@@ -292,6 +293,66 @@ func EpayNotify(c *gin.Context) {
 	}
 }
 
+// 新增：根据充值金额计算折扣
+func getDiscountRate(amount float64) float64 {
+	// 金额已经是元为单位
+	if amount >= 1000 {
+		return 0.93 // 93折
+	} else if amount >= 500 {
+		return 0.95 // 95折
+	} else if amount >= 200 {
+		return 0.96 // 96折
+	} else if amount >= 100 {
+		return 0.97 // 97折
+	} else if amount >= 50 {
+		return 0.98 // 98折
+	} else if amount >= 10 {
+		return 0.99 // 99折
+	}
+	return 1.0 // 无折扣
+}
+
+// 新增：计算实际到账金额
+func getCreditAmount(amount float64, group string) float64 {
+	// 到账金额就是原价金额，不需要额外计算
+	return amount
+}
+
+// 新增：计算实际支付金额（应用折扣）
+func getDiscountPayAmount(amount float64, group string) float64 {
+	// 先计算原本的支付金额
+	dAmount := decimal.NewFromFloat(amount)
+
+	if !common.DisplayInCurrencyEnabled {
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		dAmount = dAmount.Div(dQuotaPerUnit)
+	}
+
+	topupGroupRatio := common.GetTopupGroupRatio(group)
+	if topupGroupRatio == 0 {
+		topupGroupRatio = 1
+	}
+
+	dTopupGroupRatio := decimal.NewFromFloat(topupGroupRatio)
+	dPrice := decimal.NewFromFloat(setting.Price)
+
+	originalPayMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio)
+	
+	// 获取折扣率
+	discountRate := getDiscountRate(amount)
+	
+	// 返回折扣后的支付金额，保留2位小数
+	result := originalPayMoney.InexactFloat64() * discountRate
+	return math.Round(result*100) / 100
+}
+
+// 响应结构体
+type AmountResponse struct {
+	PayAmount    float64 `json:"payAmount"`    // 需要支付的金额（元）- 折扣后价格
+	CreditAmount float64 `json:"creditAmount"` // 实际到账的额度 - 原价额度
+	Discount     float64 `json:"discount"`     // 折扣率
+}
+
 func RequestAmount(c *gin.Context) {
 	var req AmountRequest
 	err := c.ShouldBindJSON(&req)
@@ -300,8 +361,9 @@ func RequestAmount(c *gin.Context) {
 		return
 	}
 
-	if req.Amount < getMinTopup() {
-		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getMinTopup())})
+	minTopup := float64(setting.MinTopUp)
+	if req.Amount < minTopup {
+		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %.1f", minTopup)})
 		return
 	}
 	id := c.GetInt("id")
@@ -310,10 +372,23 @@ func RequestAmount(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "error", "data": "获取用户分组失败"})
 		return
 	}
-	payMoney := getPayMoney(req.Amount, group)
-	if payMoney <= 0.01 {
+	
+	// 计算折扣后的支付金额
+	discountPayMoney := getDiscountPayAmount(req.Amount, group)
+	if discountPayMoney <= 0.01 {
 		c.JSON(200, gin.H{"message": "error", "data": "充值金额过低"})
 		return
 	}
-	c.JSON(200, gin.H{"message": "success", "data": strconv.FormatFloat(payMoney, 'f', 2, 64)})
+	
+	// 计算折扣率和实际到账金额
+	discountRate := getDiscountRate(req.Amount)
+	creditAmount := getCreditAmount(req.Amount, group) // 到账金额就是原价
+	
+	response := AmountResponse{
+		PayAmount:    discountPayMoney,  // 折扣后的支付金额
+		CreditAmount: creditAmount,      // 原价额度
+		Discount:     discountRate,
+	}
+	
+	c.JSON(200, gin.H{"message": "success", "data": response})
 }

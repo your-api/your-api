@@ -15,6 +15,41 @@ import (
 	"one-api/model"
 )
 
+// 根据充值金额计算折扣
+func getDiscountRateForOrder(amount float64) float64 {
+	// 金额已经是元为单位
+	if amount >= 1000 {
+		return 0.93 // 93折
+	} else if amount >= 500 {
+		return 0.95 // 95折
+	} else if amount >= 200 {
+		return 0.96 // 96折
+	} else if amount >= 100 {
+		return 0.97 // 97折
+	} else if amount >= 50 {
+		return 0.98 // 98折
+	} else if amount >= 10 {
+		return 0.99 // 99折
+	}
+	return 1.0 // 无折扣
+}
+
+// 计算实际到账金额
+func getCreditAmountForOrder(amount float64, group string) float64 {
+	// 到账金额就是原价金额
+	return amount
+}
+
+// 新增：计算实际支付金额（应用折扣）
+func getDiscountPayAmountForOrder(amount float64, group string) float64 {
+	// 获取折扣率
+	discountRate := getDiscountRateForOrder(amount)
+	
+	// 计算折扣后的支付金额，保留2位小数
+	result := amount * discountRate
+	return math.Round(result*100) / 100
+}
+
 // —— 全局变量 & 常量 ——
 
 // 全局复用的 HTTP 客户端，带 10s 超时
@@ -89,6 +124,21 @@ func GetOrderInfo(c *gin.Context) {
 		return
 	}
 
+	// 获取用户分组信息
+	userId := c.GetInt("id")
+	group, err := model.GetUserGroup(userId, true)
+	if err != nil {
+		respondError(c, "获取用户分组失败")
+		return
+	}
+	
+	// 直接使用请求金额进行折扣计算（元为单位）
+	discountPayAmount := getDiscountPayAmountForOrder(req.Amount, group)
+	creditAmount := getCreditAmountForOrder(req.Amount, group)
+	
+	// 修改请求金额为折扣后的金额，传递给支付网关
+	req.Amount = discountPayAmount
+	
 	// 调用支付服务
 	td, err := fetchTrade(c.Request.Context(), &req)
 	if err != nil {
@@ -96,9 +146,7 @@ func GetOrderInfo(c *gin.Context) {
 		return
 	}
 
-	// 入库
-	userId := c.GetInt("id")
-	if _, err := model.CreateOrder(td.OutTradeNo, td.QRCode, userId, float64(req.Amount), float64(req.Amount)); err != nil {
+	if _, err := model.CreateOrder(td.OutTradeNo, td.QRCode, userId, discountPayAmount, creditAmount); err != nil {
 		respondError(c, "订单创建失败")
 		return
 	}

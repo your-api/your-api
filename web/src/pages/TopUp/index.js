@@ -68,7 +68,40 @@ const TopUp = () => {
   const timerRef = useRef(null);
   const statusCheckRef = useRef(null);
 
-  const predefinedAmounts = [2, 100, 150, 200, 300, 500, 1000];
+  const predefinedAmounts = [2, 10, 50, 100, 200, 500, 1000];
+  
+  // 状态变量存储后端返回的金额信息
+  const [amountInfo, setAmountInfo] = useState({
+    payAmount: 0,      // 需要支付的金额
+    creditAmount: 0,   // 实际到账金额
+    discount: 0        // 折扣比例
+  });
+
+  // 预设档位的折扣信息（仅用于前端显示）
+  const getDiscountInfo = (amount) => {
+    const discountMap = {
+      2: { rate: 1, label: null },      // 原价
+      10: { rate: 0.99, label: '99折' },
+      50: { rate: 0.98, label: '98折' },
+      100: { rate: 0.97, label: '97折' },
+      200: { rate: 0.96, label: '96折' },
+      500: { rate: 0.95, label: '95折' },
+      1000: { rate: 0.93, label: '93折' }
+    };
+    
+    // 对于自定义金额，计算最接近的折扣
+    if (!discountMap[amount]) {
+      if (amount >= 1000) return { rate: 0.93, label: '93折' };
+      if (amount >= 500) return { rate: 0.95, label: '95折' };
+      if (amount >= 200) return { rate: 0.96, label: '96折' };
+      if (amount >= 100) return { rate: 0.97, label: '97折' };
+      if (amount >= 50) return { rate: 0.98, label: '98折' };
+      if (amount >= 10) return { rate: 0.99, label: '99折' };
+      return { rate: 1, label: null };
+    }
+    
+    return discountMap[amount];
+  };
 
   const topUp = async () => {
     if (redemptionCode === '') {
@@ -155,7 +188,7 @@ const TopUp = () => {
       }
       
       const res = await API.post('/api/order/getTradeInfo', {
-        amount: parseInt(amount),
+        amount: parseFloat(finalAmount),
         payWay: pay_way
       });
       
@@ -393,6 +426,13 @@ const TopUp = () => {
     if (value === undefined) {
       value = customAmount ? topUpCount : selectedAmount;
     }
+    
+    if (!value || value <= 0) {
+      setAmount(0);
+      setAmountInfo({ payAmount: 0, creditAmount: 0, discount: 0 });
+      return;
+    }
+    
     try {
       const res = await API.post('/api/user/amount', {
         amount: parseFloat(value),
@@ -401,9 +441,27 @@ const TopUp = () => {
       if (res !== undefined) {
         const { message, data } = res.data;
         if (message === 'success') {
-          setAmount(parseFloat(data));
+          // 假设后端返回的数据格式为 { payAmount, creditAmount, discount }
+          if (typeof data === 'object' && data.payAmount !== undefined) {
+            setAmount(parseFloat(data.payAmount));
+            setAmountInfo({
+              payAmount: parseFloat(data.payAmount),
+              creditAmount: parseFloat(data.creditAmount || data.payAmount),
+              discount: parseFloat(data.discount || 0)
+            });
+          } else {
+            // 兼容旧版本后端，如果返回的是数字
+            setAmount(parseFloat(data));
+            const discountInfo = getDiscountInfo(value);
+            setAmountInfo({
+              payAmount: parseFloat(data),
+              creditAmount: parseFloat(data),
+              discount: discountInfo.rate
+            });
+          }
         } else {
           setAmount(0);
+          setAmountInfo({ payAmount: 0, creditAmount: 0, discount: 0 });
           Toast.error({ content: '错误：' + data, id: 'getAmount' });
         }
       } else {
@@ -411,6 +469,8 @@ const TopUp = () => {
       }
     } catch (err) {
       console.log(err);
+      setAmount(0);
+      setAmountInfo({ payAmount: 0, creditAmount: 0, discount: 0 });
     }
   };
 
@@ -479,11 +539,19 @@ const TopUp = () => {
             centered={true}
           >
             <p>
-              {t('充值数量')}：{customAmount ? topUpCount : selectedAmount}
+              {t('原价')}：¥{customAmount ? topUpCount : selectedAmount}
             </p>
             <p>
-              {t('实付金额')}：{renderAmount()}
+              {t('实付金额')}：¥{amount}
             </p>
+            <p>
+              {t('到账额度')}：¥{customAmount ? topUpCount : selectedAmount}
+            </p>
+            {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
+              <p style={{ color: '#52c41a' }}>
+                {t('立省')}：¥{((customAmount ? topUpCount : selectedAmount) - amount).toFixed(2)}
+              </p>
+            )}
             <p>{t('是否确认充值？')}</p>
           </Modal>
 
@@ -494,7 +562,7 @@ const TopUp = () => {
                   <path d="M992 384H32c-17.664 0-32 14.336-32 32v384c0 17.664 14.336 32 32 32h960c17.664 0 32-14.336 32-32V416c0-17.664-14.336-32-32-32z m-24 392c0 4.416-3.584 8-8 8H64c-4.416 0-8-3.584-8-8V448c0-4.416 3.584-8 8-8h896c4.416 0 8 3.584 8 8v328z" fill="#1677FF"></path>
                   <path d="M96 512h832c8.832 0 16-7.168 16-16s-7.168-16-16-16H96c-8.832 0-16 7.168-16 16s7.168 16 16 16zM512 224c8.832 0 16-7.168 16-16V80c0-8.832-7.168-16-16-16s-16 7.168-16 16v128c0 8.832 7.168 16 16 16zM512 944c-8.832 0-16 7.168-16 16v64c0 8.832 7.168 16 16 16s16-7.168 16-16v-64c0-8.832-7.168-16-16-16z" fill="#1677FF"></path>
                 </svg>
-                {t('支付宝付款')}
+                {t('支付宝付款')} - ¥{amount}
               </div>
             }
             visible={showPaymentModal}
@@ -525,6 +593,10 @@ const TopUp = () => {
                   <div className="text-center mb-5 bg-[#f0f9ff] w-full py-3 rounded-lg border border-[#e6f4ff]">
                     <p className="text-xl font-semibold mb-1 text-[#1677FF]">¥{amount}</p>
                     <p className="text-xs text-gray-500">{t('订单号')}: {outTradeNo}</p>
+                    <p className="text-xs text-gray-500">{t('原价')}: ¥{customAmount ? topUpCount : selectedAmount} | {t('到账额度')}: ¥{customAmount ? topUpCount : selectedAmount}</p>
+                    {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
+                      <p className="text-xs text-green-600 font-medium">{t('立省')} ¥{((customAmount ? topUpCount : selectedAmount) - amount).toFixed(2)}</p>
+                    )}
                   </div>
                   
                   <div className="bg-white p-6 rounded-lg border border-[#e6f4ff] mb-4 flex flex-col items-center">
@@ -756,6 +828,323 @@ const TopUp = () => {
               )}
             </div>
           </Modal>
+
+          {/* 余额显示卡片 */}
+          <Card
+            style={{
+              marginBottom: isMobile() ? 20 : 24,
+            }}
+          >
+            <Title level={3} style={{ color: 'var(--semi-color-text-0)' }}>
+              {t('当前余额')}
+            </Title>
+            <div style={{ fontSize: 24, color: 'var(--semi-color-text-0)' }}>
+              {renderQuotaWithAmount(userQuota)}
+            </div>
+          </Card>
+
+          {/* 兑换码充值 */}
+          <Card
+            style={{
+              marginBottom: isMobile() ? 20 : 24,
+            }}
+          >
+            <Title level={3}>{t('兑换')}</Title>
+            <div style={{ marginTop: 10 }}>
+              <Typography.Text style={{ fontSize: 16 }}>
+                {t('请输入充值卡密进行充值')}
+              </Typography.Text>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <Form layout='horizontal' style={{ marginTop: 16 }}>
+                <Form.Section text={t('兑换卡密')}>
+                  <Form.Input
+                    label={t('卡密')}
+                    placeholder={t('请输入卡密')}
+                    name='redemptionCode'
+                    value={redemptionCode}
+                    onChange={(e) => setRedemptionCode(e)}
+                  />
+                  <Button
+                    theme='solid'
+                    type={'primary'}
+                    htmlType={'submit'}
+                    size='large'
+                    loading={isSubmitting}
+                    onClick={topUp}
+                  >
+                    {t('兑换')}
+                  </Button>
+                </Form.Section>
+              </Form>
+            </div>
+          </Card>
+
+          {/* 在线充值 */}
+          <Card
+            style={{
+              marginBottom: isMobile() ? 20 : 24,
+            }}
+          >
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <Title level={3} className="!mb-0">{t('在线充值')}</Title>
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                  {t('充值越多折扣越大')}
+                </div>
+              </div>
+              <Typography.Text style={{ fontSize: 16, color: '#666' }}>
+                {t('选择充值金额，享受超值折扣优惠')}
+              </Typography.Text>
+            </div>
+            
+            <div className="mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {predefinedAmounts.map((amount) => {
+                  const discountInfo = getDiscountInfo(amount);
+                  const isSelected = !customAmount && selectedAmount === amount;
+                  const estimatedPayAmount = Math.round(amount * discountInfo.rate * 100) / 100;
+                  const estimatedSavings = amount - estimatedPayAmount;
+                  
+                  return (
+                    <div
+                      key={amount}
+                      className={`relative cursor-pointer transition-all duration-300 ${
+                        isSelected 
+                          ? 'transform scale-105' 
+                          : 'hover:transform hover:scale-102'
+                      }`}
+                      onClick={() => handleAmountChange(amount)}
+                    >
+                      <div className={`
+                        relative bg-white rounded-xl border-2 p-4 text-center shadow-lg hover:shadow-xl transition-all duration-300
+                        ${isSelected 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-blue-300'
+                        }
+                      `}>
+                        {/* 折扣标签 */}
+                        {discountInfo.label && (
+                          <div className="absolute -top-2 -right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
+                            {discountInfo.label}
+                          </div>
+                        )}
+                        
+                        {/* 推荐标签 */}
+                        {amount === 500 && (
+                          <div className="absolute -top-2 -left-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
+                            {t('推荐')}
+                          </div>
+                        )}
+                        
+                        {/* 原价显示 */}
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-500 mb-1">{t('原价')}</div>
+                          <div className="text-lg font-bold text-gray-400 line-through">
+                            ¥{amount}
+                          </div>
+                        </div>
+                        
+                        {/* 实付金额 */}
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-500 mb-1">{t('实付')}</div>
+                          <div className="text-2xl font-bold text-red-500">
+                            ¥{estimatedPayAmount}
+                          </div>
+                          {estimatedSavings > 0 && (
+                            <div className="text-xs text-green-600 font-medium">
+                              {t('立省')} ¥{estimatedSavings.toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 到账额度 */}
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-500 mb-1">{t('到账额度')}</div>
+                          <div className="text-lg font-bold text-blue-500">
+                            ¥{amount}
+                          </div>
+                        </div>
+                        
+                        {/* 选中状态 */}
+                        {isSelected && (
+                          <div className="mt-2">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full mx-auto flex items-center justify-center">
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* 自定义金额卡片 */}
+                <div
+                  className={`relative cursor-pointer transition-all duration-300 ${
+                    customAmount 
+                      ? 'transform scale-105' 
+                      : 'hover:transform hover:scale-102'
+                  }`}
+                  onClick={() => handleAmountChange('custom')}
+                >
+                  <div className={`
+                    relative bg-white rounded-xl border-2 p-4 text-center shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-center
+                    ${customAmount 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-purple-300'
+                    }
+                  `}>
+                    <div className="mb-2">
+                      <svg className="w-8 h-8 mx-auto text-purple-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <div className="text-lg font-bold text-purple-600">
+                        {t('自定义')}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {t('输入金额')}
+                      </div>
+                    </div>
+                    
+                    {customAmount && (
+                      <div className="mt-2">
+                        <div className="w-6 h-6 bg-purple-500 rounded-full mx-auto flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* 自定义金额输入 */}
+            {customAmount && (
+              <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="max-w-md mx-auto">
+                  <InputNumber
+                    size="large"
+                    min={minTopUp}
+                    placeholder={t('请输入充值金额')}
+                    style={{ width: '100%' }}
+                    value={topUpCount}
+                    onChange={(e) => {
+                      setTopUpCount(e);
+                      getAmount(e);
+                    }}
+                    suffix='元'
+                    prefix='¥'
+                  />
+                  {topUpCount >= minTopUp && amountInfo.payAmount > 0 && (
+                    <div className="mt-3 text-center">
+                      <div className="text-sm text-gray-600">
+                        {t('原价')}: ¥{topUpCount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
+                      </div>
+                      {amountInfo.payAmount < topUpCount && (
+                        <div className="text-sm text-red-500 font-medium">
+                          {t('立省')} ¥{(topUpCount - amountInfo.payAmount).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* 支付按钮 */}
+            <div className="text-center">
+              <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div className="text-lg font-bold text-gray-800 mb-1">
+                  {t('订单信息')}
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-gray-600">{t('支付金额')}</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      ¥{amount || 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">{t('到账额度')}</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      ¥{amountInfo.creditAmount || (customAmount ? topUpCount : selectedAmount)}
+                    </div>
+                  </div>
+                </div>
+                {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
+                  <div className="text-sm text-green-600 font-medium mt-2">
+                    {t('立省')} ¥{((customAmount ? topUpCount : selectedAmount) - amount).toFixed(2)}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-4 justify-center">
+                <Button
+                  theme='solid'
+                  type={'primary'}
+                  size='large'
+                  loading={paymentLoading}
+                  onClick={() => preTopUp('zfb')}
+                  disabled={!amount || amount <= 0}
+                  className="min-w-[140px]"
+                  icon={
+                    <svg
+                      t="1687765525122"
+                      viewBox="0 0 1024 1024"
+                      version="1.1"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      fill="currentColor"
+                    >
+                      <path d="M1024 710.044444c0 127.004444-91.022222 218.026667-218.026667 218.026667H218.026667C91.022222 928.071111 0 837.048889 0 710.044444V313.955556C0 186.951111 91.022222 95.928889 218.026667 95.928889h587.946666C933.006222 95.928889 1024 186.951111 1024 313.955556v396.088888z m-83.182222-120.604444c-34.816-13.823791-79.644444-31.175111-136.533334-50.915556 25.543111-43.52 42.666667-102.4 42.666667-164.124444 0-22.755556-1.820444-45.511111-5.688889-67.584H536.120889v56.888889h227.555555c2.275556 13.596444 3.640889 27.42 3.640889 41.699555 0 47.816889-11.719111 93.639111-30.72 130.048-40.96-11.719111-86.755556-24.348444-136.988444-37.205333-89.6-22.983111-138.24-42.211556-138.24-102.4 0-39.822222 32.540444-70.314667 83.2-70.314667 43.52 0 78.336 21.617778 78.336 48.355556h75.662222c0-56.888889-57.571556-98.986667-153.884444-98.986667-85.333333 0-159.971556 51.2-159.971556 124.302223 0 96.995556 75.662222 134.684444 189.667556 164.124444 52.906667 13.596444 99.555556 26.453333 139.150222 38.627556-23.04 31.857778-57.344 59.050667-99.555555 78.791111L512 654.222222l-102.172444-83.655111c-70.542222-31.402667-115.825778-104.732444-115.825778-190.065778 0-113.777778 92.16-205.937778 205.937778-205.937777s205.937778 92.16 205.937777 205.937777c0 35.612444-9.102222 69.006222-25.088 98.304z" />
+                    </svg>
+                  }
+                >
+                  {t('支付宝支付')}
+                </Button>
+                <Button
+                  theme='solid'
+                  type={'secondary'}
+                  size='large'
+                  loading={paymentLoading}
+                  onClick={() => preTopUp('wx')}
+                  disabled={!amount || amount <= 0}
+                  className="min-w-[140px]"
+                  icon={
+                    <svg
+                      t="1687765533353"
+                      viewBox="0 0 1024 1024"
+                      version="1.1"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      fill="currentColor"
+                    >
+                      <path d="M385.28 305.066667c19.2 0 32-12.8 32-29.866667s-12.8-29.866667-32-29.866667c-19.2 0-38.4 12.8-38.4 29.866667s19.2 29.866667 38.4 29.866667z m253.44 0c19.2 0 32-12.8 32-29.866667s-12.8-29.866667-32-29.866667c-19.2 0-38.4 12.8-38.4 29.866667s19.2 29.866667 38.4 29.866667z" />
+                      <path d="M693.76 456.533333c12.8 0 25.6-12.8 25.6-25.6s-12.8-25.6-25.6-25.6-25.6 12.8-25.6 25.6 12.8 25.6 25.6 25.6z m-179.2 0c12.8 0 25.6-12.8 25.6-25.6s-12.8-25.6-25.6-25.6-25.6 12.8-25.6 25.6 12.8 25.6 25.6 25.6z" />
+                      <path d="M512 64C264.533333 64 64 264.533333 64 512s200.533333 448 448 448 448-200.533333 448-448S759.466667 64 512 64z m-66.133333 605.866667c-38.4 0-70.4-6.4-108.8-19.2l-108.8 57.6 32-96c-76.8-57.6-121.6-128-121.6-211.2 0-153.6 140.8-275.2 307.2-275.2 151.466667 0 283.733333 102.4 307.2 243.2-32-6.4-66.133333-6.4-98.133334 6.4-19.2-89.6-115.2-160-224-160-128 0-230.4 89.6-230.4 204.8 0 64 32 121.6 83.2 160l-19.2 64 70.4-38.4c25.6 6.4 51.2 12.8 76.8 12.8 12.8 0 25.6 0 38.4-6.4-6.4 19.2-6.4 38.4-6.4 57.6 0 6.4 0 6.4 0 12.8 0-6.4 0-6.4 0-12.8z m320-121.6l57.6 38.4-19.2-70.4c38.4-32 64-76.8 64-121.6 0-96-83.2-172.8-179.2-172.8s-179.2 76.8-179.2 172.8 83.2 172.8 179.2 172.8c25.6 0 51.2-6.4 76.8-19.2z" />
+                    </svg>
+                  }
+                >
+                  {t('微信支付')}
+                </Button>
+              </div>
+              
+              {topUpLink && (
+                <div style={{ marginTop: 16 }}>
+                  <Button onClick={openTopUpLink} type="tertiary">
+                    {t('通过充值链接充值')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
 
           {/* 邀请返利模块 - 高对比度版本 */}
           <div className="mt-8 flex justify-center">
@@ -989,7 +1378,7 @@ const TopUp = () => {
                           className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white border-2 border-gray-800 hover:border-gray-900 font-bold rounded-xl transition-all duration-200"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
                           </svg>
                         </Button>
                       </div>
