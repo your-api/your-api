@@ -73,7 +73,7 @@ const TopUp = () => {
 
   // 默认预设金额（将根据折扣层级动态调整）
   const [predefinedAmounts, setPredefinedAmounts] = useState([10, 99, 199, 499, 999]);
-  
+
   // 状态变量存储后端返回的金额信息
   const [amountInfo, setAmountInfo] = useState({
     payAmount: 0,      // 需要支付的金额
@@ -116,29 +116,37 @@ const TopUp = () => {
   // 根据金额获取折扣信息（使用后台数据）
   const getDiscountInfo = (amount) => {
     if (!discountTiersLoaded || !discountTiers.length) {
-      // 如果还没加载完成，返回默认值
       return { rate: 1, label: null, tier: null };
     }
 
-    // 按最小金额倒序排序，找到适用的最高折扣
+    // 按最小金额正序排序，找到刚好满足条件的档位
     const sortedTiers = [...discountTiers].sort((a, b) => {
       const aMin = a.min_amount || a.MinAmount;
       const bMin = b.min_amount || b.MinAmount;
-      return bMin - aMin;
+      return aMin - bMin; // 正序排序
     });
 
+    let applicableTier = null;
+
+    // 找到最后一个满足条件的档位
     for (const tier of sortedTiers) {
       const minAmount = tier.min_amount || tier.MinAmount;
-      const rate = tier.rate || tier.Rate;
-      
+
       if (amount >= minAmount) {
-        const discount = Math.round((rate* 100));
-        return {
-          rate: rate,
-          label: discount > 0 ? `${discount}折` : null,
-          tier: tier
-        };
+        applicableTier = tier;
+      } else {
+        break; // 一旦不满足就跳出
       }
+    }
+
+    if (applicableTier) {
+      const rate = applicableTier.rate || applicableTier.Rate;
+      const discount = Math.round(rate * 100);
+      return {
+        rate: rate,
+        label: discount < 100 ? `${discount}折` : null,
+        tier: applicableTier
+      };
     }
 
     return { rate: 1, label: null, tier: null };
@@ -189,9 +197,9 @@ const TopUp = () => {
       showError(t('管理员未开启在线充值！'));
       return;
     }
-    
+
     const finalAmount = customAmount ? topUpCount : selectedAmount;
-    
+
     await getAmount(finalAmount);
     if (finalAmount < minTopUp) {
       showError(t('充值数量不能小于') + minTopUp);
@@ -210,16 +218,16 @@ const TopUp = () => {
     if (amount === 0) {
       await getAmount();
     }
-    
+
     const finalAmount = customAmount ? topUpCount : selectedAmount;
-    
+
     if (finalAmount < minTopUp) {
       showError('充值数量不能小于' + minTopUp);
       return;
     }
     setOpen(false);
     setPaymentLoading(true);
-    
+
     try {
       let pay_way = 0
       if (payWay === 'zfb') {
@@ -227,24 +235,24 @@ const TopUp = () => {
       }else if (payWay === 'wx') {
         pay_way = 1
       }
-      
+
       const res = await API.post('/api/order/getTradeInfo', {
         amount: parseFloat(finalAmount),
         payWay: pay_way
       });
-      
+
       if (res !== undefined) {
         const { success, message, data } = res.data;
-        
+
         if (success) {
           const { outTradeNo, qrCode } = data;
-          
+
           setOutTradeNo(outTradeNo);
           setQrCodeUrl(qrCode);
-          
+
           setShowPaymentModal(true);
           setPaymentStatus('pending');
-          
+
           setCountdown(300);
           if (timerRef.current) clearInterval(timerRef.current);
           timerRef.current = setInterval(() => {
@@ -260,9 +268,9 @@ const TopUp = () => {
               return prev - 1;
             });
           }, 1000);
-          
+
           startPaymentStatusCheck(outTradeNo);
-          
+
         } else {
           showError(message || '获取支付信息失败');
         }
@@ -281,15 +289,15 @@ const TopUp = () => {
     if (statusCheckRef.current) {
       clearInterval(statusCheckRef.current);
     }
-    
+
     statusCheckRef.current = setInterval(async () => {
       try {
         const res = await API
             .get(`/api/order/queryTradeStatus?outTradeNo=${orderNo}&payWay=${payWay === 'zfb' ? 0 : 1}`);
-        
+
         if (res && res.data) {
           const { success, data, message } = res.data;
-          
+
           if (success && data) {
             if (data == 'OK') {
               clearInterval(statusCheckRef.current);
@@ -370,12 +378,12 @@ const TopUp = () => {
       showError(t('划转金额最低为') + ' ' + renderQuota(getQuotaPerUnit()));
       return;
     }
-    
+
     let apiUrl = '/api/user/aff_transfer';
     if (transferType === 'commission') {
       apiUrl = '/api/user/commission_transfer';
     }
-    
+
     const res = await API.post(apiUrl, {
       quota: transferAmount,
     });
@@ -469,13 +477,13 @@ const TopUp = () => {
     if (value === undefined) {
       value = customAmount ? topUpCount : selectedAmount;
     }
-    
+
     if (!value || value <= 0) {
       setAmount(0);
       setAmountInfo({ payAmount: 0, creditAmount: 0, discount: 0 });
       return;
     }
-    
+
     try {
       const res = await API.post('/api/user/amount', {
         amount: parseFloat(value),
@@ -544,12 +552,12 @@ const TopUp = () => {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    
+
     if (statusCheckRef.current) {
       clearInterval(statusCheckRef.current);
       statusCheckRef.current = null;
     }
-    
+
     setShowPaymentModal(false);
   };
 
@@ -558,7 +566,7 @@ const TopUp = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      
+
       if (statusCheckRef.current) {
         clearInterval(statusCheckRef.current);
       }
@@ -641,12 +649,12 @@ const TopUp = () => {
                       <p className="text-xs text-green-600 font-medium">{t('立省')} ¥{((customAmount ? topUpCount : selectedAmount) - amount).toFixed(2)}</p>
                     )}
                   </div>
-                  
+
                   <div className="bg-white p-6 rounded-lg border border-[#e6f4ff] mb-4 flex flex-col items-center">
                     <div className="mb-2 text-sm text-[#1677FF] font-medium">
                       {t('请用支付宝扫码支付')}
                     </div>
-                    
+
                     {qrCodeUrl ? (
                       <div className="p-3 border border-[#1677FF] rounded-lg">
                         <QRCodeSVG
@@ -662,7 +670,7 @@ const TopUp = () => {
                         <p className="text-gray-400">{t('二维码加载失败')}</p>
                       </div>
                     )}
-                    
+
                     <div className="mt-3 flex items-center text-[#1677FF]">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 mr-1">
                         <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
@@ -670,7 +678,7 @@ const TopUp = () => {
                       <span className="text-sm font-medium">{formatCountdown(countdown)}</span>
                     </div>
                   </div>
-                  
+
                   <div className="text-center text-xs text-gray-500 max-w-xs px-3">
                     <div className="flex items-center justify-center mb-2">
                       <svg className="w-4 h-4 mr-1 text-[#1677FF]" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
@@ -681,7 +689,7 @@ const TopUp = () => {
                     <p>{t('扫码后请在支付宝中确认付款')}</p>
                     <p>{t('付款完成后将自动为您处理订单')}</p>
                   </div>
-                  
+
                   {countdown === 0 && (
                     <div className="mt-4 w-full">
                       <Button
@@ -738,7 +746,7 @@ const TopUp = () => {
               </div>
             </div>
           </Modal>
-          
+
           {/* 提现模态框 */}
           <Modal
             title={t('申请提现')}
@@ -818,8 +826,8 @@ const TopUp = () => {
               ) : (
                 <div>
                   {withdrawHistory.map((withdraw) => (
-                    <Card 
-                      key={withdraw.id} 
+                    <Card
+                      key={withdraw.id}
                       style={{ marginBottom: 16 }}
                       bodyStyle={{ padding: '16px' }}
                     >
@@ -899,7 +907,7 @@ const TopUp = () => {
               <div className="flex items-center justify-between mb-4">
                 <Title level={3} className="!mb-0">{t('在线充值')}</Title>
                 <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                  {discountTiersLoaded && discountTiers.length > 0 
+                  {discountTiersLoaded && discountTiers.length > 0
                     ? t('限时福利，阶梯折扣，充值越多越划算')
                     : t('充值越多折扣越大')
                   }
@@ -912,7 +920,7 @@ const TopUp = () => {
                 }
               </Typography.Text>
             </div>
-            
+
             <div className="mb-6">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {predefinedAmounts.map((amount) => {
@@ -921,7 +929,7 @@ const TopUp = () => {
                   // 使用动态折扣计算实际支付金额
                   const estimatedPayAmount = Math.round(amount * discountInfo.rate * 100) / 100;
                   const estimatedSavings = amount - estimatedPayAmount;
-                  
+
                   return (
                     <div
                       key={amount}
@@ -945,14 +953,14 @@ const TopUp = () => {
                             {discountInfo.label}
                           </div>
                         )}
-                        
+
                         {/* 推荐标签 - 根据折扣层级动态判断 */}
                         {discountInfo.tier && discountInfo.rate <= 0.92 && (
                           <div className="absolute -top-2 -left-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
                             {t('推荐')}
                           </div>
                         )}
-                        
+
                         {/* 原价显示 */}
                         <div className="mb-2">
                           <div className="text-xs text-gray-500 mb-1">{t('原价')}</div>
@@ -960,7 +968,7 @@ const TopUp = () => {
                             ¥{amount}
                           </div>
                         </div>
-                        
+
                         {/* 实付金额 - 只有有折扣时才显示 */}
                         {estimatedSavings > 0 && (
                           <div className="mb-2">
@@ -973,7 +981,7 @@ const TopUp = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {/* 到账额度 */}
                         <div className="mb-2">
                           <div className="text-xs text-gray-500 mb-1">{t('到账额度')}</div>
@@ -981,7 +989,7 @@ const TopUp = () => {
                             ¥{amount}
                           </div>
                         </div>
-                        
+
                         {/* 选中状态 */}
                         {isSelected && (
                           <div className="mt-2">
@@ -996,7 +1004,7 @@ const TopUp = () => {
                     </div>
                   );
                 })}
-                
+
                 {/* 自定义金额卡片 */}
                 <div
                   className={`relative cursor-pointer transition-all duration-300 ${
@@ -1024,7 +1032,7 @@ const TopUp = () => {
                         {t('输入金额')}
                       </div>
                     </div>
-                    
+
                     {customAmount && (
                       <div className="mt-2">
                         <div className="w-6 h-6 bg-purple-500 rounded-full mx-auto flex items-center justify-center">
@@ -1038,57 +1046,106 @@ const TopUp = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* 自定义金额输入 */}
             {customAmount && (
-              <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-                <div className="max-w-md mx-auto">
-                  <InputNumber
-                    size="large"
-                    min={minTopUp}
-                    placeholder={t('请输入充值金额')}
-                    style={{ width: '100%' }}
-                    value={topUpCount}
-                    onChange={(e) => {
-                      setTopUpCount(e);
-                      getAmount(e);
-                    }}
-                    suffix='元'
-                    prefix='¥'
-                  />
-                  {topUpCount >= minTopUp && amountInfo.payAmount > 0 && (
-                    <div className="mt-3 text-center">
-                      {/* 使用动态折扣信息显示 */}
-                      {(() => {
-                        const customDiscountInfo = getDiscountInfo(topUpCount);
-                        const estimatedPayAmount = Math.round(topUpCount * customDiscountInfo.rate * 100) / 100;
-                        const estimatedSavings = topUpCount - estimatedPayAmount;
-                        
-                        return (
-                          <>
-                            <div className="text-sm text-gray-600">
-                              {t('原价')}: ¥{topUpCount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
-                            </div>
-                            {/* 显示适用的折扣信息 */}
-                            {customDiscountInfo.label && (
-                              <div className="text-sm text-blue-600 font-medium">
-                                {t('适用折扣')}: {customDiscountInfo.label}
-                              </div>
-                            )}
-                            {amountInfo.payAmount < topUpCount && (
-                              <div className="text-sm text-red-500 font-medium">
-                                {t('立省')} ¥{(topUpCount - amountInfo.payAmount).toFixed(2)}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
-              </div>
+                <Card style={{ marginBottom: isMobile() ? 20 : 24 }}>
+                  <Form layout='horizontal' style={{ marginTop: 16 }}>
+                    <Form.Section text={t('自定义充值金额')}>
+                      <Form.Input
+                          label={t('充值金额')}
+                          placeholder={t('请输入充值金额（2-10000元）')}
+                          name='customAmount'
+                          value={topUpCount || ''}
+                          onChange={(e) => {
+                            // 直接设置输入值，不过滤字符
+                            setTopUpCount(e);
+
+                            // 如果有值就调用getAmount，没有值就传0
+                            const numValue = e ? parseInt(e) : 0;
+                            getAmount(numValue);
+                          }}
+                          onPaste={(e) => {
+                            // 不阻止粘贴，让用户可以粘贴任何内容
+                            // 粘贴后会触发onChange事件进行验证
+                          }}
+                          style={{
+                            // 修复暗黑模式下的样式问题
+                            backgroundColor: 'var(--semi-color-bg-2)',
+                            color: 'var(--semi-color-text-0)'
+                          }}
+                          prefix='¥'
+                          suffix='元'
+                          validateStatus={(() => {
+                            if (!topUpCount || topUpCount === '') return 'error';
+
+                            // 检查是否只包含数字
+                            if (!/^\d+$/.test(topUpCount)) return 'error';
+
+                            const num = parseInt(topUpCount);
+                            if (isNaN(num) || num < 2 || num > 10000) return 'error';
+                            return 'default';
+                          })()}
+                          helpText={(() => {
+                            if (!topUpCount || topUpCount === '') {
+                              return t('请输入2-10000之间的整数金额');
+                            }
+
+                            // 检查是否包含非数字字符
+                            if (!/^\d+$/.test(topUpCount)) {
+                              return t('只能输入数字');
+                            }
+
+                            const num = parseInt(topUpCount);
+                            if (isNaN(num)) {
+                              return t('请输入有效的数字金额');
+                            }
+                            if (num < 2) {
+                              return t('充值金额不能少于2元');
+                            }
+                            if (num > 10000) {
+                              return t('充值金额不能超过10000元');
+                            }
+                            return '';
+                          })()}
+                      />
+
+                      {topUpCount && parseInt(topUpCount) >= 2 && parseInt(topUpCount) <= 10000 && amountInfo.payAmount > 0 && (
+                          <div style={{ marginTop: 16, padding: 16, backgroundColor: 'var(--semi-color-fill-0)', borderRadius: 8 }}>
+                            {/* 使用动态折扣信息显示 */}
+                            {(() => {
+                              const currentAmount = parseInt(topUpCount);
+                              const customDiscountInfo = getDiscountInfo(currentAmount);
+                              const estimatedPayAmount = Math.round(currentAmount * customDiscountInfo.rate * 100) / 100;
+                              const estimatedSavings = currentAmount - estimatedPayAmount;
+
+                              return (
+                                  <>
+                                    <div style={{ marginBottom: 8, color: 'var(--semi-color-text-1)' }}>
+                                      {t('原价')}: ¥{currentAmount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
+                                    </div>
+                                    {/* 显示适用的折扣信息 */}
+                                    {customDiscountInfo.label && (
+                                        <div style={{ marginBottom: 8, color: 'var(--semi-color-success)' }}>
+                                          {t('适用折扣')}: {customDiscountInfo.label}
+                                        </div>
+                                    )}
+
+                                    {amountInfo.payAmount < currentAmount && (
+                                        <div style={{ color: 'var(--semi-color-danger)' }}>
+                                          {t('立省')} ¥{(currentAmount - amountInfo.payAmount).toFixed(2)}
+                                        </div>
+                                    )}
+                                  </>
+                              );
+                            })()}
+                          </div>
+                      )}
+                    </Form.Section>
+                  </Form>
+                </Card>
             )}
-            
+
             {/* 支付按钮 */}
             <div className="text-center">
               <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
@@ -1115,7 +1172,7 @@ const TopUp = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-4 justify-center">
                 <Button
                   theme='solid'
@@ -1168,7 +1225,7 @@ const TopUp = () => {
                   {t('微信支付')}
                 </Button>
               </div>
-              
+
               {topUpLink && (
                 <div style={{ marginTop: 16 }}>
                   <Button onClick={openTopUpLink} type="tertiary">
@@ -1259,7 +1316,7 @@ const TopUp = () => {
                         <h3 className="text-xl font-bold text-gray-900 my-auto">{t('邀请奖励')}</h3>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('待使用收益')}</span>
@@ -1267,21 +1324,21 @@ const TopUp = () => {
                           {renderQuota(userState?.user?.aff_quota || 0)}
                         </span>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
                         <span className="text-sm font-bold text-gray-900">
                           {renderQuota(userState?.user?.aff_history_quota || 0)}
                         </span>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('邀请人数')}</span>
                         <span className="text-sm font-bold text-gray-900">
                           {userState?.user?.aff_count || 0}
                         </span>
                       </div>
-                      
+
                       <div className="pt-3">
                         <Button
                           type="primary"
@@ -1289,8 +1346,8 @@ const TopUp = () => {
                           onClick={() => openTransferModal('reward')}
                           disabled={!userState?.user?.aff_quota || userState?.user?.aff_quota <= 0}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
-                          style={{ 
-                            backgroundColor: '#059669', 
+                          style={{
+                            backgroundColor: '#059669',
                             borderColor: '#059669',
                             opacity: (!userState?.user?.aff_quota || userState?.user?.aff_quota <= 0) ? 0.6 : 1
                           }}
@@ -1320,7 +1377,7 @@ const TopUp = () => {
                         <h3 className="text-xl font-bold text-gray-900 my-auto">{t('邀请充值返利')}</h3>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('待使用收益')}</span>
@@ -1335,7 +1392,7 @@ const TopUp = () => {
                           {renderQuota(userState?.user?.withdrawing_quota || 0)}
                         </span>
                       </div>
-                      
+
                       {/* 查看提现记录按钮 */}
                       <div className="py-2">
                         <Button
@@ -1353,7 +1410,7 @@ const TopUp = () => {
                           </div>
                         </Button>
                       </div>
-                      
+
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm font-medium text-gray-700">{t('总收益')}</span>
                         <span className="text-sm font-bold text-gray-900">
@@ -1368,8 +1425,8 @@ const TopUp = () => {
                           onClick={() => openTransferModal('commission')}
                           disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
-                          style={{ 
-                            backgroundColor: '#7c3aed', 
+                          style={{
+                            backgroundColor: '#7c3aed',
                             borderColor: '#7c3aed',
                             opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0)) <= 0) ? 0.6 : 1
                           }}
@@ -1387,8 +1444,8 @@ const TopUp = () => {
                           onClick={openWithdrawModal}
                           disabled={((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10}
                           className="w-full py-3 text-white font-bold rounded-xl border-2 transition-all duration-200"
-                          style={{ 
-                            backgroundColor: '#ea580c', 
+                          style={{
+                            backgroundColor: '#ea580c',
                             borderColor: '#ea580c',
                             opacity: (((userState?.user?.reward_quota || 0) - (userState?.user?.withdrawed_quota || 0) - (userState?.user?.withdrawing_quota || 0)) < getQuotaPerUnit() * 10) ? 0.6 : 1
                           }}
@@ -1406,56 +1463,52 @@ const TopUp = () => {
                 </div>
               </div>
 
-              {/* 邀请信息 - 高对比度 */}
-              <div className="bg-white rounded-xl border-2 border-gray-300 shadow-xl">
-                <div className="p-6">
-                  <div className="flex items-center space-x-3 mb-5">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
+                {/* 邀请信息 - 高对比度 */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-300 dark:border-gray-600 shadow-xl">
+                    <div className="p-6">
+                        <div className="flex items-center space-x-3 mb-5">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('邀请信息')}</h3>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">
+                                    {t('邀请码')}: <span className="text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/50 border dark:border-blue-700 px-2 py-1 rounded-md font-medium">{affCode || 'Loading...'}</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">
+                                    {t('邀请链接')}
+                                </label>
+                                <div className="flex space-x-3">
+                                    <Input
+                                        value={affLink}
+                                        readOnly
+                                        className="flex-1 bg-slate-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-2 border-slate-500 dark:border-gray-500 rounded-lg font-medium"
+                                        onClick={handleAffLinkClick}
+                                    />
+                                    <Button
+                                        type="secondary"
+                                        onClick={handleAffLinkClick}
+                                        className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white border-2 border-gray-800 hover:border-gray-900 font-bold rounded-xl transition-all duration-200"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                        </svg>
+                                    </Button>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">{t('邀请信息')}</h3>
-                  </div>
-                  
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-800 mb-3">
-                        {t('邀请码')}: <span className="text-blue-700 bg-blue-100 px-2 py-1 rounded-md">{affCode || 'Loading...'}</span>
-                      </label>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-bold text-gray-800 mb-3">
-                        {t('邀请链接')}
-                      </label>
-                      <div className="flex space-x-3">
-                        <Input
-                          value={affLink}
-                          readOnly
-                          className="flex-1"
-                          style={{ 
-                            backgroundColor: '#f1f5f9',
-                            border: '2px solid #64748b',
-                            borderRadius: '8px',
-                            fontWeight: '500'
-                          }}
-                          onClick={handleAffLinkClick}
-                        />
-                        <Button
-                          type="secondary"
-                          onClick={handleAffLinkClick}
-                          className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white border-2 border-gray-800 hover:border-gray-900 font-bold rounded-xl transition-all duration-200"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                          </svg>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              </div>
+
             </div>
           </div>
         </Layout.Content>
