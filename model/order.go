@@ -82,10 +82,10 @@ func CompleteOrder(outTradeNo string) error {
 	}
 
 	// 处理邀请充值返利：用户前三次充值时给邀请者返利
-	if user.InviterId > 0 && user.PayCount <= 3 {
-		// 计算返利额度：充值额度的5%
-		commissionQuota := int(float64(order.GetAmount * common.QuotaPerUnit) * 0.05)
-		
+	if user.InviterId > 0 && user.PayCount <= 3000000 {
+		// 计算返利额度：充值额度的2%
+		commissionQuota := int(float64(order.GetAmount*common.QuotaPerUnit) * 0.02)
+
 		// 给邀请者分配返利
 		if commissionQuota > 0 {
 			err = tx.Model(&User{}).
@@ -94,10 +94,10 @@ func CompleteOrder(outTradeNo string) error {
 			if err != nil {
 				return fmt.Errorf("分配邀请充值返利失败: %v", err)
 			}
-			
+
 			// 记录邀请者的返利日志
-			RecordLog(user.InviterId, LogTypeSystem, 
-				fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)", 
+			RecordLog(user.InviterId, LogTypeSystem,
+				fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)",
 					common.LogQuota(commissionQuota), user.Username, user.PayCount))
 		}
 	}
