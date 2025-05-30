@@ -133,7 +133,7 @@ func GetOrderInfo(c *gin.Context) {
 		return
 	}
 
-	if _, err := model.CreateOrder(td.OutTradeNo, td.QRCode, userId, discountPayAmount, creditAmount); err != nil {
+	if _, err := model.CreateOrder(td.OutTradeNo, td.QRCode, userId, discountPayAmount, creditAmount, req.PayWay); err != nil {
 		respondError(c, "订单创建失败")
 		return
 	}

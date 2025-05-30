@@ -65,6 +65,15 @@ func UpdateTaskBulk() {
 			UpdateTaskByPlatform(platform, taskChannelM, taskM)
 		}
 		common.SysLog("任务进度轮询完成")
+		
+		// 处理超时订单
+		common.SysLog("开始处理超时订单")
+		err := model.ProcessTimeoutOrders()
+		if err != nil {
+			common.LogError(ctx, fmt.Sprintf("处理超时订单失败: %v", err))
+		} else {
+			common.SysLog("超时订单处理完成")
+		}
 	}
 }
 

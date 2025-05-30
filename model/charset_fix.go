@@ -17,9 +17,10 @@ func FixCharsetForExistingTables(db *gorm.DB) error {
 
 	// 需要修复的表列表
 	tables := []string{
+		"order_infos",
 		"logs",
 		"users",
-		"channels", 
+		"channels",
 		"tokens",
 		"options",
 		"abilities",
@@ -85,4 +86,4 @@ func CheckTableCharset(db *gorm.DB, tableName string) (string, error) {
 	}
 
 	return result.TableCollation, nil
-} 
+}

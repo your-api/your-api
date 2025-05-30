@@ -1,8 +1,10 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"one-api/common"
 	"time"
 
@@ -16,13 +18,14 @@ type OrderInfo struct {
 	PayAmount  float64   `json:"pay_amount" gorm:"type:decimal(10,2);not null;comment:'付款金额'"`
 	GetAmount  float64   `json:"get_amount" gorm:"type:decimal(10,2);not null;comment:'到账金额'"`
 	QRCode     string    `json:"qr_code" gorm:"size:100;not null;comment:'QRCode'"`
+	PayWay     int       `json:"pay_way" gorm:"not null;default:0;comment:'支付方式 0支付宝 1微信'"`
 	Status     int       `json:"status" gorm:"not null;comment:'状态 0未完成 1终止 2完成'"`
 	Msg        string    `json:"msg" gorm:"size:2064;default:'';comment:'原因'"`
 	CreateTime time.Time `json:"create_time" gorm:"autoCreateTime;comment:'创建时间'"`
 }
 
 // CreateOrder 创建新订单并写入数据库
-func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmount float64) (*OrderInfo, error) {
+func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmount float64, payWay int) (*OrderInfo, error) {
 	if outTradeNo == "" {
 		return nil, errors.New("订单号不能为空")
 	}
@@ -39,6 +42,7 @@ func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmo
 		PayAmount:  payAmount,
 		GetAmount:  getAmount,
 		QRCode:     qrCode,
+		PayWay:     payWay,
 		Status:     0, // 默认状态为未完成
 		CreateTime: time.Now(),
 	}
@@ -56,9 +60,9 @@ func CompleteOrder(outTradeNo string) error {
 		return errors.New("订单号不能为空")
 	}
 
-	// 查询订单
+	// 查询订单（支持状态为0或999的订单）
 	var order OrderInfo
-	if err := DB.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
+	if err := DB.Where("out_trade_no = ? AND (status = ? OR status = ?)", outTradeNo, 0, 999).First(&order).Error; err != nil {
 		return errors.New("订单未找到: " + err.Error())
 	}
 
@@ -102,9 +106,11 @@ func CompleteOrder(outTradeNo string) error {
 		}
 	}
 
-	// 更新订单状态
-	order.Status = 2
-	if err := tx.Save(&order).Error; err != nil {
+	// 更新订单状态为完成（状态2）
+	err = tx.Model(&OrderInfo{}).
+		Where("out_trade_no = ? AND (status = ? OR status = ?)", outTradeNo, 0, 999).
+		Update("status", 2).Error
+	if err != nil {
 		return errors.New("更新订单状态失败: " + err.Error())
 	}
 
@@ -118,4 +124,235 @@ func CompleteOrder(outTradeNo string) error {
 		fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%v", int(order.GetAmount), int(order.PayAmount)))
 
 	return nil
+}
+
+// ProcessTimeoutOrders 处理超时订单：查询创建时间超过5分钟且状态为0的订单，检查支付状态并更新 订单补偿
+func ProcessTimeoutOrders() error {
+	// 查询创建时间超过5分钟且状态为0的订单，使用 FOR UPDATE 行锁防止并发处理
+	var timeoutOrders []OrderInfo
+	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+
+	// 开始事务并使用 FOR UPDATE 锁
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("开始事务失败: %v", tx.Error)
+	}
+	defer tx.Rollback()
+
+	err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Where("status = ? AND create_time < ?", 0, fiveMinutesAgo).
+		Find(&timeoutOrders).Error
+	if err != nil {
+		return fmt.Errorf("查询超时订单失败: %v", err)
+	}
+
+	if len(timeoutOrders) == 0 {
+		tx.Commit() // 提交事务释放锁
+		return nil  // 没有超时订单
+	}
+
+	common.SysLog(fmt.Sprintf("发现 %d 个超时订单，开始处理", len(timeoutOrders)))
+
+	// 处理每个订单
+	for _, order := range timeoutOrders {
+		// 这里需要根据实际的支付接口来查询订单状态
+		// 示例：假设有一个查询支付状态的方法
+		paymentStatus, err := checkPaymentStatus(order.OutTradeNo)
+		if err != nil {
+			common.SysLog(fmt.Sprintf("查询订单 %s 支付状态失败: %v", order.OutTradeNo, err))
+			continue
+		}
+
+		// 判断paymentStatus是否是SUCCESS
+		if paymentStatus == "SUCCESS" {
+			// 先更新订单状态为处理中，避免其他实例重复处理
+			err = tx.Model(&OrderInfo{}).
+				Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 0).
+				Update("status", 999). // 临时状态，表示正在处理
+				Error
+			if err != nil {
+				common.SysLog(fmt.Sprintf("更新订单 %s 处理状态失败: %v", order.OutTradeNo, err))
+				continue
+			}
+
+			// 提交事务释放锁
+			if err = tx.Commit().Error; err != nil {
+				common.SysLog(fmt.Sprintf("提交事务失败: %v", err))
+				return err
+			}
+
+			// 在新事务中完成订单
+			err = CompleteOrder(order.OutTradeNo)
+			if err != nil {
+				common.SysLog(fmt.Sprintf("完成订单 %s 失败: %v", order.OutTradeNo, err))
+				// 恢复订单状态
+				DB.Model(&OrderInfo{}).
+					Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 999).
+					Update("status", 0)
+			} else {
+				common.SysLog(fmt.Sprintf("订单 %s 支付成功，已完成", order.OutTradeNo))
+			}
+			return nil // 处理完成，结束本次轮询
+		} else {
+			err = tx.Model(&OrderInfo{}).
+				Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 0).
+				Updates(map[string]interface{}{
+					"status": 1,
+					"msg":    "支付超时或失败",
+				}).Error
+			if err != nil {
+				common.SysLog(fmt.Sprintf("终止订单 %s 失败: %v", order.OutTradeNo, err))
+			} else {
+				common.SysLog(fmt.Sprintf("订单 %s 支付失败，已终止", order.OutTradeNo))
+			}
+		}
+
+		//switch paymentStatus {
+		//case "SUCCESS": // 支付成功
+		//	// 先更新订单状态为处理中，避免其他实例重复处理
+		//	err = tx.Model(&OrderInfo{}).
+		//		Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 0).
+		//		Update("status", 999). // 临时状态，表示正在处理
+		//		Error
+		//	if err != nil {
+		//		common.SysLog(fmt.Sprintf("更新订单 %s 处理状态失败: %v", order.OutTradeNo, err))
+		//		continue
+		//	}
+		//
+		//	// 提交事务释放锁
+		//	if err = tx.Commit().Error; err != nil {
+		//		common.SysLog(fmt.Sprintf("提交事务失败: %v", err))
+		//		return err
+		//	}
+		//
+		//	// 在新事务中完成订单
+		//	err = CompleteOrder(order.OutTradeNo)
+		//	if err != nil {
+		//		common.SysLog(fmt.Sprintf("完成订单 %s 失败: %v", order.OutTradeNo, err))
+		//		// 恢复订单状态
+		//		DB.Model(&OrderInfo{}).
+		//			Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 999).
+		//			Update("status", 0)
+		//	} else {
+		//		common.SysLog(fmt.Sprintf("订单 %s 支付成功，已完成", order.OutTradeNo))
+		//	}
+		//	return nil // 处理完成，结束本次轮询
+		//
+		//case "FAILED", "TIMEOUT", "CANCELLED": // 支付失败、超时或取消
+		//	err = tx.Model(&OrderInfo{}).
+		//		Where("out_trade_no = ? AND status = ?", order.OutTradeNo, 0).
+		//		Updates(map[string]interface{}{
+		//			"status": 1,
+		//			"msg":    "支付超时或失败",
+		//		}).Error
+		//	if err != nil {
+		//		common.SysLog(fmt.Sprintf("终止订单 %s 失败: %v", order.OutTradeNo, err))
+		//	} else {
+		//		common.SysLog(fmt.Sprintf("订单 %s 支付失败，已终止", order.OutTradeNo))
+		//	}
+		//default:
+		//	// 支付状态不明确，继续等待
+		//	common.SysLog(fmt.Sprintf("订单 %s 支付状态不明确: %s，继续等待", order.OutTradeNo, paymentStatus))
+		//}
+	}
+
+	// 提交事务
+	err = tx.Commit().Error
+	if err != nil {
+		return fmt.Errorf("提交事务失败: %v", err)
+	}
+
+	return nil
+}
+
+// checkPaymentStatus 查询支付状态（使用现有的支付接口查询）
+func checkPaymentStatus(outTradeNo string) (string, error) {
+	// 先查询订单获取支付方式
+	var order OrderInfo
+	err := DB.Where("out_trade_no = ?", outTradeNo).Select("pay_way").First(&order).Error
+	if err != nil {
+		return "UNKNOWN", fmt.Errorf("查询订单信息失败: %v", err)
+	}
+
+	// 使用订单中的支付方式查询状态
+	payWay := fmt.Sprintf("%d", order.PayWay)
+	resp, err := queryQRStatusAllFromModel(outTradeNo, payWay)
+	if err != nil {
+		return "UNKNOWN", fmt.Errorf("查询支付状态失败: %v", err)
+	}
+
+	// 根据返回的状态映射到我们需要的状态
+	switch resp.Status {
+	case "OK":
+		return "SUCCESS", nil
+	case "FAIL", "TIMEOUT", "CANCEL":
+		return "FAILED", nil
+	default:
+		return "PENDING", nil
+	}
+}
+
+// queryQRStatusAllFromModel 从model层调用controller层的查询方法
+// 注意：这里需要重新实现查询逻辑，因为controller层的方法依赖gin.Context
+func queryQRStatusAllFromModel(outTradeNo string, payWay string) (*qrStatusData, error) {
+	// 由于我们不能直接调用controller层的方法（它需要gin.Context），
+	// 我们需要重新实现查询逻辑
+
+	// 支付网关查询地址
+	const queryGatewayURL = "https://api.aicnn.cn/app-api/pay/queryQRStatusAll"
+	// 鉴权 Token
+	const authToken = "zzzqqqfsadfsa"
+
+	// 构建 URL 带参数
+	url := fmt.Sprintf("%s?outTradeNo=%s&payWay=%s", queryGatewayURL, outTradeNo, payWay)
+
+	// 创建 HTTP 客户端
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// 创建 GET 请求
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构建支付状态请求失败: %v", err)
+	}
+
+	// 设置头
+	req.Header.Set("Authorization", "Bearer "+authToken)
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("调用支付状态查询接口失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 解析响应
+	var qrResp qrStatusResp
+	if err := json.NewDecoder(resp.Body).Decode(&qrResp); err != nil {
+		return nil, fmt.Errorf("解析支付状态响应失败: %v", err)
+	}
+
+	// 返回错误状态
+	if qrResp.Code != 0 || qrResp.Data == nil {
+		msg := qrResp.Msg
+		if msg == "" {
+			msg = "支付状态返回失败"
+		}
+		return nil, fmt.Errorf(msg)
+	}
+
+	return qrResp.Data, nil
+}
+
+// 响应结构体定义（从controller层复制过来）
+type qrStatusResp struct {
+	Code int           `json:"code"`
+	Msg  string        `json:"msg"`
+	Data *qrStatusData `json:"data"`
+}
+
+type qrStatusData struct {
+	OutTradeNo string `json:"outTradeNo"`
+	Status     string `json:"status"`
 }
