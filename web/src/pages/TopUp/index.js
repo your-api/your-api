@@ -1463,52 +1463,50 @@ const TopUp = () => {
                 </div>
               </div>
 
-                {/* 邀请信息 - 高对比度 */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-300 dark:border-gray-600 shadow-xl">
-                    <div className="p-6">
-                        <div className="flex items-center space-x-3 mb-5">
-                            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
-                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('邀请信息')}</h3>
-                        </div>
-
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">
-                                    {t('邀请码')}: <span className="text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/50 border dark:border-blue-700 px-2 py-1 rounded-md font-medium">{affCode || 'Loading...'}</span>
-                                </label>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">
-                                    {t('邀请链接')}
-                                </label>
-                                <div className="flex space-x-3">
-                                    <Input
-                                        value={affLink}
-                                        readOnly
-                                        className="flex-1 bg-slate-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-2 border-slate-500 dark:border-gray-500 rounded-lg font-medium"
-                                        onClick={handleAffLinkClick}
-                                    />
-                                    <Button
-                                        type="secondary"
-                                        onClick={handleAffLinkClick}
-                                        className="px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white border-2 border-gray-800 hover:border-gray-900 font-bold rounded-xl transition-all duration-200"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                        </svg>
-                                    </Button>
-                                </div>
-                            </div>
-
-                        </div>
+                {/* 邀请信息 - 与其他卡片保持一致的样式 */}
+              <div className="bg-white rounded-xl border-2 border-gray-300 shadow-xl">
+                <div className="p-6">
+                  <div className="flex items-center space-x-3 mb-5">
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
                     </div>
-                </div>
+                    <h3 className="text-xl font-bold text-gray-900">{t('邀请信息')}</h3>
+                  </div>
 
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-3">
+                        {t('邀请码')}: <span className="text-blue-800 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md font-medium">{affCode || 'Loading...'}</span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-3">
+                        {t('邀请链接')}
+                      </label>
+                      <div className="flex space-x-3">
+                        <Input
+                            value={affLink}
+                            readOnly
+                            className="flex-1 bg-slate-100 text-gray-900 border-2 border-slate-300 rounded-lg font-medium"
+                            onClick={handleAffLinkClick}
+                        />
+                        <Button
+                            type="secondary"
+                            onClick={handleAffLinkClick}
+                            className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 border-2 border-gray-200 hover:border-gray-300 font-bold rounded-xl transition-all duration-200"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                          </svg>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </Layout.Content>
