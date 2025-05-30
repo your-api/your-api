@@ -1,0 +1,74 @@
+/* CheckInCalendar 暗色主题适配样式 */
+
+/* 月份切换按钮悬停效果 */
+.check-in-calendar .month-nav-btn {
+  transition: all 0.3s ease;
+}
+
+.check-in-calendar .month-nav-btn:hover {
+  background-color: var(--semi-color-bg-1) !important;
+  transform: scale(1.05);
+}
+
+[theme-mode="dark"] .check-in-calendar .month-nav-btn:hover {
+  background-color: var(--semi-color-bg-3) !important;
+}
+
+/* 日历单元格悬停效果 */
+.check-in-calendar .calendar-day {
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.check-in-calendar .calendar-day:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[theme-mode="dark"] .check-in-calendar .calendar-day:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 统计卡片悬停效果 */
+.check-in-calendar .stats-card {
+  transition: all 0.3s ease;
+}
+
+.check-in-calendar .stats-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+[theme-mode="dark"] .check-in-calendar .stats-card:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* 签到按钮禁用状态在暗色主题下的样式 */
+[theme-mode="dark"] .check-in-calendar .check-in-btn-disabled {
+  background-color: var(--semi-color-fill-0) !important;
+  color: var(--semi-color-text-2) !important;
+  border-color: var(--semi-color-border) !important;
+}
+
+/* 确保在暗色主题下渐变背景正确显示 */
+[theme-mode="dark"] .check-in-calendar .gradient-bg {
+  backdrop-filter: blur(8px);
+}
+
+/* 规则说明区域暗色适配 */
+[theme-mode="dark"] .check-in-calendar .rules-section {
+  background: linear-gradient(to right, rgba(var(--semi-blue-9), 0.4), rgba(var(--semi-indigo-9), 0.4)) !important;
+  border-color: rgba(var(--semi-blue-7), 0.6) !important;
+}
+
+/* 日历头部按钮在暗色主题下的样式 */
+[theme-mode="dark"] .check-in-calendar .calendar-header-btn {
+  background-color: var(--semi-color-bg-1) !important;
+  color: var(--semi-color-text-0) !important;
+  border: 1px solid var(--semi-color-border);
+}
+
+[theme-mode="dark"] .check-in-calendar .calendar-header-btn:hover {
+  background-color: var(--semi-color-bg-0) !important;
+  color: var(--semi-color-text-0) !important;
+} 

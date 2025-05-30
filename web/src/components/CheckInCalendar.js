@@ -3,6 +3,7 @@ import { API, showError, showSuccess } from '../helpers';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import ImageCaptcha from './ImageCaptcha';
+import './CheckInCalendar.css';
 
 const CheckInCalendar = () => {
   const { t } = useTranslation();
@@ -209,16 +210,20 @@ const CheckInCalendar = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="check-in-calendar max-w-4xl mx-auto p-6 space-y-6">
       {/* 顶部统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
+        <div style={{
+          background: 'linear-gradient(to right, rgba(var(--semi-blue-0), 0.8), rgba(var(--semi-blue-1), 0.6))',
+          borderColor: 'rgba(var(--semi-blue-2), 0.6)',
+          backgroundColor: 'var(--semi-color-bg-2)'
+        }} className="stats-card border rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 font-medium">{t('总签到天数')}</p>
-              <p className="text-2xl font-bold text-blue-900">{stats?.total_check_in_days || 0}</p>
+              <p style={{ color: 'rgba(var(--semi-blue-5), 1)' }} className="text-sm font-medium">{t('总签到天数')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{stats?.total_check_in_days || 0}</p>
             </div>
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+            <div style={{ backgroundColor: 'rgba(var(--semi-blue-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
@@ -226,14 +231,18 @@ const CheckInCalendar = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
+        <div style={{
+          background: 'linear-gradient(to right, rgba(var(--semi-green-0), 0.8), rgba(var(--semi-green-1), 0.6))',
+          borderColor: 'rgba(var(--semi-green-2), 0.6)',
+          backgroundColor: 'var(--semi-color-bg-2)'
+        }} className="stats-card border rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">{t('连续签到')}</p>
-              <p className="text-2xl font-bold text-green-900">{checkInStatus?.consecutive_days || 0}</p>
-              <p className="text-xs text-green-600">{t('加成')}: {getBonusDescription(checkInStatus?.consecutive_days || 0)}</p>
+              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-sm font-medium">{t('连续签到')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{checkInStatus?.consecutive_days || 0}</p>
+              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-xs">{t('加成')}: {getBonusDescription(checkInStatus?.consecutive_days || 0)}</p>
             </div>
-            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+            <div style={{ backgroundColor: 'rgba(var(--semi-green-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
@@ -241,13 +250,17 @@ const CheckInCalendar = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
+        <div style={{
+          background: 'linear-gradient(to right, rgba(var(--semi-purple-0), 0.8), rgba(var(--semi-purple-1), 0.6))',
+          borderColor: 'rgba(var(--semi-purple-2), 0.6)',
+          backgroundColor: 'var(--semi-color-bg-2)'
+        }} className="stats-card border rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-purple-600 font-medium">{t('总收益')}</p>
-              <p className="text-2xl font-bold text-purple-900">{stats?.total_quota_text || '$0.00'}</p>
+              <p style={{ color: 'rgba(var(--semi-purple-5), 1)' }} className="text-sm font-medium">{t('总收益')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{stats?.total_quota_text || '$0.00'}</p>
             </div>
-            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+            <div style={{ backgroundColor: 'rgba(var(--semi-purple-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
               </svg>
@@ -255,13 +268,17 @@ const CheckInCalendar = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4">
+        <div style={{
+          background: 'linear-gradient(to right, rgba(var(--semi-orange-0), 0.8), rgba(var(--semi-orange-1), 0.6))',
+          borderColor: 'rgba(var(--semi-orange-2), 0.6)',
+          backgroundColor: 'var(--semi-color-bg-2)'
+        }} className="stats-card border rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-orange-600 font-medium">{t('本月签到')}</p>
-              <p className="text-2xl font-bold text-orange-900">{checkInStatus?.this_month_check_ins || 0}</p>
+              <p style={{ color: 'rgba(var(--semi-orange-5), 1)' }} className="text-sm font-medium">{t('本月签到')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{checkInStatus?.this_month_check_ins || 0}</p>
             </div>
-            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+            <div style={{ backgroundColor: 'rgba(var(--semi-orange-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -271,11 +288,14 @@ const CheckInCalendar = () => {
       </div>
 
       {/* 签到按钮和下次奖励 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div style={{ 
+        backgroundColor: 'var(--semi-color-bg-2)',
+        borderColor: 'var(--semi-color-border)'
+      }} className="rounded-xl border shadow-sm p-6">
         <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
           <div className="text-center md:text-left">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('每日签到')}</h3>
-            <p className="text-gray-600">
+            <h3 style={{ color: 'var(--semi-color-text-0)' }} className="text-lg font-semibold mb-2">{t('每日签到')}</h3>
+            <p style={{ color: 'var(--semi-color-text-1)' }}>
               {checkInStatus?.has_checked_in_today 
                 ? t('今天已签到，明天再来！') 
                 : `${t('下次奖励')}: ${checkInStatus?.next_reward_text || '$0.00'} (${t('加成')}: ${getBonusDescription((checkInStatus?.consecutive_days || 0) + 1)})`
@@ -288,8 +308,12 @@ const CheckInCalendar = () => {
             className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
               checkInStatus?.can_check_in && !checkingIn
                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'cursor-not-allowed'
             }`}
+            style={!checkInStatus?.can_check_in || checkingIn ? {
+              backgroundColor: 'var(--semi-color-fill-0)',
+              color: 'var(--semi-color-text-2)'
+            } : {}}
           >
             {checkingIn ? (
               <div className="flex items-center">
@@ -306,28 +330,42 @@ const CheckInCalendar = () => {
       </div>
 
       {/* 日历组件 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div style={{ 
+        backgroundColor: 'var(--semi-color-bg-2)',
+        borderColor: 'var(--semi-color-border)'
+      }} className="rounded-xl border shadow-sm overflow-hidden">
         {/* 日历头部 */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-4">
+        <div style={{ 
+          background: 'linear-gradient(to right, var(--semi-color-fill-0), var(--semi-color-fill-1))',
+          borderBottomColor: 'var(--semi-color-border)'
+        }} className="border-b p-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => changeMonth(-1)}
-              className="p-2 hover:bg-white rounded-lg transition-colors duration-200"
+              style={{ 
+                backgroundColor: 'var(--semi-color-bg-2)',
+                color: 'var(--semi-color-text-1)'
+              }}
+              className="month-nav-btn calendar-header-btn p-2 hover:bg-white rounded-lg transition-colors duration-200"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 style={{ color: 'var(--semi-color-text-0)' }} className="text-xl font-semibold">
               {currentDate.getFullYear()}{t('年')} {currentDate.getMonth() + 1}{t('月')}
             </h2>
             
             <button
               onClick={() => changeMonth(1)}
-              className="p-2 hover:bg-white rounded-lg transition-colors duration-200"
+              style={{ 
+                backgroundColor: 'var(--semi-color-bg-2)',
+                color: 'var(--semi-color-text-1)'
+              }}
+              className="month-nav-btn calendar-header-btn p-2 hover:bg-white rounded-lg transition-colors duration-200"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -335,9 +373,12 @@ const CheckInCalendar = () => {
         </div>
 
         {/* 星期标题 */}
-        <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+        <div style={{ 
+          backgroundColor: 'var(--semi-color-fill-0)',
+          borderBottomColor: 'var(--semi-color-border)'
+        }} className="grid grid-cols-7 border-b">
           {weekDays.map((day, index) => (
-            <div key={index} className="p-3 text-center text-sm font-medium text-gray-600">
+            <div key={index} style={{ color: 'var(--semi-color-text-1)' }} className="p-3 text-center text-sm font-medium">
               {day}
             </div>
           ))}
@@ -358,32 +399,50 @@ const CheckInCalendar = () => {
                 return (
                   <div
                     key={dayIndex}
-                    className={`aspect-square p-2 rounded-lg border-2 transition-all duration-200 ${
-                      isToday
-                        ? 'border-blue-400 bg-blue-50'
+                    className="calendar-day aspect-square p-2 rounded-lg border-2 transition-all duration-200"
+                    style={{
+                      borderColor: isToday
+                        ? 'rgba(var(--semi-blue-4), 1)'
                         : hasCheckedIn
-                        ? 'border-green-300 bg-green-50'
-                        : 'border-gray-100 bg-white hover:bg-gray-50'
-                    }`}
+                        ? 'rgba(var(--semi-green-3), 1)'
+                        : 'var(--semi-color-border)',
+                      backgroundColor: isToday
+                        ? 'rgba(var(--semi-blue-0), 0.5)'
+                        : hasCheckedIn
+                        ? 'rgba(var(--semi-green-0), 0.5)'
+                        : 'var(--semi-color-bg-1)'
+                    }}
                   >
                     <div className="h-full flex flex-col items-center justify-center relative">
-                      <span className={`text-sm font-medium ${
-                        isToday ? 'text-blue-700' : hasCheckedIn ? 'text-green-700' : 'text-gray-700'
-                      }`}>
+                      <span 
+                        className="text-sm font-medium"
+                        style={{
+                          color: isToday 
+                            ? 'rgba(var(--semi-blue-6), 1)' 
+                            : hasCheckedIn 
+                            ? 'rgba(var(--semi-green-6), 1)' 
+                            : 'var(--semi-color-text-0)'
+                        }}
+                      >
                         {day.day}
                       </span>
                       
                       {hasCheckedIn && (
                         <div className="mt-1">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                            isToday ? 'bg-blue-500' : 'bg-green-500'
-                          }`}>
+                          <div 
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: isToday 
+                                ? 'rgba(var(--semi-blue-5), 1)' 
+                                : 'rgba(var(--semi-green-5), 1)'
+                            }}
+                          >
                             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
                           {day.quota_reward_text && (
-                            <div className="text-xs text-green-600 mt-1 text-center leading-tight">
+                            <div style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-xs mt-1 text-center leading-tight">
                               {day.quota_reward_text}
                             </div>
                           )}
@@ -391,7 +450,7 @@ const CheckInCalendar = () => {
                       )}
                       
                       {isToday && !hasCheckedIn && (
-                        <div className="mt-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <div className="mt-1 w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(var(--semi-blue-5), 1)' }}></div>
                       )}
                     </div>
                   </div>
@@ -403,39 +462,43 @@ const CheckInCalendar = () => {
       </div>
 
       {/* 签到规则说明 */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div style={{ 
+        background: 'linear-gradient(to right, rgba(var(--semi-blue-0), 0.5), rgba(var(--semi-indigo-0), 0.5))',
+        backgroundColor: 'var(--semi-color-bg-2)',
+        borderColor: 'rgba(var(--semi-blue-2), 0.6)'
+      }} className="rules-section gradient-bg border rounded-xl p-6">
+        <h3 style={{ color: 'var(--semi-color-text-0)' }} className="text-lg font-semibold mb-4 flex items-center">
+          <svg style={{ color: 'rgba(var(--semi-blue-5), 1)' }} className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {t('签到规则')}
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" style={{ color: 'var(--semi-color-text-1)' }}>
           <div className="space-y-2">
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-blue-5), 1)' }}></span>
               {t('每日签到可随机获得 随机 额度')}
             </div>
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-green-5), 1)' }}></span>
               {t('连续签到 3-6 天：1.2倍加成')}
             </div>
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-purple-5), 1)' }}></span>
               {t('连续签到 7-13 天：1.5倍加成')}
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-orange-5), 1)' }}></span>
               {t('连续签到 14-20 天：2.0倍加成')}
             </div>
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-red-5), 1)' }}></span>
               {t('连续签到 21-29 天：2.5倍加成')}
             </div>
             <div className="flex items-center">
-              <span className="w-2 h-2 bg-pink-500 rounded-full mr-2"></span>
+              <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: 'rgba(var(--semi-pink-5), 1)' }}></span>
               {t('连续签到 30+ 天：3.0倍加成')}
             </div>
           </div>
