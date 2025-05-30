@@ -532,8 +532,8 @@ const TopUp = () => {
   const handleAmountChange = (amount) => {
     if (amount === 'custom') {
       setCustomAmount(true);
-      setTopUpCount(1);
-      getAmount(1);
+      setTopUpCount(2);
+      getAmount(2);
     } else {
       setCustomAmount(false);
       setSelectedAmount(amount);

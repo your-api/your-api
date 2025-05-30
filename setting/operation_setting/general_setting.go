@@ -152,8 +152,9 @@ func GetDiscountRateForOrder(amount float64) float64 {
 	//	return DiscountTiers[i].MinAmount > DiscountTiers[j].MinAmount
 	//})
 
-	for _, tier := range DiscountTiers {
-		if amount <= tier.MinAmount {
+	for i := len(DiscountTiers) - 1; i >= 0; i-- {
+		tier := DiscountTiers[i]
+		if amount >= tier.MinAmount {
 			return tier.Rate
 		}
 	}
