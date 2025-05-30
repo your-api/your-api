@@ -93,6 +93,16 @@ func chooseDB(envName string) (*gorm.DB, error) {
 			// Use PostgreSQL
 			common.SysLog("using PostgreSQL as database")
 			common.UsingPostgreSQL = true
+			
+			// 添加时区参数以确保时间正确性
+			if !strings.Contains(dsn, "timezone=") {
+				if strings.Contains(dsn, "?") {
+					dsn += "&timezone=Asia/Shanghai"
+				} else {
+					dsn += "?timezone=Asia/Shanghai"
+				}
+			}
+			
 			return gorm.Open(postgres.New(postgres.Config{
 				DSN:                  dsn,
 				PreferSimpleProtocol: true, // disables implicit prepared statement usage
@@ -117,6 +127,25 @@ func chooseDB(envName string) (*gorm.DB, error) {
 				dsn += "?parseTime=true"
 			}
 		}
+		
+		// 添加时区参数以解决时间偏差问题
+		if !strings.Contains(dsn, "loc=") {
+			if strings.Contains(dsn, "?") {
+				dsn += "&loc=Asia%2FShanghai"
+			} else {
+				dsn += "?loc=Asia%2FShanghai"
+			}
+		}
+		
+		// 添加字符集参数
+		if !strings.Contains(dsn, "charset=") {
+			if strings.Contains(dsn, "?") {
+				dsn += "&charset=utf8mb4"
+			} else {
+				dsn += "?charset=utf8mb4"
+			}
+		}
+		
 		common.UsingMySQL = true
 		return gorm.Open(mysql.Open(dsn), &gorm.Config{
 			PrepareStmt: true, // precompile SQL

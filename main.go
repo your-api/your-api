@@ -15,6 +15,7 @@ import (
 	"one-api/setting/operation_setting"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -32,7 +33,16 @@ var buildFS embed.FS
 var indexPage []byte
 
 func main() {
-	err := godotenv.Load(".env")
+	// 设置应用程序默认时区为中国时区，解决时间慢8小时的问题
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		common.SysLog("警告：无法加载时区 Asia/Shanghai，使用系统默认时区: " + err.Error())
+	} else {
+		time.Local = loc
+		common.SysLog("应用程序时区已设置为: " + time.Local.String())
+	}
+
+	err = godotenv.Load(".env")
 	if err != nil {
 		common.SysLog("Support for .env file is disabled: " + err.Error())
 	}
