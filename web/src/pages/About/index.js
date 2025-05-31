@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { API, showError } from '../../helpers';
-import { Layout, Card, Row, Col, Space, Typography, Divider, Avatar } from '@douyinfe/semi-ui';
+import { Layout, Card, Row, Col, Space, Typography, Divider } from '@douyinfe/semi-ui';
 import { IconPhone, IconMail, IconHome, IconUser, IconClock, IconComment } from '@douyinfe/semi-icons';
 import { marked } from 'marked';
+import { useTheme } from '../../context/Theme';
+import './AboutStyles.css';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -19,6 +21,8 @@ const Contact = () => {
   });
   const [about, setAbout] = useState('');
   const [loading, setLoading] = useState(true);
+  const theme = useTheme();
+  const isDarkMode = theme === 'dark';
 
   const fetchContactInfo = async () => {
     try {
@@ -64,201 +68,133 @@ const Contact = () => {
   // 如果有About配置，显示About内容
   if (about) {
     return (
-      <>
+      <div className="about-iframe-container">
         {about.startsWith('https://') ? (
           <iframe
             src={about}
-            style={{ width: '100%', height: '100vh', border: 'none' }}
+            className="about-iframe"
           />
         ) : (
           <div
-            style={{ fontSize: 'larger', padding: '40px' }}
+            className="about-content"
             dangerouslySetInnerHTML={{ __html: about.startsWith('<') ? about : marked.parse(about) }}
-          ></div>
+          />
         )}
-      </>
+      </div>
     );
   }
 
-  const ContactCard = ({ icon, title, content, color = '#6366f1' }) => {
+  const ContactCard = ({ icon, title, content, color = 'var(--semi-color-primary)' }) => {
     if (!content) return null;
     
     return (
       <Card 
-        style={{ 
-          height: '100%',
-          border: '1px solid #f0f0f0',
-          borderRadius: '12px',
-          transition: 'all 0.3s ease',
-          cursor: 'pointer'
-        }}
-        bodyStyle={{ padding: '24px' }}
-        hoverable
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-4px)';
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
-        }}
+        className="contact-card"
+        bodyStyle={{ padding: 0, height: '100%' }}
       >
-        <Space direction="vertical" spacing="medium" style={{ width: '100%' }}>
-          <Avatar 
+        <div className="contact-card-content">
+          <div 
+            className="contact-icon"
             style={{ 
-              backgroundColor: color + '20',
-              color: color,
-              border: `2px solid ${color}30`
+              backgroundColor: `${color}15`,
+              borderColor: `${color}30`,
+              color: color
             }}
-            size="large"
           >
             {icon}
-          </Avatar>
-          <div>
-            <Title heading={6} style={{ margin: 0, color: '#1a1a1a' }}>
+          </div>
+          <div className="contact-info">
+            <Title heading={6} className="contact-title">
               {title}
             </Title>
-            <Text style={{ color: '#666', lineHeight: '1.6', marginTop: '8px', display: 'block' }}>
+            <Text className="contact-text">
               {content}
             </Text>
           </div>
-        </Space>
+        </div>
       </Card>
     );
   };
 
   if (loading) {
     return (
-      <Layout style={{ minHeight: '100vh', background: '#fafafa' }}>
-        <Layout.Content style={{ padding: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Layout className="contact-layout">
+        <Layout.Content className="contact-content loading-content">
+          <div className="loading-spinner"></div>
           <Text>加载中...</Text>
         </Layout.Content>
       </Layout>
     );
   }
 
+  // 准备联系方式数据，按新顺序排列：微信、QQ群、邮箱地址
+  const contactItems = [
+    { icon: <IconUser />, title: "微信", content: contactInfo.ContactWeChat || contactInfo.ContactPhone, color: "#07c160" },
+    { icon: <IconComment />, title: "QQ群", content: contactInfo.ContactQQ, color: "var(--semi-color-info)" },
+    { icon: <IconMail />, title: "邮箱地址", content: contactInfo.ContactEmail, color: "var(--semi-color-primary)" }
+  ].filter(item => item.content); // 只显示有内容的项目
+
   return (
-    <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-      <Layout.Content style={{ padding: '40px 20px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <Layout className="contact-layout">
+      <Layout.Content className="contact-content">
+        <div className="contact-container">
           {/* 头部区域 */}
-          <div style={{ 
-            textAlign: 'center', 
-            marginBottom: '60px',
-            padding: '40px 20px',
-            background: 'rgba(255,255,255,0.95)',
-            borderRadius: '20px',
-            backdropFilter: 'blur(10px)'
-          }}>
-            <Title 
-              heading={1} 
-              style={{ 
-                color: '#1a1a1a', 
-                marginBottom: '16px',
-                fontSize: '3rem',
-                fontWeight: '700'
-              }}
-            >
-              联系我们
-            </Title>
-            <Paragraph 
-              style={{ 
-                fontSize: '18px', 
-                color: '#666',
-                maxWidth: '600px',
-                margin: '0 auto',
-                lineHeight: '1.8'
-              }}
-            >
-              {contactInfo.ContactDescription}
-            </Paragraph>
+          <div className="contact-header">
+            <div className="header-content">
+              <Title heading={1} className="header-title">
+                联系我们
+              </Title>
+              <Paragraph className="header-description">
+                {contactInfo.ContactDescription}
+              </Paragraph>
+            </div>
           </div>
 
-          {/* 联系方式卡片 */}
-          <Row gutter={[24, 24]} style={{ marginBottom: '40px' }}>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconPhone />}
-                title="联系电话"
-                content={contactInfo.ContactPhone}
-                color="#10b981"
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconMail />}
-                title="邮箱地址"
-                content={contactInfo.ContactEmail}
-                color="#3b82f6"
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconHome />}
-                title="联系地址"
-                content={contactInfo.ContactAddress}
-                color="#8b5cf6"
-              />
-            </Col>
-          </Row>
+          {/* 联系方式卡片网格 */}
+          <div className="contact-grid">
+            <Row gutter={[16, 0]} justify="center">
+              <Col xs={24} sm={8} md={8}>
+                <ContactCard
+                  icon={<IconUser />}
+                  title="微信"
+                  content={contactInfo.ContactWeChat || contactInfo.ContactPhone}
+                  color="#07c160"
+                />
+              </Col>
+              <Col xs={24} sm={8} md={8}>
+                <ContactCard
+                  icon={<IconComment />}
+                  title="QQ群"
+                  content={contactInfo.ContactQQ}
+                  color="var(--semi-color-info)"
+                />
+              </Col>
+              <Col xs={24} sm={8} md={8}>
+                <ContactCard
+                  icon={<IconMail />}
+                  title="邮箱地址"
+                  content={contactInfo.ContactEmail}
+                  color="var(--semi-color-primary)"
+                />
+              </Col>
+            </Row>
+          </div>
 
-          {/* 社交媒体联系方式 */}
-          <Row gutter={[24, 24]} style={{ marginBottom: '40px' }}>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconUser />}
-                title="微信号"
-                content={contactInfo.ContactWeChat}
-                color="#07c160"
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconComment />}
-                title="QQ号"
-                content={contactInfo.ContactQQ}
-                color="#1677ff"
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8}>
-              <ContactCard
-                icon={<IconUser />}
-                title="Telegram"
-                content={contactInfo.ContactTelegram}
-                color="#0088cc"
-              />
-            </Col>
-          </Row>
-
-          {/* 工作时间 */}
+          {/* 工作时间卡片 */}
           {contactInfo.ContactWorkTime && (
-            <Card 
-              style={{ 
-                background: 'rgba(255,255,255,0.95)',
-                borderRadius: '16px',
-                border: 'none',
-                backdropFilter: 'blur(10px)'
-              }}
-              bodyStyle={{ padding: '32px' }}
-            >
-              <div style={{ textAlign: 'center' }}>
-                <Avatar 
-                  style={{ 
-                    backgroundColor: '#f59e0b20',
-                    color: '#f59e0b',
-                    border: '2px solid #f59e0b30',
-                    marginBottom: '16px'
-                  }}
-                  size="large"
-                >
+            <Card className="work-time-card" bodyStyle={{ padding: 0 }}>
+              <div className="work-time-content">
+                <div className="work-time-icon">
                   <IconClock />
-                </Avatar>
-                <Title heading={4} style={{ margin: '0 0 8px 0', color: '#1a1a1a' }}>
-                  服务时间
-                </Title>
-                <Text style={{ fontSize: '16px', color: '#666' }}>
-                  {contactInfo.ContactWorkTime}
-                </Text>
+                </div>
+                <div className="work-time-info">
+                  <Title heading={4} className="work-time-title">
+                    服务时间
+                  </Title>
+                  <Text className="work-time-text">
+                    {contactInfo.ContactWorkTime}
+                  </Text>
+                </div>
               </div>
             </Card>
           )}
