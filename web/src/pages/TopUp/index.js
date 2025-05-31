@@ -1403,14 +1403,14 @@ const TopUp = () => {
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  <span className="text-sm font-bold text-white ml-2 my-auto">{t('返利比例')}: 5%</span>
+                  <span className="text-sm font-bold text-white ml-2 my-auto">{t('返利比例')}: 2%</span>
                 </div>
               </div>
 
               {/* 邀请说明 - 高对比度 */}
               <div className="bg-gradient-to-r from-blue-600 to-indigo-700 border-2 border-blue-700 rounded-xl p-5 mb-6 shadow-lg">
                 <p className="text-white font-medium leading-relaxed text-center">
-                  {t('邀请好友注册，您可获得 $ 1 额度。好友可获得 $ 1 额度。好友充值前 3 次，您可获得返现。（防止恶意邀请注册，需实名认证）')}
+                  {t('邀请好友注册，您和好友都可立得 $0.5 额度，可直接使用。好友每次充值，您将获得2%返现，返现金额可转账、可提现，轻松变现无门槛。邀请越多，赚得越多，立即邀请好友开启躺赚模式！')}
                 </p>
               </div>
 
