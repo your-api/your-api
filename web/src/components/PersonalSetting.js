@@ -179,6 +179,12 @@ const PersonalSetting = () => {
     showSuccess(t('邀请链接已复制到剪切板'));
   };
 
+  // 新增：专门用于按钮复制的函数
+  const handleCopyButton = async () => {
+    await copy(affLink);
+    showSuccess(t('邀请链接已复制到剪切板'));
+  };
+
   const handleSystemTokenClick = async (e) => {
     e.target.select();
     await copy(e.target.value);
@@ -449,7 +455,7 @@ const PersonalSetting = () => {
                     />
                     <Button
                         type="secondary"
-                        onClick={handleAffLinkClick}
+                        onClick={handleCopyButton}
                         className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 border-2 border-gray-200 hover:border-gray-300 font-bold rounded-xl transition-all duration-200"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
