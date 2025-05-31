@@ -1195,9 +1195,9 @@ const TopUp = () => {
                   theme='solid'
                   type={'primary'}
                   size='large'
-                  loading={paymentLoading}
+                  loading={paymentLoading && payWay === 'zfb'}
                   onClick={() => preTopUp('zfb')}
-                  disabled={!amount || amount <= 0}
+                  disabled={!amount || amount <= 0 || paymentLoading}
                   className="min-w-[140px]"
                   icon={
                     <svg
@@ -1219,9 +1219,9 @@ const TopUp = () => {
                   theme='solid'
                   type={'secondary'}
                   size='large'
-                  loading={paymentLoading}
+                  loading={paymentLoading && payWay === 'wx'}
                   onClick={() => preTopUp('wx')}
-                  disabled={!amount || amount <= 0}
+                  disabled={!amount || amount <= 0 || paymentLoading}
                   className="min-w-[140px]"
                   icon={
                     <svg
