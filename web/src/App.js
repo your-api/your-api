@@ -30,7 +30,7 @@ import SetupCheck from './components/SetupCheck';
 
 const Home = lazy(() => import('./pages/Home'));
 const Detail = lazy(() => import('./pages/Detail'));
-const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/About'));
 const Document = lazy(() => import('./pages/Document'));
 
 function App() {
@@ -271,7 +271,7 @@ function App() {
           path='/about'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <About />
+              <Contact />
             </Suspense>
           }
         />

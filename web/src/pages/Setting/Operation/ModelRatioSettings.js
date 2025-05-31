@@ -49,6 +49,7 @@ export default function ModelRatioSettings(props) {
   const [typingListJson, setTypingListJson] = useState(JSON.stringify(typingList, null, 2));
   const [custemNavLinksJson, setCustemNavLinksJson] = useState(JSON.stringify(custemNavLinks, null, 2));
   const [discountTiersJson, setDiscountTiersJson] = useState(JSON.stringify(discountTiers, null, 2));
+  const [contactInfoJson, setContactInfoJson] = useState('');
 
   // AI供应商数据
   const dispatch = useDispatch();
@@ -112,6 +113,10 @@ export default function ModelRatioSettings(props) {
     console.log("modelDiscriptions", modelDiscriptions);
   }, [modelDiscriptions]);
 
+  // 初始化联系方式数据
+  useEffect(() => {
+    fetchContactInfo();
+  }, []);
 
   async function saveProviders() {
     try {
@@ -212,6 +217,57 @@ export default function ModelRatioSettings(props) {
       showError(t('保存失败') + ': ' + error.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 保存联系方式配置
+  async function saveContactInfo() {
+    try {
+      if (!verifyJSON(contactInfoJson)) {
+        return showError(t('不是合法的 JSON 字符串'));
+      }
+
+      setLoading(true);
+      const res = await API.put('/api/option/', { 
+        key: 'ContactInfo', 
+        value: contactInfoJson 
+      });
+      
+      if (res.data.success) {
+        showSuccess(t('联系方式配置已更新'));
+        props.refresh && props.refresh();
+      } else {
+        showError(res.data.message);
+      }
+    } catch (error) {
+      showError(t('保存失败') + ': ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 获取联系方式配置
+  async function fetchContactInfo() {
+    try {
+      const res = await API.get('/api/contact');
+      if (res.data.success) {
+        const contactData = res.data.data;
+        setContactInfoJson(JSON.stringify(contactData, null, 2));
+      }
+    } catch (error) {
+      console.error('获取联系方式失败:', error);
+      // 设置默认值
+      const defaultContactInfo = {
+        ContactPhone: '',
+        ContactEmail: '',
+        ContactAddress: '',
+        ContactWeChat: '',
+        ContactQQ: '',
+        ContactTelegram: '',
+        ContactWorkTime: '周一至周五 9:00-18:00',
+        ContactDescription: '如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！'
+      };
+      setContactInfoJson(JSON.stringify(defaultContactInfo, null, 2));
     }
   }
 
@@ -618,12 +674,43 @@ export default function ModelRatioSettings(props) {
         </Space>
       </div>
 
-
-
-
-
-
-
+      {/* 添加联系方式配置部分 */}
+      <div style={{ marginBottom: 15 }}>
+        <h4 style={{ marginBottom: 8 }}>{t('联系方式配置')}</h4>
+        <div style={{ marginBottom: 8, fontSize: '12px', color: 'rgba(0, 0, 0, 0.6)' }}>
+          {t('配置系统的联系方式信息，将在联系我们页面中展示，支持电话、邮箱、地址及社交媒体等联系方式')}
+        </div>
+        
+        <TextArea
+          value={contactInfoJson}
+          placeholder={t(
+              '{\n' +
+              '  "ContactPhone": "400-123-4567",\n' +
+              '  "ContactEmail": "support@example.com",\n' +
+              '  "ContactAddress": "北京市朝阳区示例大厦888号",\n' +
+              '  "ContactWeChat": "example_wechat",\n' +
+              '  "ContactQQ": "123456789",\n' +
+              '  "ContactTelegram": "@example_telegram",\n' +
+              '  "ContactWorkTime": "周一至周五 9:00-18:00",\n' +
+              '  "ContactDescription": "如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！"\n' +
+              '}'
+          )}
+          autosize={{ minRows: 6, maxRows: 12 }}
+          onChange={(value) =>
+              setContactInfoJson(value)
+          }
+          onBlur={(e) => {
+            if (!verifyJSON(e.target.value)) {
+              showError('不是合法的 JSON 字符串');
+            }
+          }}
+          style={{ width: '100%', maxWidth: '100%' }}
+        />
+        
+        <Space style={{ marginTop: 15 }}>
+          <Button onClick={saveContactInfo}>{t('保存联系方式配置')}</Button>
+        </Space>
+      </div>
 
     </Spin>
   );

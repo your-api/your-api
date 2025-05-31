@@ -203,7 +203,7 @@ const HeaderBar = () => {
       icon: <IconFilpVertical style={headerIconStyle} />,
     })),
     {
-      text: t('关于'),
+      text: t('联系我们'),
       itemKey: 'about',
       to: '/about',
       icon: <IconInfoCircle style={headerIconStyle} />,

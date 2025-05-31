@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"one-api/common"
 	"one-api/setting"
 	"one-api/setting/config"
@@ -122,6 +123,19 @@ func InitOptionMap() {
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
 	common.OptionMap["StreamCacheQueueLength"] = strconv.Itoa(setting.StreamCacheQueueLength)
 	common.OptionMap["AutomaticDisableKeywords"] = operation_setting.AutomaticDisableKeywordsToString()
+	// 添加联系方式配置项 - 使用JSON格式存储
+	defaultContactInfo := map[string]interface{}{
+		"ContactPhone":       "",
+		"ContactEmail":       "",
+		"ContactAddress":     "",
+		"ContactWeChat":      "",
+		"ContactQQ":          "",
+		"ContactTelegram":    "",
+		"ContactWorkTime":    "周一至周五 9:00-18:00",
+		"ContactDescription": "如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！",
+	}
+	contactInfoJSON, _ := json.Marshal(defaultContactInfo)
+	common.OptionMap["ContactInfo"] = string(contactInfoJSON)
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -393,6 +407,8 @@ func updateOptionMap(key string, value string) (err error) {
 
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
+	case "ContactInfo":
+		// 联系方式信息以JSON格式存储，无需额外处理
 	}
 	return err
 }

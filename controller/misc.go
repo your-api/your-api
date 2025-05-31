@@ -101,6 +101,62 @@ func GetAbout(c *gin.Context) {
 	return
 }
 
+func GetContact(c *gin.Context) {
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	
+	// 获取ContactInfo JSON字符串
+	contactInfoStr, exists := common.OptionMap["ContactInfo"]
+	if !exists || contactInfoStr == "" {
+		// 如果没有ContactInfo，返回默认值
+		defaultContactInfo := gin.H{
+			"ContactPhone":       "",
+			"ContactEmail":       "",
+			"ContactAddress":     "",
+			"ContactWeChat":      "",
+			"ContactQQ":          "",
+			"ContactTelegram":    "",
+			"ContactWorkTime":    "周一至周五 9:00-18:00",
+			"ContactDescription": "如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！",
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data":    defaultContactInfo,
+		})
+		return
+	}
+	
+	// 解析JSON
+	var contactInfo gin.H
+	if err := json.Unmarshal([]byte(contactInfoStr), &contactInfo); err != nil {
+		// JSON解析失败，返回默认值
+		defaultContactInfo := gin.H{
+			"ContactPhone":       "",
+			"ContactEmail":       "",
+			"ContactAddress":     "",
+			"ContactWeChat":      "",
+			"ContactQQ":          "",
+			"ContactTelegram":    "",
+			"ContactWorkTime":    "周一至周五 9:00-18:00",
+			"ContactDescription": "如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！",
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data":    defaultContactInfo,
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    contactInfo,
+	})
+	return
+}
+
 func GetMidjourney(c *gin.Context) {
 	common.OptionMapRWMutex.RLock()
 	defer common.OptionMapRWMutex.RUnlock()
