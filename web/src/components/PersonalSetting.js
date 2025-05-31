@@ -435,6 +435,13 @@ const PersonalSetting = () => {
                 <h3 className="text-xl font-bold text-gray-900">{t('邀请信息')}</h3>
               </div>
 
+              {/* 邀请说明 - 高对比度 */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-700 border-2 border-blue-700 rounded-xl p-5 mb-6 shadow-lg">
+                <p className="text-white font-medium leading-relaxed text-center">
+                  {t('邀请好友注册，您和好友都可立得 $0.5 额度，可直接使用。好友每次充值，您将获得2%返现，返现金额可转账、可提现，轻松变现无门槛。邀请越多，赚得越多，立即邀请好友开启躺赚模式！')}
+                </p>
+              </div>
+
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-3">
