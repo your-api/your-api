@@ -1,0 +1,581 @@
+/* About页面 - 紧凑苹果设计风格 */
+
+/* 基础布局 */
+.contact-layout {
+  min-height: 100vh;
+  background: var(--semi-color-bg-0);
+  transition: background 0.3s ease;
+}
+
+/* 暗色主题背景 */
+[theme-mode="dark"] .contact-layout {
+  background: var(--semi-color-bg-0);
+}
+
+/* 内容容器 */
+.contact-content {
+  padding: 40px 20px 20px 20px;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.contact-container {
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 加载状态 */
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid transparent;
+  border-top: 3px solid var(--semi-color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 头部区域 */
+.contact-header {
+  text-align: center;
+  margin-bottom: 24px;
+  background: var(--semi-color-bg-1);
+  border: 1px solid var(--semi-color-border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* 暗色主题头部 */
+[theme-mode="dark"] .contact-header {
+  background: var(--semi-color-bg-2);
+  border-color: var(--semi-color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.header-background {
+  display: none;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.header-title {
+  color: var(--semi-color-text-0) !important;
+  margin-bottom: 8px !important;
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.header-description {
+  font-size: 14px !important;
+  color: var(--semi-color-text-1) !important;
+  margin: 0 auto !important;
+  line-height: 1.5 !important;
+  font-weight: 400;
+}
+
+/* 联系方式网格 */
+.contact-grid {
+  margin-bottom: 16px;
+  background: var(--semi-color-bg-1);
+  border: 1px solid var(--semi-color-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* 暗色主题网格背景 */
+[theme-mode="dark"] .contact-grid {
+  background: var(--semi-color-bg-2);
+  border-color: var(--semi-color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 联系卡片设计 */
+.contact-card {
+  height: 120px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--semi-color-border) !important;
+  background: var(--semi-color-bg-0) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 暗色主题卡片 */
+[theme-mode="dark"] .contact-card {
+  background: var(--semi-color-bg-1) !important;
+  border-color: var(--semi-color-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+.contact-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border-color: var(--semi-color-primary-light-default) !important;
+}
+
+/* 暗色主题卡片悬停 */
+[theme-mode="dark"] .contact-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  border-color: var(--semi-color-primary-light-default) !important;
+}
+
+.contact-card-content {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  max-height: 120px;
+  box-sizing: border-box;
+}
+
+/* 联系图标 */
+.contact-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: none;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.contact-card:hover .contact-icon {
+  transform: scale(1.1);
+}
+
+/* 联系信息 */
+.contact-info {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.contact-title {
+  margin: 0 0 4px 0 !important;
+  color: var(--semi-color-text-0) !important;
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  text-align: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.contact-text {
+  color: var(--semi-color-text-1) !important;
+  line-height: 1.4 !important;
+  font-size: 13px !important;
+  word-break: break-word;
+  text-align: center;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  flex: 1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 36px;
+  box-sizing: border-box;
+}
+
+/* 工作时间卡片 */
+.work-time-card {
+  border-radius: 12px !important;
+  background: var(--semi-color-bg-1) !important;
+  border: 1px solid var(--semi-color-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s ease !important;
+  margin: 0 auto;
+}
+
+/* 暗色主题工作时间卡片 */
+[theme-mode="dark"] .work-time-card {
+  background: var(--semi-color-bg-2) !important;
+  border-color: var(--semi-color-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+.work-time-card:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 暗色主题工作时间卡片悬停 */
+[theme-mode="dark"] .work-time-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.work-time-content {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.work-time-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(var(--semi-color-warning), 0.1);
+  border: none;
+  color: var(--semi-color-warning);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.work-time-card:hover .work-time-icon {
+  transform: scale(1.1);
+  background: rgba(var(--semi-color-warning), 0.15);
+}
+
+.work-time-info {
+  flex: 1;
+}
+
+.work-time-title {
+  margin: 0 0 4px 0 !important;
+  color: var(--semi-color-text-0) !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+}
+
+.work-time-text {
+  color: var(--semi-color-text-1) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  margin: 0;
+}
+
+.work-time-card .semi-card-body {
+  padding: 0 !important;
+}
+
+/* About内容样式 */
+.about-iframe-container {
+  width: 100%;
+  height: 100vh;
+}
+
+.about-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.about-content {
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 24px;
+  margin: 0 auto;
+  color: var(--semi-color-text-0);
+  background: var(--semi-color-bg-1);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--semi-color-border);
+}
+
+/* 暗色主题About内容 */
+[theme-mode="dark"] .about-content {
+  background: var(--semi-color-bg-2);
+  border-color: var(--semi-color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* 确保所有行的高度一致 */
+.contact-grid .semi-row {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.contact-grid .semi-col {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 0;
+  width: 100%;
+  max-width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+/* 确保卡片内容不会溢出 */
+.contact-card .semi-card-body {
+  padding: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 强制所有卡片高度完全一致 */
+.contact-grid .semi-col > .contact-card {
+  height: 120px !important;
+  min-height: 120px !important;
+  max-height: 120px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .contact-content {
+    padding: 30px 16px 16px 16px;
+    padding-top: 30px;
+  }
+
+  .contact-container {
+    max-width: 100%;
+  }
+
+  .contact-header {
+    margin-bottom: 20px;
+    padding: 20px 16px;
+  }
+
+  .header-title {
+    font-size: 1.5rem !important;
+  }
+
+  .header-description {
+    font-size: 13px !important;
+  }
+
+  .contact-grid {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .contact-card {
+    height: 110px !important;
+  }
+
+  .contact-card-content {
+    padding: 16px 12px;
+    gap: 8px;
+    min-height: 110px;
+    max-height: 110px;
+  }
+
+  .contact-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .contact-title {
+    font-size: 14px !important;
+  }
+
+  .contact-text {
+    font-size: 12px !important;
+    min-height: 32px;
+  }
+
+  .contact-grid .semi-col > .contact-card {
+    height: 110px !important;
+    min-height: 110px !important;
+    max-height: 110px !important;
+  }
+
+  .work-time-content {
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .work-time-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .work-time-title {
+    font-size: 15px !important;
+  }
+
+  .work-time-text {
+    font-size: 13px !important;
+  }
+
+  .about-content {
+    padding: 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contact-content {
+    padding: 20px 12px 12px 12px;
+    padding-top: 20px;
+  }
+
+  .contact-header {
+    margin-bottom: 16px;
+    padding: 16px 12px;
+  }
+
+  .header-title {
+    font-size: 1.375rem !important;
+  }
+
+  .contact-grid {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .contact-card {
+    height: 100px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .contact-card-content {
+    padding: 12px 10px;
+    gap: 6px;
+    min-height: 100px;
+    max-height: 100px;
+  }
+
+  .contact-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .contact-title {
+    font-size: 13px !important;
+  }
+
+  .contact-text {
+    font-size: 11px !important;
+    min-height: 28px;
+  }
+
+  .contact-grid .semi-col > .contact-card {
+    height: 100px !important;
+    min-height: 100px !important;
+    max-height: 100px !important;
+  }
+
+  /* 手机端垂直排列 */
+  .contact-grid .semi-col {
+    margin-bottom: 12px;
+  }
+
+  .contact-grid .semi-col:last-child {
+    margin-bottom: 0;
+  }
+
+  .work-time-content {
+    padding: 16px;
+    gap: 10px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .work-time-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .work-time-title {
+    font-size: 14px !important;
+  }
+
+  .work-time-text {
+    font-size: 12px !important;
+  }
+}
+
+/* 平滑动画效果 */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 可访问性优化 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus样式 */
+.contact-card:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 1px;
+}
+
+.work-time-card:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 1px;
+}
+
+/* 整体容器样式优化 */
+.contact-layout .semi-layout-content {
+  padding: 0 !important;
+}
+
+/* 确保卡片间距一致 */
+.contact-grid .semi-col {
+  padding-bottom: 0 !important;
+} 
