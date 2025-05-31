@@ -201,6 +201,23 @@ const CheckInCalendar = () => {
     return '1.0x';
   };
 
+  // 获取下次签到奖励
+  const getNextRewardInfo = () => {
+    if (checkInStatus?.has_checked_in_today) {
+      // 已签到，显示明天的奖励信息
+      const nextDay = (checkInStatus?.consecutive_days || 0) + 1;
+      const bonus = getBonusDescription(nextDay);
+      const nextRewardText = checkInStatus?.next_reward_text || '$0.00';
+      return `${t('明天奖励')}: ${nextRewardText} (${t('加成')}: ${bonus})`;
+    }
+    
+    const nextDay = (checkInStatus?.consecutive_days || 0) + 1;
+    const bonus = getBonusDescription(nextDay);
+    const nextRewardText = checkInStatus?.next_reward_text || '$0.00';
+    
+    return `${t('下次奖励')}: ${nextRewardText} (${t('加成')}: ${bonus})`;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -212,21 +229,22 @@ const CheckInCalendar = () => {
   return (
     <div className="check-in-calendar max-w-4xl mx-auto p-6 space-y-6">
       {/* 顶部统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div style={{
           background: 'linear-gradient(to right, rgba(var(--semi-blue-0), 0.8), rgba(var(--semi-blue-1), 0.6))',
           borderColor: 'rgba(var(--semi-blue-2), 0.6)',
           backgroundColor: 'var(--semi-color-bg-2)'
-        }} className="stats-card border rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p style={{ color: 'rgba(var(--semi-blue-5), 1)' }} className="text-sm font-medium">{t('总签到天数')}</p>
-              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{stats?.total_check_in_days || 0}</p>
-            </div>
-            <div style={{ backgroundColor: 'rgba(var(--semi-blue-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        }} className="stats-card border rounded-xl">
+          <div className="card-content">
+            <div style={{ backgroundColor: 'rgba(var(--semi-blue-5), 1)' }} className="icon-container rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
+            </div>
+            <div className="text-content">
+              <p style={{ color: 'rgba(var(--semi-blue-5), 1)' }} className="text-title">{t('总签到天数')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value">{stats?.total_check_in_days || 0}</p>
+              <p className="text-subtitle" style={{ color: 'transparent' }}>-</p>
             </div>
           </div>
         </div>
@@ -235,17 +253,17 @@ const CheckInCalendar = () => {
           background: 'linear-gradient(to right, rgba(var(--semi-green-0), 0.8), rgba(var(--semi-green-1), 0.6))',
           borderColor: 'rgba(var(--semi-green-2), 0.6)',
           backgroundColor: 'var(--semi-color-bg-2)'
-        }} className="stats-card border rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-sm font-medium">{t('连续签到')}</p>
-              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{checkInStatus?.consecutive_days || 0}</p>
-              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-xs">{t('加成')}: {getBonusDescription(checkInStatus?.consecutive_days || 0)}</p>
-            </div>
-            <div style={{ backgroundColor: 'rgba(var(--semi-green-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        }} className="stats-card border rounded-xl">
+          <div className="card-content">
+            <div style={{ backgroundColor: 'rgba(var(--semi-green-5), 1)' }} className="icon-container rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
+            </div>
+            <div className="text-content">
+              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-title">{t('连续签到')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value">{checkInStatus?.consecutive_days || 0}</p>
+              <p style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-subtitle">{t('加成')}: {getBonusDescription(checkInStatus?.consecutive_days || 0)}</p>
             </div>
           </div>
         </div>
@@ -254,16 +272,17 @@ const CheckInCalendar = () => {
           background: 'linear-gradient(to right, rgba(var(--semi-purple-0), 0.8), rgba(var(--semi-purple-1), 0.6))',
           borderColor: 'rgba(var(--semi-purple-2), 0.6)',
           backgroundColor: 'var(--semi-color-bg-2)'
-        }} className="stats-card border rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p style={{ color: 'rgba(var(--semi-purple-5), 1)' }} className="text-sm font-medium">{t('总收益')}</p>
-              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{stats?.total_quota_text || '$0.00'}</p>
-            </div>
-            <div style={{ backgroundColor: 'rgba(var(--semi-purple-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        }} className="stats-card border rounded-xl">
+          <div className="card-content">
+            <div style={{ backgroundColor: 'rgba(var(--semi-purple-5), 1)' }} className="icon-container rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
               </svg>
+            </div>
+            <div className="text-content">
+              <p style={{ color: 'rgba(var(--semi-purple-5), 1)' }} className="text-title">{t('总收益')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value">{stats?.total_quota_text || '$0.00'}</p>
+              <p className="text-subtitle" style={{ color: 'transparent' }}>-</p>
             </div>
           </div>
         </div>
@@ -272,16 +291,17 @@ const CheckInCalendar = () => {
           background: 'linear-gradient(to right, rgba(var(--semi-orange-0), 0.8), rgba(var(--semi-orange-1), 0.6))',
           borderColor: 'rgba(var(--semi-orange-2), 0.6)',
           backgroundColor: 'var(--semi-color-bg-2)'
-        }} className="stats-card border rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p style={{ color: 'rgba(var(--semi-orange-5), 1)' }} className="text-sm font-medium">{t('本月签到')}</p>
-              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-2xl font-bold">{checkInStatus?.this_month_check_ins || 0}</p>
-            </div>
-            <div style={{ backgroundColor: 'rgba(var(--semi-orange-5), 1)' }} className="w-10 h-10 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        }} className="stats-card border rounded-xl">
+          <div className="card-content">
+            <div style={{ backgroundColor: 'rgba(var(--semi-orange-5), 1)' }} className="icon-container rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
+            </div>
+            <div className="text-content">
+              <p style={{ color: 'rgba(var(--semi-orange-5), 1)' }} className="text-title">{t('本月签到')}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value">{checkInStatus?.this_month_check_ins || 0}</p>
+              <p className="text-subtitle" style={{ color: 'transparent' }}>-</p>
             </div>
           </div>
         </div>
@@ -295,10 +315,13 @@ const CheckInCalendar = () => {
         <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
           <div className="text-center md:text-left">
             <h3 style={{ color: 'var(--semi-color-text-0)' }} className="text-lg font-semibold mb-2">{t('每日签到')}</h3>
-            <p style={{ color: 'var(--semi-color-text-1)' }}>
+            <p style={{ color: 'var(--semi-color-text-1)' }} className="mb-1">
+              {getNextRewardInfo()}
+            </p>
+            <p style={{ color: 'var(--semi-color-text-2)' }} className="text-sm">
               {checkInStatus?.has_checked_in_today 
-                ? t('今天已签到，明天再来！') 
-                : `${t('下次奖励')}: ${checkInStatus?.next_reward_text || '$0.00'} (${t('加成')}: ${getBonusDescription((checkInStatus?.consecutive_days || 0) + 1)})`
+                ? t('今天已签到，明天继续努力！') 
+                : t('连续签到可获得更多奖励加成')
               }
             </p>
           </div>

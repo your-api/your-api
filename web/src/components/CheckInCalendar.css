@@ -1,5 +1,104 @@
 /* CheckInCalendar 暗色主题适配样式 */
 
+/* 统计卡片正方形样式 */
+.check-in-calendar .stats-card {
+  aspect-ratio: 1;
+  min-height: 140px;
+  max-height: 140px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.check-in-calendar .stats-card .card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  gap: 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.check-in-calendar .stats-card .icon-container {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.check-in-calendar .stats-card .text-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  flex: 1;
+  min-height: 60px;
+}
+
+.check-in-calendar .stats-card .text-title {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100px;
+}
+
+.check-in-calendar .stats-card .text-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100px;
+}
+
+.check-in-calendar .stats-card .text-subtitle {
+  font-size: 10px;
+  line-height: 1.2;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100px;
+  opacity: 0.8;
+  height: 12px;
+  min-height: 12px;
+}
+
+/* 确保所有卡片都有相同的布局结构 */
+.check-in-calendar .stats-card .text-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 2px;
+}
+
 /* 月份切换按钮悬停效果 */
 .check-in-calendar .month-nav-btn {
   transition: all 0.3s ease;
@@ -30,10 +129,6 @@
 }
 
 /* 统计卡片悬停效果 */
-.check-in-calendar .stats-card {
-  transition: all 0.3s ease;
-}
-
 .check-in-calendar .stats-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
