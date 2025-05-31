@@ -200,6 +200,46 @@ const TopUp = () => {
 
     const finalAmount = customAmount ? topUpCount : selectedAmount;
 
+    // 如果是自定义金额，进行严格验证
+    if (customAmount) {
+      // 检查是否为空
+      if (!topUpCount || topUpCount === '') {
+        showError(t('请输入充值金额'));
+        return;
+      }
+
+      // 检查是否只包含数字
+      if (!/^\d+$/.test(topUpCount)) {
+        showError(t('充值金额只能输入数字'));
+        return;
+      }
+
+      const num = parseInt(topUpCount);
+      
+      // 检查是否为有效数字
+      if (isNaN(num)) {
+        showError(t('请输入有效的充值金额'));
+        return;
+      }
+
+      // 检查金额范围
+      if (num < 2) {
+        showError(t('充值金额不能少于2元'));
+        return;
+      }
+
+      if (num > 100000) {
+        showError(t('充值金额不能超过100000元'));
+        return;
+      }
+
+      // 确保finalAmount与解析的数字一致（类型安全的比较）
+      if (num.toString() !== topUpCount) {
+        showError(t('充值金额格式不正确'));
+        return;
+      }
+    }
+
     await getAmount(finalAmount);
     if (finalAmount < minTopUp) {
       showError(t('充值数量不能小于') + minTopUp);
@@ -225,6 +265,46 @@ const TopUp = () => {
     }
 
     const finalAmount = customAmount ? topUpCount : selectedAmount;
+
+    // 如果是自定义金额，在支付前再次进行严格验证
+    if (customAmount) {
+      // 检查是否为空
+      if (!topUpCount || topUpCount === '') {
+        showError(t('请输入充值金额'));
+        return;
+      }
+
+      // 检查是否只包含数字
+      if (!/^\d+$/.test(topUpCount)) {
+        showError(t('充值金额只能输入数字'));
+        return;
+      }
+
+      const num = parseInt(topUpCount);
+      
+      // 检查是否为有效数字
+      if (isNaN(num)) {
+        showError(t('请输入有效的充值金额'));
+        return;
+      }
+
+      // 检查金额范围
+      if (num < 2) {
+        showError(t('充值金额不能少于2元'));
+        return;
+      }
+
+      if (num > 100000) {
+        showError(t('充值金额不能超过100000元'));
+        return;
+      }
+
+      // 确保finalAmount是整数
+      if (num.toString() !== topUpCount) {
+        showError(t('充值金额格式不正确'));
+        return;
+      }
+    }
 
     if (finalAmount < minTopUp) {
       showError('充值数量不能小于' + minTopUp);
@@ -537,7 +617,7 @@ const TopUp = () => {
   const handleAmountChange = (amount) => {
     if (amount === 'custom') {
       setCustomAmount(true);
-      setTopUpCount(2);
+      setTopUpCount('2'); // 设置为字符串'2'，符合新的验证要求
       getAmount(2);
     } else {
       setCustomAmount(false);
@@ -1071,20 +1151,30 @@ const TopUp = () => {
                     <Form.Section text={t('自定义充值金额')}>
                       <Form.Input
                           label={t('充值金额')}
-                          placeholder={t('请输入充值金额（2-10000元）')}
+                          placeholder={t('请输入充值金额（2-100000元）')}
                           name='customAmount'
                           value={topUpCount || ''}
                           onChange={(e) => {
-                            // 直接设置输入值，不过滤字符
-                            setTopUpCount(e);
+                            // 只允许输入数字，过滤其他字符
+                            const filteredValue = e.replace(/[^\d]/g, '');
+                            setTopUpCount(filteredValue);
 
                             // 如果有值就调用getAmount，没有值就传0
-                            const numValue = e ? parseInt(e) : 0;
+                            const numValue = filteredValue ? parseInt(filteredValue) : 0;
                             getAmount(numValue);
                           }}
+                          onKeyPress={(e) => {
+                            // 阻止输入非数字字符
+                            if (!/^\d$/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                              e.preventDefault();
+                            }
+                          }}
                           onPaste={(e) => {
-                            // 不阻止粘贴，让用户可以粘贴任何内容
-                            // 粘贴后会触发onChange事件进行验证
+                            // 阻止粘贴非数字内容
+                            const pasteData = e.clipboardData.getData('text');
+                            if (!/^\d+$/.test(pasteData)) {
+                              e.preventDefault();
+                            }
                           }}
                           style={{
                             // 修复暗黑模式下的样式问题
@@ -1100,12 +1190,12 @@ const TopUp = () => {
                             if (!/^\d+$/.test(topUpCount)) return 'error';
 
                             const num = parseInt(topUpCount);
-                            if (isNaN(num) || num < 2 || num > 10000) return 'error';
+                            if (isNaN(num) || num < 2 || num > 100000) return 'error';
                             return 'default';
                           })()}
                           helpText={(() => {
                             if (!topUpCount || topUpCount === '') {
-                              return t('请输入2-10000之间的整数金额');
+                              return t('请输入2-100000之间的整数金额');
                             }
 
                             // 检查是否包含非数字字符
@@ -1120,14 +1210,14 @@ const TopUp = () => {
                             if (num < 2) {
                               return t('充值金额不能少于2元');
                             }
-                            if (num > 10000) {
-                              return t('充值金额不能超过10000元');
+                            if (num > 100000) {
+                              return t('充值金额不能超过100000元');
                             }
                             return '';
                           })()}
                       />
 
-                      {topUpCount && parseInt(topUpCount) >= 2 && parseInt(topUpCount) <= 10000 && amountInfo.payAmount > 0 && (
+                      {topUpCount && parseInt(topUpCount) >= 2 && parseInt(topUpCount) <= 100000 && amountInfo.payAmount > 0 && (
                           <div style={{ marginTop: 16, padding: 16, backgroundColor: 'var(--semi-color-fill-0)', borderRadius: 8 }}>
                             {/* 使用动态折扣信息显示 */}
                             {(() => {
