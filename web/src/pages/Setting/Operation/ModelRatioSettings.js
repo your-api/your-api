@@ -26,7 +26,7 @@ import {
   fetchProviders,
   fetchTypingList,
   updateAdvantages, updateCustemNavLinks, updateModelDiscriptions,
-  updateProviders, updateTypingList
+  updateProviders, updateTypingList, fetchDiscountTiers, updateDiscountTiers
 } from "../../../store/setting/providers.js";
 
 
@@ -42,12 +42,13 @@ export default function ModelRatioSettings(props) {
   const [inputsRow, setInputsRow] = useState(inputs);
   const { t } = useTranslation();
   const { providers = [], advantages = [],typingList = [],custemNavLinks=[],
-    modelDiscriptions = {} } = useSelector((state) => state.providers);
+    modelDiscriptions = {}, discountTiers = [] } = useSelector((state) => state.providers);
   const [providersJson, setProvidersJson] = useState(JSON.stringify(providers, null, 2));
   const [modelDiscriptionsJson, setModelDiscriptionsJson] = useState(JSON.stringify(modelDiscriptions, null, 2));
   const [advantagesJson, setAdvantagesJson] = useState(JSON.stringify(advantages, null, 2));
-  const [typingListJson, setTypingListJson] = useState(JSON.stringify(advantages, null, 2));
-  const [custemNavLinksJson, setCustemNavLinksJson] = useState(JSON.stringify(advantages, null, 2));
+  const [typingListJson, setTypingListJson] = useState(JSON.stringify(typingList, null, 2));
+  const [custemNavLinksJson, setCustemNavLinksJson] = useState(JSON.stringify(custemNavLinks, null, 2));
+  const [discountTiersJson, setDiscountTiersJson] = useState(JSON.stringify(discountTiers, null, 2));
 
   // AI供应商数据
   const dispatch = useDispatch();
@@ -76,6 +77,12 @@ export default function ModelRatioSettings(props) {
   }, [dispatch, custemNavLinks.length]);
 
   useEffect(() => {
+    if (discountTiers.length === 0) {
+      dispatch(fetchDiscountTiers());
+    }
+  }, [dispatch, discountTiers.length]);
+
+  useEffect(() => {
     dispatch(fetchModelDiscriptions());
   }, [dispatch]);
 
@@ -95,6 +102,10 @@ export default function ModelRatioSettings(props) {
   useEffect(() => {
     setCustemNavLinksJson(JSON.stringify(custemNavLinks, null, 2));
   }, [custemNavLinks]);
+
+  useEffect(() => {
+    setDiscountTiersJson(JSON.stringify(discountTiers, null, 2));
+  }, [discountTiers]);
 
   useEffect(() => {
     setModelDiscriptionsJson(JSON.stringify(modelDiscriptions, null, 2));
@@ -187,6 +198,22 @@ export default function ModelRatioSettings(props) {
     }
   }
 
+  async function saveDiscountTiers() {
+    try {
+      if (!verifyJSON(discountTiersJson)) {
+        return showError(t('不是合法的 JSON 字符串'));
+      }
+
+      setLoading(true);
+      const parsedDiscountTiers = JSON.parse(discountTiersJson);
+      dispatch(updateDiscountTiers({ "UpdateDiscountTiers": parsedDiscountTiers }));
+      showSuccess(t('折扣层级配置已更新'));
+    } catch (error) {
+      showError(t('保存失败') + ': ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function onSubmit() {
     try {
@@ -549,6 +576,45 @@ export default function ModelRatioSettings(props) {
         />
         <Space style={{ marginTop: 15 }}>
           <Button onClick={saveCustemNavLinksJson}>{t('保存自定义导航配置')}</Button>
+        </Space>
+      </div>
+
+      <div style={{ marginBottom: 15 }}>
+        <h4 style={{ marginBottom: 8 }}>{t('折扣层级配置')}</h4>
+        <div style={{ marginBottom: 8, fontSize: '12px', color: 'rgba(0, 0, 0, 0.6)' }}>
+          {t('设置充值金额的折扣层级，MinAmount 为最小金额，Rate 为折扣比例（0.95表示95折）')}
+        </div>
+        <TextArea
+            value={discountTiersJson}
+            placeholder={t(
+                '[\n' +
+                '  {\n' +
+                '    "MinAmount": 10,\n' +
+                '    "Rate": 0.98\n' +
+                '  },\n' +
+                '  {\n' +
+                '    "MinAmount": 99,\n' +
+                '    "Rate": 0.96\n' +
+                '  },\n' +
+                '  {\n' +
+                '    "MinAmount": 199,\n' +
+                '    "Rate": 0.95\n' +
+                '  }\n' +
+                ']'
+            )}
+            autosize={{ minRows: 6, maxRows: 12 }}
+            onChange={(value) =>
+                setDiscountTiersJson(value)
+            }
+            onBlur={(e) => {
+              if (!verifyJSON(e.target.value)) {
+                showError('不是合法的 JSON 字符串');
+              }
+            }}
+            style={{ width: '100%', maxWidth: '100%' }}
+        />
+        <Space style={{ marginTop: 15 }}>
+          <Button onClick={saveDiscountTiers}>{t('保存折扣层级配置')}</Button>
         </Space>
       </div>
 

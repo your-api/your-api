@@ -12,7 +12,9 @@ const providerStore = createSlice({
         systemName: 'Your API',
         typingList: [],
         modelDiscriptions: {},
-        custemNavLinks: []
+        custemNavLinks: [],
+        // 折扣层级
+        discountTiers: []
     },
     reducers: {
         setProviders(state, action) {
@@ -43,6 +45,10 @@ const providerStore = createSlice({
         setCustemNavLinks(state, action) {
             // 设置模型提供
             state.custemNavLinks = action.payload.custemNavLinks;
+        },
+        setDiscountTiers(state, action) {
+            // 设置折扣层级
+            state.discountTiers = action.payload.discountTiers;
         }
     }
 })
@@ -53,7 +59,8 @@ const {setProviders,
     setTypingList,
     setSystemName,
     setCustemNavLinks,
-    setModelDescription
+    setModelDescription,
+    setDiscountTiers
 } = providerStore.actions;
 
 const updateProviders = (payload) => {
@@ -86,12 +93,11 @@ const fetchProviders = () => {
     }
 }
 
-
 const updateCustemNavLinks = (payload) => {
     return async dispatch => {
         try {
             // 设置模型提供
-            const res = await API.put('/api/option/', {key: "CustemNavLinks", value: JSON.stringify(payload.custemNavLinks)});
+            const res = await API.put('/api/option/', {key: "custemNavLinks", value: JSON.stringify(payload.custemNavLinks)});
             const { success, message, data } = res.data;
             if (success) {
                 dispatch(setCustemNavLinks({ custemNavLinks: payload.custemNavLinks }));
@@ -123,7 +129,7 @@ const updateTypingList = (payload) => {
             const res = await API.put('/api/option/', {key: "TypingList", value: JSON.stringify(payload.TypingList)});
             const { success, message, data } = res.data;
             if (success) {
-                dispatch(setTypingList({ typingList: payload.TypingList }));
+                dispatch(setTypingList({ typingList: payload.typingList }));
             }
         } catch (error) {
             console.error("保存失败:", error);
@@ -137,10 +143,25 @@ const fetchTypingList = () => {
             const res = await API.get('/api/option/getTypingList');
             const { success, message, data } = res.data;
             if (success) {
-                dispatch(setTypingList({ typingList: data}));
+                dispatch(setTypingList({ typingList: data }));
             }
         } catch (error) {
-            console.error("获取typingList失败:", error);
+            console.error("获取providers失败:", error);
+        }
+    }
+}
+
+const updateModelDiscriptions = (payload) => {
+    return async dispatch => {
+        try {
+            // 设置模型提供
+            const res = await API.put('/api/option/', {key: "ModelDescriptions", value: JSON.stringify(payload.ModelDescriptions)});
+            const { success, message, data } = res.data;
+            if (success) {
+                dispatch(setModelDescription({ modelDiscriptions: payload.ModelDescriptions }));
+            }
+        } catch (error) {
+            console.error("保存失败:", error);
         }
     }
 }
@@ -174,24 +195,6 @@ const fetchAdvantages = () => {
     }
 }
 
-
-
-const updateModelDiscriptions = (payload) => {
-    return async dispatch => {
-        try {
-            // 设置模型提供
-            const res = await API.put('/api/option/',
-                {key: "ModelDescriptions", value: JSON.stringify(payload.ModelDescriptions)});
-            const { success, message, data } = res.data;
-            if (success) {
-                dispatch(setModelDescription({ modelDiscriptions: payload.modelDiscriptions }));
-            }
-        } catch (error) {
-            console.error("保存失败:", error);
-        }
-    }
-}
-
 const fetchModelDiscriptions = () => {
     return async dispatch => {
         try {
@@ -207,9 +210,39 @@ const fetchModelDiscriptions = () => {
     }
 }
 
+const updateDiscountTiers = (payload) => {
+    return async dispatch => {
+        try {
+            // 设置折扣层级
+            const res = await API.put('/api/option/', {key: "UpdateDiscountTiers", value: JSON.stringify(payload.UpdateDiscountTiers)});
+            const { success, message, data } = res.data;
+            if (success) {
+                dispatch(setDiscountTiers({ discountTiers: payload.UpdateDiscountTiers }));
+            }
+        } catch (error) {
+            console.error("保存失败:", error);
+        }
+    }
+}
+
+const fetchDiscountTiers = () => {
+    return async dispatch => {
+        try {
+            const res = await API.get('/api/option/getDiscountTiers');
+            const { success, message, data } = res.data;
+            if (success) {
+                dispatch(setDiscountTiers({ discountTiers: data }));
+            }
+        } catch (error) {
+            console.error("获取折扣层级失败:", error);
+        }
+    }
+}
+
 export {fetchProviders,setProviders,updateProviders,fetchAdvantages,setAdvantages,
     updateAdvantages,setPriceRatio,setSystemName,setTypingList,updateTypingList,fetchTypingList,
-    updateModelDiscriptions,fetchModelDiscriptions,fetchCustemNavLinks,updateCustemNavLinks
+    updateModelDiscriptions,fetchModelDiscriptions,fetchCustemNavLinks,updateCustemNavLinks,
+    fetchDiscountTiers,updateDiscountTiers,setDiscountTiers
     };
 
 const reducer = providerStore.reducer;

@@ -76,7 +76,7 @@ var (
 		{ID: "Kling", Name: "Kling", Icon: "/models/keling.png", Includes: []string{"kling", "kling-video_std_5", "kling-image", "kling-video_std_10", "kling-video_pro_5", "kling-video_pro_10"}},
 		{ID: "Ideogram", Name: "Ideogram", Icon: "/models/ideo.svg", Includes: []string{"ideogram"}},
 		{ID: "Flux", Name: "Flux", Icon: "/models/flux.png", Includes: []string{"flux"}},
-		{ID: "Coze", Name: "Coze", Icon: "/models/coze.jpeg", Includes: []string{"coze", "7", "8"}},
+		{ID: "Coze", Name: "Coze", Icon: "/models/coze.jpeg", Includes: []string{"coze"}},
 		{ID: "Runway", Name: "Runway", Icon: "/models/runway.png", Includes: []string{"runway"}},
 		{ID: "Moonshot", Name: "Moonshot", Icon: "/models/moon.webp", Includes: []string{"moonshot"}},
 		{ID: "udio", Name: "udio", Icon: "/models/udio.png", Includes: []string{"udio"}},
