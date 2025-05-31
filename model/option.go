@@ -386,7 +386,7 @@ func updateOptionMap(key string, value string) (err error) {
 		operation_setting.UpdateModelDescriptions(value)
 	case "ImageReadProxy":
 		operation_setting.UpdateImageReadProxy(value)
-	case "CustemNavLinks":
+	case "custemNavLinks":
 		operation_setting.UpdateCustomNavLinks(value)
 	case "UpdateDiscountTiers":
 		operation_setting.UpdateDiscountTiers(value)

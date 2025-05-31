@@ -172,6 +172,12 @@ const HeaderBar = () => {
       icon: <IconTerminal style={headerIconStyle} />,
     },
     {
+      text: t('充值'),
+      itemKey: 'topup',
+      to: '/topup',
+      icon: <IconCreditCard style={headerIconStyle} />,
+    },
+    {
       text: t('定价'),
       itemKey: 'pricing',
       to: '/pricing',
@@ -471,6 +477,7 @@ const HeaderBar = () => {
                 register: '/register',
                 pricing: '/pricing',
                 detail: '/detail',
+                topup: '/topup',
                 home: '/',
                 chat: '/chat',
                 docs: '/docs',
