@@ -101,8 +101,8 @@ func CompleteOrder(outTradeNo string) error {
 
 			// 记录邀请者的返利日志
 			RecordLog(user.InviterId, LogTypeSystem,
-				fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)",
-					common.LogQuota(commissionQuota), user.Username, user.PayCount))
+				fmt.Sprintf("邀请用户充值返利 %s (来自某位邀请用户的第%d次充值)",
+					common.LogQuota(commissionQuota), user.PayCount))
 		}
 	}
 
