@@ -1,13 +1,14 @@
 // src/components/ApiGuideDrawer.jsx
 import React, { useMemo, useState, useEffect, useContext } from 'react';
-import { SideSheet, Typography, Tabs, Divider, Button } from '@douyinfe/semi-ui';
+import { SideSheet, Typography, Tabs, Divider, Button, Select } from '@douyinfe/semi-ui';
 import {
   IconVerify,
   IconTerminal,
   IconCode,
   IconHelpCircle,
   IconCopy,
-  IconClose
+  IconClose,
+  IconGlobe
 } from '@douyinfe/semi-icons';
 import { copy, showSuccess } from '../helpers';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,33 @@ export default function ApiGuideDrawer({
   const theme = useTheme(); // 使用useTheme钩子获取当前主题
   const isDarkMode = theme === 'dark';
   const [styleState, styleDispatch] = useContext(StyleContext);
+
+  // API端点列表
+  const apiEndpoints = [
+    {
+      label: '主API端点 - 香港直连',
+      value: 'https://api.yourapi.cn',
+      description: '稳定的主要API端点'
+    },
+    {
+      label: '优质线路 - 亚太优化CDN',
+      value: 'https://yourapi.cn',
+      description: '亚太地区优化的CDN节点'
+    },
+    // {
+    //   label: '优质线路 - CN2',
+    //   value: 'https://cn2us02.opapi.win',
+    //   description: 'CN2线路优化'
+    // },
+    // {
+    //   label: '优质线路 - 备用',
+    //   value: 'https://aigptx.top',
+    //   description: '备用高速线路'
+    // }
+  ];
+
+  // 选中的API端点状态
+  const [selectedEndpoint, setSelectedEndpoint] = useState(apiEndpoints[0].value);
 
   // 动态计算 baseUrl（SSR 安全、去末尾斜杠、去掉最后一个 path segment）
   // const dynamicBase = useMemo(() => {
@@ -46,7 +74,8 @@ export default function ApiGuideDrawer({
   //     || process.env.REACT_APP_BASE_URL
   //     || '';
 
-  const baseUrl = "https://api.yourapi.cn"
+  // 使用选中的API端点
+  const baseUrl = propBaseUrl || selectedEndpoint;
 
   // 衍生几个常用 URL
   const urlV1 = `${baseUrl}/v1`;
@@ -259,13 +288,57 @@ int main(void) {
             </Title>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4" 
                 style={darkModeStyles.infoCard}>
+              
+              {/* API端点选择器 */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <IconGlobe className="text-blue-600" />
+                  <Text style={darkModeStyles.textPrimary} strong>选择API端点:</Text>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Select
+                    value={selectedEndpoint}
+                    onChange={setSelectedEndpoint}
+                    style={{ flex: 1, minWidth: '0',minHeight: '50px' }}
+                    placeholder="请选择API端点"
+                    optionList={apiEndpoints.map(endpoint => ({
+                      label: (
+                        <div className="py-1">
+                          <div style={darkModeStyles.textPrimary} className="font-medium">
+                            {endpoint.label}
+                          </div>
+                          <div style={{ ...darkModeStyles.textSecondary, fontSize: '12px' }} className="mt-1">
+                            {endpoint.description}
+                          </div>
+                        </div>
+                      ),
+                      value: endpoint.value
+                    }))}
+                    dropdownStyle={{ maxHeight: '300px' }}
+                  />
+                  <Button
+                    size="small"
+                    theme="borderless"
+                    type="tertiary"
+                    icon={<IconCopy />}
+                    onClick={() => {
+                      copy(selectedEndpoint);
+                      showSuccess('已复制API端点');
+                    }}
+                    style={{ flexShrink: 0 }}
+                  />
+                </div>
+              </div>
+
+              <Divider style={{ margin: '16px 0' }} />
+
               {/* Base URL + Model ID rows */}
-              {['Base URL:'].map((label, i) => (
+              {['当前Base URL:'].map((label, i) => (
                   <div key={i} className="flex justify-between items-center">
                     <Text style={darkModeStyles.textPrimary}>{label}</Text>
                     <div className="flex items-center space-x-2 max-w-full">
                       <Text link style={darkModeStyles.link} className="hover:underline break-all">
-                        {i === 0 ? baseUrl : modelId}
+                        {baseUrl}
                       </Text>
                       <Button
                           size="small"
@@ -273,7 +346,7 @@ int main(void) {
                           type="tertiary"
                           icon={<IconCopy />}
                           onClick={() => {
-                            copy(i === 0 ? baseUrl : modelId);
+                            copy(baseUrl);
                             showSuccess(`已复制 ${label.replace(':','')}`);
                           }}
                       />
@@ -295,7 +368,8 @@ int main(void) {
               {/* 不同客户端可用的 base_url */}
               <Divider style={{ margin: '16px 0' }} />
 
-              <Text style={darkModeStyles.textPrimary}>不同客户端可使用下列根地址：</Text>
+              <Text style={darkModeStyles.textPrimary} strong>基于当前端点的可用地址：</Text>
+              
               {[
                 { label: '根路径', url: baseUrl },
                 { label: '版本化 (v1)', url: urlV1 },
@@ -320,6 +394,24 @@ int main(void) {
                     </div>
                   </div>
               ))}
+
+              {/* 端点说明 */}
+              <Divider style={{ margin: '16px 0' }} />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4" 
+                  style={{
+                    backgroundColor: isDarkMode ? 'var(--semi-color-primary-light-default)' : '#eff6ff',
+                    borderColor: isDarkMode ? 'var(--semi-color-primary)' : '#bfdbfe'
+                  }}>
+                <Text style={{ 
+                  ...darkModeStyles.textPrimary, 
+                  fontSize: '14px' 
+                }}>
+                  💡 <strong>端点选择建议：</strong>
+                  <br />• 中国大陆用户推荐选择"亚太优化CDN"或"CN2线路"获得更好的连接速度
+                  <br />• 海外用户可选择"美国直连"获得最佳性能
+                  <br />• 如遇到连接问题，可尝试切换到其他备用线路
+                </Text>
+              </div>
             </div>
           </section>
 
