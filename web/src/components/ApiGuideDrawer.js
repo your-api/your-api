@@ -27,27 +27,29 @@ export default function ApiGuideDrawer({
   const [styleState, styleDispatch] = useContext(StyleContext);
 
   // 动态计算 baseUrl（SSR 安全、去末尾斜杠、去掉最后一个 path segment）
-  const dynamicBase = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    const { origin, pathname } = window.location;
-    const clean = pathname.split(/[?#]/)[0];
-    const noSlash = clean.endsWith('/') && clean.length > 1
-        ? clean.slice(0, -1)
-        : clean;
-    const parts = noSlash.split('/');
-    parts.pop();
-    const prefix = parts.length > 1 ? parts.join('/') : '';
-    return origin + prefix;
-  }, []);
+  // const dynamicBase = useMemo(() => {
+  //   if (typeof window === 'undefined') return '';
+  //   const { origin, pathname } = window.location;
+  //   const clean = pathname.split(/[?#]/)[0];
+  //   const noSlash = clean.endsWith('/') && clean.length > 1
+  //       ? clean.slice(0, -1)
+  //       : clean;
+  //   const parts = noSlash.split('/');
+  //   parts.pop();
+  //   const prefix = parts.length > 1 ? parts.join('/') : '';
+  //   return origin + prefix;
+  // }, []);
+  //
+  // // 最终 baseUrl：prop > dynamic > env > ''
+  // const baseUrl = propBaseUrl
+  //     || dynamicBase
+  //     || process.env.REACT_APP_BASE_URL
+  //     || '';
 
-  // 最终 baseUrl：prop > dynamic > env > ''
-  const baseUrl = propBaseUrl
-      || dynamicBase
-      || process.env.REACT_APP_BASE_URL
-      || '';
+  const baseUrl = "https://api.yourapi.cn"
 
   // 衍生几个常用 URL
-  const urlV1 = `${baseUrl}/v1/`;
+  const urlV1 = `${baseUrl}/v1`;
   const urlCompletions = `${baseUrl}/v1/chat/completions`;
 
   // 响应式：根据窗口宽度调整抽屉宽度和内边距
@@ -292,6 +294,7 @@ int main(void) {
 
               {/* 不同客户端可用的 base_url */}
               <Divider style={{ margin: '16px 0' }} />
+              
               <Text style={darkModeStyles.textPrimary}>不同客户端可使用下列根地址：</Text>
               {[
                 { label: '根路径', url: baseUrl },
