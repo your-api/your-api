@@ -9,18 +9,18 @@ var Chats = []map[string]string{
 	{
 		"ChatGPT Next Web 官方示例": "https://app.nextchat.dev/#/?settings={\"key\":\"{key}\",\"url\":\"{address}\"}",
 	},
-	{
-		"Lobe Chat 官方示例": "https://chat-preview.lobehub.com/?settings={\"keyVaults\":{\"openai\":{\"apiKey\":\"{key}\",\"baseURL\":\"{address}/v1\"}}}",
-	},
-	{
-		"AI as Workspace": "https://aiaw.app/set-provider?provider={\"type\":\"openai\",\"settings\":{\"apiKey\":\"{key}\",\"baseURL\":\"{address}/v1\",\"compatibility\":\"strict\"}}",
-	},
-	{
-		"AMA 问天": "ama://set-api-key?server={address}&key={key}",
-	},
-	{
-		"OpenCat": "opencat://team/join?domain={address}&token={key}",
-	},
+	//{
+	//	"Lobe Chat 官方示例": "https://chat-preview.lobehub.com/?settings={\"keyVaults\":{\"openai\":{\"apiKey\":\"{key}\",\"baseURL\":\"{address}/v1\"}}}",
+	//},
+	//{
+	//	"AI as Workspace": "https://aiaw.app/set-provider?provider={\"type\":\"openai\",\"settings\":{\"apiKey\":\"{key}\",\"baseURL\":\"{address}/v1\",\"compatibility\":\"strict\"}}",
+	//},
+	//{
+	//	"AMA 问天": "ama://set-api-key?server={address}&key={key}",
+	//},
+	//{
+	//	"OpenCat": "opencat://team/join?domain={address}&token={key}",
+	//},
 }
 
 func UpdateChatsByJsonString(jsonString string) error {

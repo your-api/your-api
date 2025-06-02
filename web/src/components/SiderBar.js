@@ -205,7 +205,7 @@ const SiderBar = () => {
         icon: <IconCreditCard />,
       },
       {
-        text: t('个人设置'),
+        text: t('个人设置/签到'),
         itemKey: 'personal',
         to: '/personal',
         icon: <IconUser />,
