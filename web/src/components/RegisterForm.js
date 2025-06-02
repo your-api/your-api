@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   API,
@@ -55,6 +55,8 @@ const RegisterForm = () => {
   const [status, setStatus] = useState({});
   const [imageCaptchaData, setImageCaptchaData] = useState(null);
   const [showImageCaptcha, setShowImageCaptcha] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef(null);
   let navigate = useNavigate();
   const logo = getLogo();
 
@@ -75,6 +77,20 @@ const RegisterForm = () => {
       }
     }
   });
+
+  // 倒计时逻辑
+  useEffect(() => {
+    if (countdown > 0) {
+      countdownRef.current = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    }
+    return () => {
+      if (countdownRef.current) {
+        clearTimeout(countdownRef.current);
+      }
+    };
+  }, [countdown]);
 
   const onWeChatLoginClicked = () => {
     setShowWeChatLoginModal(true);
@@ -115,6 +131,24 @@ const RegisterForm = () => {
       showInfo('两次输入的密码不一致');
       return;
     }
+    
+    // 如果启用了邮箱验证，检查邮箱域名
+    if (showEmailVerification) {
+      if (!inputs.email) {
+        showError('请输入邮箱地址');
+        return;
+      }
+      const emailDomain = inputs.email.split('@')[1];
+      if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
+        showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+        return;
+      }
+      if (!inputs.verification_code) {
+        showError('请输入邮箱验证码');
+        return;
+      }
+    }
+    
     if (username && password) {
       if (turnstileEnabled && turnstileToken === '') {
         showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
@@ -144,7 +178,6 @@ const RegisterForm = () => {
   const handleImageCaptchaVerified = (captchaData) => {
     setImageCaptchaData(captchaData);
     setShowImageCaptcha(false);
-    showSuccess('图片验证码验证成功！');
     // 验证成功后自动发送邮箱验证码
     sendEmailVerificationAfterCaptcha(captchaData);
   };
@@ -172,6 +205,7 @@ const RegisterForm = () => {
       const { success, message } = res.data;
       if (success) {
         showSuccess('验证码发送成功，请检查你的邮箱！');
+        setCountdown(60); // 开始60秒倒计时
       } else {
         showError(message);
         // 如果发送失败，提示用户重新验证
@@ -198,6 +232,14 @@ const RegisterForm = () => {
       showError('请先输入邮箱地址');
       return;
     }
+    
+    // 检查邮箱域名是否为QQ或Gmail
+    const emailDomain = inputs.email.split('@')[1];
+    if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
+      showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+      return;
+    }
+    
     // 显示图片验证码模态框
     setShowImageCaptcha(true);
   };
@@ -286,9 +328,9 @@ const RegisterForm = () => {
                         suffix={
                           <Button
                             onClick={sendVerificationCode}
-                            disabled={loading}
+                            disabled={loading || countdown > 0}
                           >
-                            {t('获取验证码')}
+                            {countdown > 0 ? `${countdown}秒后重试` : t('获取验证码')}
                           </Button>
                         }
                       />

@@ -71,17 +71,7 @@ const ImageCaptcha = ({ onVerified, onError, style = {} }) => {
   // 处理输入变化
   const handleInputChange = (value) => {
     setCaptchaCode(value);
-    // 当输入4位验证码时，自动确认
-    if (value && value.length === 4 && captchaId) {
-      setTimeout(() => {
-        if (onVerifiedRef.current) {
-          onVerifiedRef.current({
-            captcha_id: captchaId,
-            captcha_code: value
-          });
-        }
-      }, 100); // 短暂延迟确保输入完成
-    }
+    // 移除自动确认功能，需要手动点击确认按钮
   };
 
   // 处理键盘按键

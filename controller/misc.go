@@ -218,6 +218,16 @@ func SendEmailVerification(c *gin.Context) {
 	}
 	localPart := parts[0]
 	domainPart := parts[1]
+	
+	// 检查是否为QQ或Gmail邮箱
+	if domainPart != "qq.com" && domainPart != "gmail.com" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)",
+		})
+		return
+	}
+	
 	if common.EmailDomainRestrictionEnabled {
 		allowed := false
 		for _, domain := range common.EmailDomainWhitelist {
