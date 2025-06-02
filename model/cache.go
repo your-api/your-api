@@ -19,6 +19,14 @@ func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
 	}
+	
+	// 添加defer函数捕获panic，避免系统崩溃
+	defer func() {
+		if r := recover(); r != nil {
+			common.SysError(fmt.Sprintf("InitChannelCache panic recovered: %v", r))
+		}
+	}()
+	
 	newChannelId2channel := make(map[int]*Channel)
 	var channels []*Channel
 	DB.Where("status = ?", common.ChannelStatusEnabled).Find(&channels)
@@ -33,13 +41,21 @@ func InitChannelCache() {
 	}
 	newGroup2model2channels := make(map[string]map[string][]*Channel)
 	newChannelsIDM := make(map[int]*Channel)
+	
+	// 预先初始化所有group的map
 	for group := range groups {
 		newGroup2model2channels[group] = make(map[string][]*Channel)
 	}
+	
 	for _, channel := range channels {
 		newChannelsIDM[channel.Id] = channel
 		groups := strings.Split(channel.Group, ",")
 		for _, group := range groups {
+			// 确保group存在于map中
+			if _, exists := newGroup2model2channels[group]; !exists {
+				newGroup2model2channels[group] = make(map[string][]*Channel)
+			}
+			
 			models := strings.Split(channel.Models, ",")
 			for _, model := range models {
 				if _, ok := newGroup2model2channels[group][model]; !ok {

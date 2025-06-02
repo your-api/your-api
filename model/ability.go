@@ -213,29 +213,42 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	models_ := strings.Split(channel.Models, ",")
 	groups_ := strings.Split(channel.Group, ",")
 	abilities := make([]Ability, 0, len(models_))
+	
+	// 使用map去重，避免重复的(group, model, channel_id)组合
+	abilityMap := make(map[string]bool)
 	for _, model := range models_ {
 		for _, group := range groups_ {
-			ability := Ability{
-				Group:     group,
-				Model:     model,
-				ChannelId: channel.Id,
-				Enabled:   channel.Status == common.ChannelStatusEnabled,
-				Priority:  channel.Priority,
-				Weight:    uint(channel.GetWeight()),
-				Tag:       channel.Tag,
+			key := fmt.Sprintf("%s-%s-%d", group, model, channel.Id)
+			if !abilityMap[key] {
+				abilityMap[key] = true
+				ability := Ability{
+					Group:     group,
+					Model:     model,
+					ChannelId: channel.Id,
+					Enabled:   channel.Status == common.ChannelStatusEnabled,
+					Priority:  channel.Priority,
+					Weight:    uint(channel.GetWeight()),
+					Tag:       channel.Tag,
+				}
+				abilities = append(abilities, ability)
 			}
-			abilities = append(abilities, ability)
 		}
 	}
 
 	if len(abilities) > 0 {
 		for _, chunk := range lo.Chunk(abilities, 50) {
-			err = tx.Create(&chunk).Error
-			if err != nil {
+			// 使用 CREATE OR IGNORE 避免重复键错误
+			result := tx.Create(&chunk)
+			if result.Error != nil {
+				// 如果是重复键错误，记录但继续执行
+				if strings.Contains(result.Error.Error(), "Duplicate entry") {
+					common.SysError(fmt.Sprintf("Duplicate entry found for channel %d, continuing...", channel.Id))
+					continue
+				}
 				if isNewTx {
 					tx.Rollback()
 				}
-				return err
+				return result.Error
 			}
 		}
 	}
@@ -273,60 +286,56 @@ func UpdateAbilityByTag(tag string, newTag *string, priority *int64, weight *uin
 func FixAbility() (int, error) {
 	var channelIds []int
 	count := 0
+	
+	// 首先在事务中清理重复数据
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+	
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			common.SysError(fmt.Sprintf("FixAbility panic: %v", r))
+		}
+	}()
+	
+	// 删除所有abilities数据，然后重新生成，这是最安全的方法
+	err := tx.Exec("DELETE FROM abilities").Error
+	if err != nil {
+		tx.Rollback()
+		common.SysError(fmt.Sprintf("Failed to clear abilities table: %s", err.Error()))
+		return 0, err
+	}
+	
+	err = tx.Commit().Error
+	if err != nil {
+		return 0, err
+	}
+	
+	common.SysLog("Cleared all abilities data for regeneration")
+	
 	// Find all channel ids from channel table
-	err := DB.Model(&Channel{}).Pluck("id", &channelIds).Error
+	err = DB.Model(&Channel{}).Pluck("id", &channelIds).Error
 	if err != nil {
 		common.SysError(fmt.Sprintf("Get channel ids from channel table failed: %s", err.Error()))
 		return 0, err
 	}
 
-	// Delete abilities of channels that are not in channel table - in batches to avoid too many placeholders
-	if len(channelIds) > 0 {
-		// Process deletion in chunks to avoid "too many placeholders" error
-		for _, chunk := range lo.Chunk(channelIds, 100) {
-			err = DB.Where("channel_id NOT IN (?)", chunk).Delete(&Ability{}).Error
-			if err != nil {
-				common.SysError(fmt.Sprintf("Delete abilities of channels (batch) that are not in channel table failed: %s", err.Error()))
-				return 0, err
-			}
-		}
-	} else {
-		// If no channels exist, delete all abilities
-		err = DB.Delete(&Ability{}).Error
-		if err != nil {
-			common.SysError(fmt.Sprintf("Delete all abilities failed: %s", err.Error()))
-			return 0, err
-		}
-		common.SysLog("Delete all abilities successfully")
+	if len(channelIds) == 0 {
+		common.SysLog("No channels found, abilities table cleared")
+		InitChannelCache()
 		return 0, nil
 	}
 
-	common.SysLog(fmt.Sprintf("Delete abilities of channels that are not in channel table successfully, ids: %v", channelIds))
-	count += len(channelIds)
+	common.SysLog(fmt.Sprintf("Found %d channels, regenerating abilities", len(channelIds)))
 
-	// Use channelIds to find channel not in abilities table
-	var abilityChannelIds []int
-	err = DB.Table("abilities").Distinct("channel_id").Pluck("channel_id", &abilityChannelIds).Error
-	if err != nil {
-		common.SysError(fmt.Sprintf("Get channel ids from abilities table failed: %s", err.Error()))
-		return count, err
-	}
-
+	// 获取所有channels并重新生成abilities
 	var channels []Channel
-	if len(abilityChannelIds) == 0 {
-		err = DB.Find(&channels).Error
-	} else {
-		// Process query in chunks to avoid "too many placeholders" error
-		err = nil
-		for _, chunk := range lo.Chunk(abilityChannelIds, 100) {
-			var channelsChunk []Channel
-			err = DB.Where("id NOT IN (?)", chunk).Find(&channelsChunk).Error
-			if err != nil {
-				common.SysError(fmt.Sprintf("Find channels not in abilities table failed: %s", err.Error()))
-				return count, err
-			}
-			channels = append(channels, channelsChunk...)
-		}
+	err = DB.Find(&channels).Error
+	if err != nil {
+		common.SysError(fmt.Sprintf("Find all channels failed: %s", err.Error()))
+		return count, err
 	}
 
 	for _, channel := range channels {
@@ -338,6 +347,14 @@ func FixAbility() (int, error) {
 			count++
 		}
 	}
+	
+	// 安全地初始化缓存
+	defer func() {
+		if r := recover(); r != nil {
+			common.SysError(fmt.Sprintf("InitChannelCache panic during FixAbility: %v", r))
+		}
+	}()
 	InitChannelCache()
+	
 	return count, nil
 }

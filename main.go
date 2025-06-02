@@ -104,15 +104,29 @@ func main() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					common.SysError(fmt.Sprintf("InitChannelCache panic: %v, retrying once", r))
-					// Retry once
+					common.SysError(fmt.Sprintf("InitChannelCache panic: %v, attempting recovery", r))
+					// 尝试清理和恢复
+					time.Sleep(1 * time.Second)
+					
+					// 尝试修复数据库中的能力数据
 					_, fixErr := model.FixAbility()
 					if fixErr != nil {
-						common.SysError(fmt.Sprintf("InitChannelCache failed: %s", fixErr.Error()))
+						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
+					} else {
+						common.SysLog("FixAbility completed successfully during recovery")
 					}
 				}
 			}()
-			model.InitChannelCache()
+			
+			// 首先尝试修复能力数据
+			count, err := model.FixAbility()
+			if err != nil {
+				common.SysError(fmt.Sprintf("FixAbility failed: %s", err.Error()))
+				// 即使修复失败，也尝试初始化缓存
+				model.InitChannelCache()
+			} else {
+				common.SysLog(fmt.Sprintf("FixAbility completed, processed %d items", count))
+			}
 		}()
 
 		go model.SyncOptions(common.SyncFrequency)
