@@ -294,7 +294,7 @@ int main(void) {
 
               {/* 不同客户端可用的 base_url */}
               <Divider style={{ margin: '16px 0' }} />
-              
+
               <Text style={darkModeStyles.textPrimary}>不同客户端可使用下列根地址：</Text>
               {[
                 { label: '根路径', url: baseUrl },
