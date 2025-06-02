@@ -217,9 +217,9 @@ func InitLogDB() (err error) {
 		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY progress VARCHAR(30);") // TODO: delete this line when most users have upgraded
 		//	_, _ = sqlDB.Exec("ALTER TABLE midjourneys MODIFY status VARCHAR(20);")   // TODO: delete this line when most users have upgraded
 		//}
-		common.SysLog("database migration started")
+		//common.SysLog("database migration started")
 		//err = migrateLOGDB()
-		return err
+		//return err
 	} else {
 		common.FatalLog(err)
 	}

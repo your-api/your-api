@@ -142,6 +142,7 @@ func GitHubOAuth(c *gin.Context) {
 			user.Email = githubUser.Email
 			user.Role = common.RoleCommonUser
 			user.Status = common.UserStatusEnabled
+			user.RegisterIP = c.ClientIP()
 			affCode := session.Get("aff")
 			inviterId := 0
 			if affCode != nil {

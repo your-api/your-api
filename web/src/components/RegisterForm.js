@@ -278,7 +278,7 @@ const RegisterForm = () => {
                     <>
                       <Form.Input
                         field={'email'}
-                        label={t('邮箱')}
+                        label={t('邮箱(仅限QQ/谷歌邮箱)')}
                         placeholder={t('输入邮箱地址')}
                         onChange={(value) => handleChange('email', value)}
                         name='email'

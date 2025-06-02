@@ -224,6 +224,30 @@ const UsersTable = () => {
       },
     },
     {
+      title: t('注册IP'),
+      dataIndex: 'register_ip',
+      render: (text, record, index) => {
+        return (
+          <div>
+            <Tooltip content={t('用户注册时的IP地址')}>
+              <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+                   style={{
+                     background: 'linear-gradient(to right, var(--semi-color-tertiary-light-default), var(--semi-color-tertiary-light-hover))',
+                     color: 'var(--semi-color-tertiary)',
+                     borderColor: 'var(--semi-color-tertiary-light-active)',
+                     borderWidth: '1px',
+                     borderStyle: 'solid'
+                   }}>
+                <span className="flex items-center">
+                  {record.register_ip || t('未知')}
+                </span>
+              </div>
+            </Tooltip>
+          </div>
+        );
+      },
+    },
+    {
       title: t('角色'),
       dataIndex: 'role',
       render: (text, record, index) => {
@@ -580,7 +604,7 @@ const UsersTable = () => {
       >
         <div style={{ display: 'flex', alignItems: 'flex-start' }}>
           <Tooltip
-            content={t('支持搜索用户的 ID、用户名、显示名称和邮箱地址')}
+            content={t('支持搜索用户的 ID、用户名、显示名称、邮箱地址和注册IP')}
             style={{ marginRight: 8 }}
           >
             <Form.Input
