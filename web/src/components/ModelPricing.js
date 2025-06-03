@@ -775,58 +775,33 @@ const ModelPricing = ({onInitialize}) => {
 // 添加模型价格列
     baseColumns.push({
       title: () => (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span>{t('模型价格')}</span>
-            {/*<Popover*/}
-            {/*    content={*/}
-            {/*      <div style={{ padding: 8 }}>*/}
-            {/*        {t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}<br/>*/}
-            {/*        {t('点击切换币种')}*/}
-            {/*      </div>*/}
-            {/*    }*/}
-            {/*    position='top'*/}
-            {/*    style={{*/}
-            {/*      backgroundColor: 'var(--semi-color-bg-2)',*/}
-            {/*      borderColor: 'var(--semi-color-border)',*/}
-            {/*      color: 'var(--semi-color-text-0)',*/}
-            {/*      borderWidth: 1,*/}
-            {/*      borderStyle: 'solid',*/}
-            {/*    }}*/}
-            {/*>*/}
-            {/*  <IconHelpCircle size="small" className="cursor-pointer" />*/}
-            {/*</Popover>*/}
-
+          <div className="flex items-center gap-1 whitespace-nowrap">
+            <span className="flex-shrink-0">{t('模型价格')}</span>
             {/* 币种切换 */}
-            <div className="inline-flex items-center rounded-md shadow-sm ml-auto sm:ml-0" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
+            <div className="inline-flex items-center rounded-full p-0.5 ml-1" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
               <button
-                  className={`px-1.5 py-0.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                      currencyType === 'USD'
-                          ? 'shadow-sm'
-                          : 'hover:text-gray-800'
-                  }`}
-                  style={{
-                    backgroundColor: currencyType === 'USD' ? 'var(--semi-color-bg-2)' : 'transparent',
-                    color: currencyType === 'USD' ? 'var(--semi-color-primary)' : 'var(--semi-color-text-2)'
-                  }}
-                  onClick={() => setCurrencyType('USD')}
-                  aria-label="Use USD"
+                className="px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200"
+                style={{
+                  backgroundColor: currencyType === 'USD' ? 'var(--semi-color-bg-2)' : 'transparent',
+                  color: currencyType === 'USD' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
+                  boxShadow: currencyType === 'USD' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+                onClick={() => setCurrencyType('USD')}
+                aria-label="Use USD"
               >
-                $
+                USD
               </button>
               <button
-                  className={`px-1.5 py-0.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                      currencyType === 'CNY'
-                          ? 'shadow-sm'
-                          : 'hover:text-gray-800'
-                  }`}
-                  style={{
-                    backgroundColor: currencyType === 'CNY' ? 'var(--semi-color-bg-2)' : 'transparent',
-                    color: currencyType === 'CNY' ? 'var(--semi-color-primary)' : 'var(--semi-color-text-2)'
-                  }}
-                  onClick={() => setCurrencyType('CNY')}
-                  aria-label="Use CNY"
+                className="px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200"
+                style={{
+                  backgroundColor: currencyType === 'CNY' ? 'var(--semi-color-bg-2)' : 'transparent',
+                  color: currencyType === 'CNY' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
+                  boxShadow: currencyType === 'CNY' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+                onClick={() => setCurrencyType('CNY')}
+                aria-label="Use CNY"
               >
-                ￥
+                CNY
               </button>
             </div>
           </div>
@@ -1605,28 +1580,30 @@ const ModelPricing = ({onInitialize}) => {
                         <div className="bg-blue-50 bg-opacity-60 p-2 rounded text-sm">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-gray-500">{t('币种')}</span>
-                            <div className="inline-flex items-center bg-gray-100 rounded-md shadow-sm">
+                            <div className="inline-flex items-center rounded-full p-0.5" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
                               <button
-                                className={`px-1.5 py-0.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                                  currencyType === 'USD'
-                                    ? 'bg-white text-blue-500 shadow-sm'
-                                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                                }`}
+                                className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-200"
+                                style={{
+                                  backgroundColor: currencyType === 'USD' ? 'var(--semi-color-bg-2)' : 'transparent',
+                                  color: currencyType === 'USD' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
+                                  boxShadow: currencyType === 'USD' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                                }}
                                 onClick={() => setCurrencyType('USD')}
                                 aria-label="Use USD"
                               >
-                                $
+                                USD
                               </button>
                               <button
-                                className={`px-1.5 py-0.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                                  currencyType === 'CNY'
-                                    ? 'bg-white text-blue-500 shadow-sm'
-                                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                                }`}
+                                className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-200"
+                                style={{
+                                  backgroundColor: currencyType === 'CNY' ? 'var(--semi-color-bg-2)' : 'transparent',
+                                  color: currencyType === 'CNY' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
+                                  boxShadow: currencyType === 'CNY' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                                }}
                                 onClick={() => setCurrencyType('CNY')}
                                 aria-label="Use CNY"
                               >
-                                ￥
+                                CNY
                               </button>
                             </div>
                           </div>
