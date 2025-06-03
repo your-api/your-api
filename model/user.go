@@ -152,7 +152,7 @@ func GetAllUsers(startIdx int, num int) (users []*User, total int64, err error) 
 	return users, total, nil
 }
 
-func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, int64, error) {
+func SearchUsers(keyword string, group string, inviteCode string, startIdx int, num int) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -171,30 +171,41 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 	// 构建基础查询
 	query := tx.Unscoped().Model(&User{})
 
-	// 构建搜索条件
-	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR register_ip LIKE ?"
+	// 如果有邀请码搜索，优先使用邀请码搜索
+	if inviteCode != "" {
+		query = query.Where("aff_code LIKE ?", "%"+inviteCode+"%")
+		if group != "" {
+			query = query.Where("`group` = ?", group)
+		}
+	} else if keyword != "" {
+		// 构建搜索条件
+		likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR register_ip LIKE ?"
 
-	// 尝试将关键字转换为整数ID
-	keywordInt, err := strconv.Atoi(keyword)
-	if err == nil {
-		// 如果是数字，同时搜索ID和其他字段
-		likeCondition = "id = ? OR " + likeCondition
-		if group != "" {
-			query = query.Where("("+likeCondition+") AND "+groupCol+" = ?",
-				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+		// 尝试将关键字转换为整数ID
+		keywordInt, err := strconv.Atoi(keyword)
+		if err == nil {
+			// 如果是数字，同时搜索ID和其他字段
+			likeCondition = "id = ? OR " + likeCondition
+			if group != "" {
+				query = query.Where("("+likeCondition+") AND `group` = ?",
+					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+			} else {
+				query = query.Where(likeCondition,
+					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+			}
 		} else {
-			query = query.Where(likeCondition,
-				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+			// 非数字关键字，只搜索字符串字段
+			if group != "" {
+				query = query.Where("("+likeCondition+") AND `group` = ?",
+					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+			} else {
+				query = query.Where(likeCondition,
+					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+			}
 		}
-	} else {
-		// 非数字关键字，只搜索字符串字段
-		if group != "" {
-			query = query.Where("("+likeCondition+") AND "+groupCol+" = ?",
-				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
-		} else {
-			query = query.Where(likeCondition,
-				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-		}
+	} else if group != "" {
+		// 只有分组搜索
+		query = query.Where("`group` = ?", group)
 	}
 
 	// 获取总数

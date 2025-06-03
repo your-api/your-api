@@ -218,6 +218,21 @@ const UsersTable = () => {
                     </div>
                 )}
               </Tooltip>
+              <Tooltip content={t('用户邀请码')}>
+                <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+                     style={{
+                       marginLeft: '5px',
+                       background: 'linear-gradient(to right, var(--semi-color-info-light-default), var(--semi-color-info-light-hover))',
+                       color: 'var(--semi-color-info)',
+                       borderColor: 'var(--semi-color-info-light-active)',
+                       borderWidth: '1px',
+                       borderStyle: 'solid'
+                     }}>
+                  <span className="flex items-center">
+                    {record.aff_code || t('无邀请码')}
+                  </span>
+                </div>
+              </Tooltip>
             </Space>
           </div>
         );
@@ -380,6 +395,7 @@ const UsersTable = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchGroup, setSearchGroup] = useState('');
+  const [searchInviteCode, setSearchInviteCode] = useState('');
   const [groupOptions, setGroupOptions] = useState([]);
   const [userCount, setUserCount] = useState(ITEMS_PER_PAGE);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -498,15 +514,16 @@ const UsersTable = () => {
     pageSize,
     searchKeyword,
     searchGroup,
+    searchInviteCode,
   ) => {
-    if (searchKeyword === '' && searchGroup === '') {
+    if (searchKeyword === '' && searchGroup === '' && searchInviteCode === '') {
       // if keyword is blank, load files instead.
       await loadUsers(startIdx, pageSize);
       return;
     }
     setSearching(true);
     const res = await API.get(
-      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&p=${startIdx}&page_size=${pageSize}`,
+      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&invite_code=${searchInviteCode}&p=${startIdx}&page_size=${pageSize}`,
     );
     const { success, message, data } = res.data;
     if (success) {
@@ -526,10 +543,10 @@ const UsersTable = () => {
 
   const handlePageChange = (page) => {
     setActivePage(page);
-    if (searchKeyword === '' && searchGroup === '') {
+    if (searchKeyword === '' && searchGroup === '' && searchInviteCode === '') {
       loadUsers(page, pageSize).then();
     } else {
-      searchUsers(page, pageSize, searchKeyword, searchGroup).then();
+      searchUsers(page, pageSize, searchKeyword, searchGroup, searchInviteCode).then();
     }
   };
 
@@ -546,10 +563,10 @@ const UsersTable = () => {
 
   const refresh = async () => {
     setActivePage(1);
-    if (searchKeyword === '') {
+    if (searchKeyword === '' && searchInviteCode === '') {
       await loadUsers(activePage, pageSize);
     } else {
-      await searchUsers(activePage, pageSize, searchKeyword, searchGroup);
+      await searchUsers(activePage, pageSize, searchKeyword, searchGroup, searchInviteCode);
     }
   };
 
@@ -598,7 +615,7 @@ const UsersTable = () => {
       ></EditUser>
       <Form
         onSubmit={() => {
-          searchUsers(activePage, pageSize, searchKeyword, searchGroup);
+          searchUsers(activePage, pageSize, searchKeyword, searchGroup, searchInviteCode);
         }}
         labelPosition='left'
       >
@@ -626,10 +643,25 @@ const UsersTable = () => {
             optionList={groupOptions}
             onChange={(value) => {
               setSearchGroup(value);
-              searchUsers(activePage, pageSize, searchKeyword, value);
+              searchUsers(activePage, pageSize, searchKeyword, value, searchInviteCode);
             }}
           />
-          <div style={{ marginLeft: 8, marginRight: 8, display: 'flex', flexDirection: 'column' }}>
+          <Tooltip
+            content={t('根据邀请码搜索用户')}
+            style={{ marginLeft: 8, marginRight: 8 }}
+          >
+            <Form.Input
+              label={t('邀请码')}
+              icon='tag'
+              field='inviteCode'
+              iconPosition='left'
+              placeholder={t('邀请码')}
+              value={searchInviteCode}
+              loading={searching}
+              onChange={(value) => setSearchInviteCode(value.trim())}
+            />
+          </Tooltip>
+          <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }}>
             <span style={{ marginBottom: '2px', height: '10px' }}>&nbsp;</span>
             <Button
               type='primary'
