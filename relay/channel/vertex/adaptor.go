@@ -95,14 +95,23 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		} else {
 			suffix = "generateContent"
 		}
-		return fmt.Sprintf(
-			"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
-			region,
-			adc.ProjectID,
-			region,
-			info.UpstreamModelName,
-			suffix,
-		), nil
+		if region == "global" {
+			return fmt.Sprintf(
+				"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/%s:%s",
+				adc.ProjectID,
+				info.UpstreamModelName,
+				suffix,
+			), nil
+		} else {
+			return fmt.Sprintf(
+				"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
+				region,
+				adc.ProjectID,
+				region,
+				info.UpstreamModelName,
+				suffix,
+			), nil
+		}
 	} else if a.RequestMode == RequestModeClaude {
 		if info.IsStream {
 			suffix = "streamRawPredict?alt=sse"

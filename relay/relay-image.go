@@ -41,15 +41,30 @@ func getAndValidImageRequest(c *gin.Context, info *relaycommon.RelayInfo) (*dto.
 				imageRequest.Quality = "standard"
 			}
 		}
+		if imageRequest.N == 0 {
+			imageRequest.N = 1
+		}
 	default:
 		err := common.UnmarshalBodyReusable(c, imageRequest)
 		if err != nil {
 			return nil, err
 		}
+
+		if imageRequest.Model == "" {
+			imageRequest.Model = "dall-e-3"
+		}
+
+		if strings.Contains(imageRequest.Size, "×") {
+			return nil, errors.New("size an unexpected error occurred in the parameter, please use 'x' instead of the multiplication sign '×'")
+		}
+
 		// Not "256x256", "512x512", or "1024x1024"
 		if imageRequest.Model == "dall-e-2" || imageRequest.Model == "dall-e" {
 			if imageRequest.Size != "" && imageRequest.Size != "256x256" && imageRequest.Size != "512x512" && imageRequest.Size != "1024x1024" {
 				return nil, errors.New("size must be one of 256x256, 512x512, or 1024x1024 for dall-e-2 or dall-e")
+			}
+			if imageRequest.Size == "" {
+				imageRequest.Size = "1024x1024"
 			}
 		} else if imageRequest.Model == "dall-e-3" {
 			if imageRequest.Size != "" && imageRequest.Size != "1024x1024" && imageRequest.Size != "1024x1792" && imageRequest.Size != "1792x1024" {
@@ -58,74 +73,24 @@ func getAndValidImageRequest(c *gin.Context, info *relaycommon.RelayInfo) (*dto.
 			if imageRequest.Quality == "" {
 				imageRequest.Quality = "standard"
 			}
-			// N should between 1 and 10
-			//if imageRequest.N != 0 && (imageRequest.N < 1 || imageRequest.N > 10) {
-			//	return service.OpenAIErrorWrapper(errors.New("n must be between 1 and 10"), "invalid_field_value", http.StatusBadRequest)
-			//}
+			if imageRequest.Size == "" {
+				imageRequest.Size = "1024x1024"
+			}
+		} else if imageRequest.Model == "gpt-image-1" {
+			if imageRequest.Quality == "" {
+				imageRequest.Quality = "auto"
+			}
+		}
+
+		if imageRequest.Prompt == "" {
+			return nil, errors.New("prompt is required")
+		}
+
+		if imageRequest.N == 0 {
+			imageRequest.N = 1
 		}
 	}
 
-	if imageRequest.Prompt == "" {
-		return nil, errors.New("prompt is required")
-	}
-
-	if imageRequest.Model == "" {
-		imageRequest.Model = "dall-e-2"
-	}
-	if strings.Contains(imageRequest.Size, "×") {
-		return nil, errors.New("size an unexpected error occurred in the parameter, please use 'x' instead of the multiplication sign '×'")
-	}
-	if imageRequest.N == 0 {
-		imageRequest.N = 1
-	}
-	if imageRequest.Size == "" {
-		imageRequest.Size = "1024x1024"
-	}
-
-	err := common.UnmarshalBodyReusable(c, imageRequest)
-	if err != nil {
-		return nil, err
-	}
-	if imageRequest.Prompt == "" {
-		return nil, errors.New("prompt is required")
-	}
-	if strings.Contains(imageRequest.Size, "×") {
-		return nil, errors.New("size an unexpected error occurred in the parameter, please use 'x' instead of the multiplication sign '×'")
-	}
-	if imageRequest.N == 0 {
-		imageRequest.N = 1
-	}
-	if imageRequest.Size == "" {
-		imageRequest.Size = "1024x1024"
-	}
-	if imageRequest.Model == "" {
-		imageRequest.Model = "dall-e-2"
-	}
-	// x.ai grok-2-image not support size, quality or style
-	if imageRequest.Size == "empty" {
-		imageRequest.Size = ""
-	}
-
-	// Not "256x256", "512x512", or "1024x1024"
-	if imageRequest.Model == "dall-e-2" || imageRequest.Model == "dall-e" {
-		if imageRequest.Size != "" && imageRequest.Size != "256x256" && imageRequest.Size != "512x512" && imageRequest.Size != "1024x1024" {
-			return nil, errors.New("size must be one of 256x256, 512x512, or 1024x1024, dall-e-3 1024x1792 or 1792x1024")
-		}
-	} else if imageRequest.Model == "dall-e-3" {
-		if imageRequest.Size != "" && imageRequest.Size != "1024x1024" && imageRequest.Size != "1024x1792" && imageRequest.Size != "1792x1024" {
-			return nil, errors.New("size must be one of 256x256, 512x512, or 1024x1024, dall-e-3 1024x1792 or 1792x1024")
-		}
-		if imageRequest.Quality == "" {
-			imageRequest.Quality = "standard"
-		}
-		//if imageRequest.N != 1 {
-		//	return nil, errors.New("n must be 1")
-		//}
-	}
-	// N should between 1 and 10
-	//if imageRequest.N != 0 && (imageRequest.N < 1 || imageRequest.N > 10) {
-	//	return service.OpenAIErrorWrapper(errors.New("n must be between 1 and 10"), "invalid_field_value", http.StatusBadRequest)
-	//}
 	if setting.ShouldCheckPromptSensitive() {
 		words, err := service.CheckSensitiveInput(imageRequest.Prompt)
 		if err != nil {
@@ -227,6 +192,10 @@ func ImageHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 			return service.OpenAIErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
 		}
 		requestBody = bytes.NewBuffer(jsonData)
+	}
+
+	if common.DebugEnabled {
+		println(fmt.Sprintf("image request body: %s", requestBody))
 	}
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")

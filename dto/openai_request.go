@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"one-api/common"
 	"strings"
 )
 
@@ -43,6 +44,7 @@ type GeneralOpenAIRequest struct {
 	ResponseFormat   *ResponseFormat   `json:"response_format,omitempty"`
 	EncodingFormat   any               `json:"encoding_format,omitempty"`
 	Seed             float64           `json:"seed,omitempty"`
+	ParallelTooCalls *bool             `json:"parallel_tool_calls,omitempty"`
 	Tools            []ToolCallRequest `json:"tools,omitempty"`
 	ToolChoice       any               `json:"tool_choice,omitempty"`
 	User             string            `json:"user,omitempty"`
@@ -54,6 +56,13 @@ type GeneralOpenAIRequest struct {
 	EnableThinking   any               `json:"enable_thinking,omitempty"` // ali
 	ExtraBody        any               `json:"extra_body,omitempty"`
 	WebSearchOptions *WebSearchOptions `json:"web_search_options,omitempty"`
+}
+
+func (r *GeneralOpenAIRequest) ToMap() map[string]any {
+	result := make(map[string]any)
+	data, _ := common.EncodeJson(r)
+	_ = common.DecodeJson(data, &result)
+	return result
 }
 
 type ToolCallRequest struct {
@@ -73,11 +82,11 @@ type StreamOptions struct {
 	IncludeUsage bool `json:"include_usage,omitempty"`
 }
 
-func (r GeneralOpenAIRequest) GetMaxTokens() int {
+func (r *GeneralOpenAIRequest) GetMaxTokens() int {
 	return int(r.MaxTokens)
 }
 
-func (r GeneralOpenAIRequest) ParseInput() []string {
+func (r *GeneralOpenAIRequest) ParseInput() []string {
 	if r.Input == nil {
 		return nil
 	}

@@ -9,6 +9,7 @@ import (
 	"one-api/relay/channel"
 	"one-api/relay/channel/openai"
 	relaycommon "one-api/relay/common"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -48,6 +49,18 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
 	if request == nil {
 		return nil, errors.New("request is nil")
+	}
+	if strings.HasSuffix(info.UpstreamModelName, "-search") {
+		info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-search")
+		request.Model = info.UpstreamModelName
+		toMap := request.ToMap()
+		toMap["web_search"] = map[string]any{
+			"enable":          true,
+			"enable_citation": true,
+			"enable_trace":    true,
+			"enable_status":   false,
+		}
+		return toMap, nil
 	}
 	return request, nil
 }

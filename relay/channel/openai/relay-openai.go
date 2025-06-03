@@ -311,36 +311,25 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 }
 
 func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// We shouldn't set the header before we parse the response body, because the parse part may fail.
-	// And then we will have to send an error response, but in this case, the header has already been set.
-	// So the httpClient will be confused by the response.
-	// For example, Postman will report error, and we cannot check the response at all.
+	// the status code has been judged before, if there is a body reading failure,
+	// it should be regarded as a non-recoverable error, so it should not return err for external retry.
+	// Analogous to nginx's load balancing, it will only retry if it can't be requested or 
+	// if the upstream returns a specific status code, once the upstream has already written the header, 
+	// the subsequent failure of the response body should be regarded as a non-recoverable error, 
+	// and can be terminated directly.
+	defer resp.Body.Close()
+	usage := &dto.Usage{}
+	usage.PromptTokens = info.PromptTokens
+	usage.TotalTokens = info.PromptTokens
 	for k, v := range resp.Header {
 		c.Writer.Header().Set(k, v[0])
 	}
 	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
+	c.Writer.WriteHeaderNow()
+	_, err := io.Copy(c.Writer, resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
+		common.LogError(c, err.Error())
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-
-	usage := &dto.Usage{}
-	usage.PromptTokens = info.PromptTokens
-	usage.TotalTokens = info.PromptTokens
 	return nil, usage
 }
 

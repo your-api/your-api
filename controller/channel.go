@@ -192,8 +192,11 @@ func FetchUpstreamModels(c *gin.Context) {
 		baseURL = channel.GetBaseURL()
 	}
 	url := fmt.Sprintf("%s/v1/models", baseURL)
-	if channel.Type == common.ChannelTypeGemini {
+	switch channel.Type {
+	case common.ChannelTypeGemini:
 		url = fmt.Sprintf("%s/v1beta/openai/models", baseURL)
+	case common.ChannelTypeAli:
+		url = fmt.Sprintf("%s/compatible-mode/v1/models", baseURL)
 	}
 	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
 	if err != nil {
