@@ -1410,7 +1410,7 @@ const TopUp = () => {
               {/* 邀请说明 - 高对比度 */}
               <div className="bg-gradient-to-r from-blue-600 to-indigo-700 border-2 border-blue-700 rounded-xl p-5 mb-6 shadow-lg">
                 <p className="text-white font-medium leading-relaxed text-center">
-                  {t('邀请好友注册，您和好友都可立得 $0.5 额度，可直接使用。好友每次充值，您将获得2%返现，返现金额可转账、可提现，轻松变现无门槛。邀请越多，赚得越多，立即邀请好友开启躺赚模式！')}
+                  {t('邀请好友注册，您和好友都可立得 $0.3 额度，可直接使用。好友每次充值，您将获得2%返现，返现金额可转账、可提现，轻松变现无门槛。邀请越多，赚得越多，立即邀请好友开启躺赚模式！')}
                 </p>
               </div>
 
