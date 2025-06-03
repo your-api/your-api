@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"log"
+
 	"math"
 	"one-api/common"
 	"one-api/constant"
@@ -128,7 +128,9 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 			imageUrl.Url = base64Data
 		}
 	} else {
-		common.SysLog(fmt.Sprintf("decoding image"))
+		if common.DebugEnabled {
+			common.SysDebug("decoding image")
+		}
 		config, format, _, err = DecodeBase64ImageData(imageUrl.Url)
 	}
 	if err != nil {
@@ -148,7 +150,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	shortSide := config.Width
 	otherSide := config.Height
 	if common.DebugEnabled {
-		common.SysLog(fmt.Sprintf("image format: %s, width: %d, height: %d", format, config.Width, config.Height))
+		common.SysDebug(fmt.Sprintf("image format: %s, width: %d, height: %d", format, config.Width, config.Height))
 	}
 	// 缩放倍数
 	scale := 1.0
@@ -165,12 +167,12 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	// 将另一边按照相同的比例缩小，向上取整
 	otherSide = int(math.Ceil(float64(otherSide) / scale))
 	if common.DebugEnabled {
-		common.SysLog(fmt.Sprintf("shortSide: %d, otherSide: %d, scale: %f", shortSide, otherSide, scale))
+		common.SysDebug(fmt.Sprintf("shortSide: %d, otherSide: %d, scale: %f", shortSide, otherSide, scale))
 	}
 	// 计算图片的token数量(边的长度除以512，向上取整)
 	tiles := (shortSide + 511) / 512 * ((otherSide + 511) / 512)
 	if common.DebugEnabled {
-		common.SysLog(fmt.Sprintf("tiles: %d", tiles))
+		common.SysDebug(fmt.Sprintf("tiles: %d", tiles))
 	}
 	return tiles*tileTokens + baseTokens, nil
 }
@@ -411,7 +413,7 @@ func CountTokenMessages(info *relaycommon.RelayInfo, messages []dto.Message, mod
 					}
 					tokenNum += imageTokenNum
 					if common.DebugEnabled {
-						common.SysLog(fmt.Sprintf("image token num: %d", imageTokenNum))
+						common.SysDebug(fmt.Sprintf("image token num: %d", imageTokenNum))
 					}
 				} else if m.Type == dto.ContentTypeInputAudio {
 					// TODO: 音频token数量计算

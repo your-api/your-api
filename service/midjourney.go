@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
-	"log"
+
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -235,7 +235,7 @@ func DoMidjourneyHttpRequest(c *gin.Context, timeout time.Duration, fullRequestU
 	}
 	respStr := string(responseBody)
 	if common.DebugEnabled {
-		common.SysLog(fmt.Sprintf("midjourney response: %s", respStr))
+		common.SysDebug(fmt.Sprintf("midjourney response: %s", respStr))
 	}
 	if respStr == "" {
 		return MidjourneyErrorWithStatusCodeWrapper(constant.MjErrorUnknown, "empty_response_body", statusCode), responseBody, nil

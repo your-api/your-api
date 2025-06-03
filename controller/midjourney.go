@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
-	"log"
 	"net/http"
 	"one-api/common"
 	"one-api/dto"
@@ -252,7 +251,7 @@ func GetUserMidjourney(c *gin.Context) {
 
 	userId := c.GetInt("id")
 	if common.DebugEnabled {
-		common.SysLog(fmt.Sprintf("userId = %d", userId))
+		common.SysDebug(fmt.Sprintf("userId = %d", userId))
 	}
 
 	queryParams := model.TaskQueryParams{

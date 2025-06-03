@@ -30,7 +30,7 @@ const EditToken = (props) => {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const originInputs = {
-    name: '',
+    name: '默认未命名令牌',
     remain_quota: isEdit ? 0 : 500000,
     expired_time: -1,
     unlimited_quota: false,

@@ -58,10 +58,16 @@ func SetupLogger() {
 }
 
 func SysLog(s string) {
-	// 系统日志仍然输出，但减少频率
+	// 关键系统日志始终输出
+	t := time.Now()
+	_, _ = fmt.Fprintf(os.Stdout, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
+}
+
+func SysDebug(s string) {
+	// 调试性质的系统日志，可通过开关控制
 	if LoggingEnabled {
 		t := time.Now()
-		_, _ = fmt.Fprintf(os.Stdout, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
+		_, _ = fmt.Fprintf(os.Stdout, "[DEBUG] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
 	}
 }
 

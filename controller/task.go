@@ -24,7 +24,7 @@ func UpdateTaskBulk() {
 	//imageModel := "midjourney"
 	for {
 		time.Sleep(time.Duration(15) * time.Second)
-		common.SysLog("任务进度轮询开始")
+		//common.SysLog("任务进度轮询开始")
 		ctx := context.TODO()
 		allTasks := model.GetAllUnFinishSyncTasks(500)
 		platformTask := make(map[constant.TaskPlatform][]*model.Task)
@@ -64,15 +64,15 @@ func UpdateTaskBulk() {
 
 			UpdateTaskByPlatform(platform, taskChannelM, taskM)
 		}
-		common.SysLog("任务进度轮询完成")
-		
+		//common.SysLog("任务进度轮询完成")
+
 		// 处理超时订单
-		common.SysLog("开始处理超时订单")
+		//common.SysLog("开始处理超时订单")
 		err := model.ProcessTimeoutOrders()
 		if err != nil {
 			common.LogError(ctx, fmt.Sprintf("处理超时订单失败: %v", err))
 		} else {
-			common.SysLog("超时订单处理完成")
+			//common.SysLog("超时订单处理完成")
 		}
 	}
 }
