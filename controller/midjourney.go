@@ -251,7 +251,9 @@ func GetUserMidjourney(c *gin.Context) {
 	}
 
 	userId := c.GetInt("id")
-	log.Printf("userId = %d \n", userId)
+	if common.DebugEnabled {
+		common.SysLog(fmt.Sprintf("userId = %d", userId))
+	}
 
 	queryParams := model.TaskQueryParams{
 		MjID:           c.Query("mj_id"),

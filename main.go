@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"io"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -44,7 +45,10 @@ func main() {
 
 	err = godotenv.Load(".env")
 	if err != nil {
-		common.SysLog("Support for .env file is disabled: " + err.Error())
+		// 减少不必要的日志输出
+		if common.DebugEnabled {
+			common.SysLog("Support for .env file is disabled: " + err.Error())
+		}
 	}
 
 	common.LoadEnv()
@@ -98,7 +102,9 @@ func main() {
 	}
 	if common.MemoryCacheEnabled {
 		common.SysLog("memory cache enabled")
-		common.SysError(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
+		if common.DebugEnabled {
+			common.SysError(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
+		}
 
 		// Add panic recovery and retry for InitChannelCache
 		func() {
@@ -113,7 +119,9 @@ func main() {
 					if fixErr != nil {
 						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
 					} else {
-						common.SysLog("FixAbility completed successfully during recovery")
+						if common.DebugEnabled {
+							common.SysLog("FixAbility completed successfully during recovery")
+						}
 					}
 				}
 			}()
@@ -125,7 +133,9 @@ func main() {
 				// 即使修复失败，也尝试初始化缓存
 				model.InitChannelCache()
 			} else {
-				common.SysLog(fmt.Sprintf("FixAbility completed, processed %d items", count))
+				if common.DebugEnabled {
+					common.SysLog(fmt.Sprintf("FixAbility completed, processed %d items", count))
+				}
 			}
 		}()
 
@@ -160,12 +170,15 @@ func main() {
 	}
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
-		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
+		if common.DebugEnabled {
+			common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
+		}
 		model.InitBatchUpdater()
 	}
 
 	if os.Getenv("ENABLE_PPROF") == "true" {
 		gopool.Go(func() {
+			log.SetOutput(io.Discard) // 禁用pprof日志
 			log.Println(http.ListenAndServe("0.0.0.0:8005", nil))
 		})
 		go common.Monitor()
@@ -174,19 +187,15 @@ func main() {
 
 	// Initialize HTTP server
 	server := gin.New()
-	server.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
-		common.SysError(fmt.Sprintf("panic detected: %v", err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": gin.H{
-				"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/Calcium-Ion/new-api", err),
-				"type":    "new_api_panic",
-			},
-		})
-	}))
+	
+	// 使用我们的全局panic恢复中间件
+	server.Use(middleware.GlobalPanicRecover())
+	
 	// This will cause SSE not to work!!!
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
 	middleware.SetUpLogger(server)
+	
 	// Initialize session store
 	store := cookie.NewStore([]byte(common.SessionSecret))
 	store.Options(sessions.Options{

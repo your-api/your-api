@@ -74,7 +74,9 @@ func RelayMidjourneyImage(c *gin.Context) {
 	// 将图片流式传输到响应体
 	_, err = io.Copy(c.Writer, resp.Body)
 	if err != nil {
-		log.Println("Failed to stream image:", err)
+		if common.DebugEnabled {
+			common.SysError(fmt.Sprintf("Failed to stream image: %v", err))
+		}
 	}
 	return
 }
@@ -454,7 +456,9 @@ func RelayMidjourneySubmit(c *gin.Context, relayMode int) *dto.MidjourneyRespons
 			c.Set("base_url", channel.GetBaseURL())
 			c.Set("channel_id", originTask.ChannelId)
 			c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
-			log.Printf("检测到此操作为放大、变换、重绘，获取原channel信息: %s,%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL())
+			if common.DebugEnabled {
+				common.SysLog(fmt.Sprintf("检测到此操作为放大、变换、重绘，获取原channel信息: %s,%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL()))
+			}
 		}
 		midjRequest.Prompt = originTask.Prompt
 

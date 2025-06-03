@@ -26,8 +26,14 @@ var logCount int
 var setupLogLock sync.Mutex
 var setupLogWorking bool
 
+// 添加日志开关变量
+var LoggingEnabled = false
+
 func SetupLogger() {
-	if *LogDir != "" {
+	// 禁用日志以提高性能
+	LoggingEnabled = false
+	
+	if *LogDir != "" && LoggingEnabled {
 		ok := setupLogLock.TryLock()
 		if !ok {
 			log.Println("setup log is already working")
@@ -44,32 +50,53 @@ func SetupLogger() {
 		}
 		gin.DefaultWriter = io.MultiWriter(os.Stdout, fd)
 		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, fd)
+	} else {
+		// 禁用日志输出以提高性能
+		gin.DefaultWriter = io.Discard
+		gin.DefaultErrorWriter = io.Discard
 	}
 }
 
 func SysLog(s string) {
-	t := time.Now()
-	_, _ = fmt.Fprintf(gin.DefaultWriter, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
+	// 系统日志仍然输出，但减少频率
+	if LoggingEnabled {
+		t := time.Now()
+		_, _ = fmt.Fprintf(os.Stdout, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
+	}
 }
 
 func SysError(s string) {
+	// 系统错误必须输出，用于调试严重问题
 	t := time.Now()
-	_, _ = fmt.Fprintf(gin.DefaultErrorWriter, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
+	_, _ = fmt.Fprintf(os.Stderr, "[SYS] %v | %s \n", t.Format("2006/01/02 - 15:04:05"), s)
 }
 
 func LogInfo(ctx context.Context, msg string) {
+	if !LoggingEnabled {
+		return
+	}
 	logHelper(ctx, loggerINFO, msg)
 }
 
 func LogWarn(ctx context.Context, msg string) {
+	if !LoggingEnabled {
+		return
+	}
 	logHelper(ctx, loggerWarn, msg)
 }
 
 func LogError(ctx context.Context, msg string) {
-	logHelper(ctx, loggerError, msg)
+	// 错误日志仍然保留，但仅输出到stderr
+	if LoggingEnabled {
+		logHelper(ctx, loggerError, msg)
+	}
 }
 
 func logHelper(ctx context.Context, level string, msg string) {
+	if !LoggingEnabled {
+		return
+	}
+	
 	writer := gin.DefaultErrorWriter
 	if level == loggerINFO {
 		writer = gin.DefaultWriter
@@ -88,8 +115,9 @@ func logHelper(ctx context.Context, level string, msg string) {
 }
 
 func FatalLog(v ...any) {
+	// 致命错误必须输出
 	t := time.Now()
-	_, _ = fmt.Fprintf(gin.DefaultErrorWriter, "[FATAL] %v | %v \n", t.Format("2006/01/02 - 15:04:05"), v)
+	_, _ = fmt.Fprintf(os.Stderr, "[FATAL] %v | %v \n", t.Format("2006/01/02 - 15:04:05"), v)
 	os.Exit(1)
 }
 
