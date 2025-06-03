@@ -329,16 +329,25 @@ const ModelPricing = ({onInitialize}) => {
   // 根据模型名称判断供应商
   const getProviderFromModelName = useCallback((modelId) => {
     modelId = modelId.toLowerCase();
-     // 遍历providers
+    
+    // 第一轮：精确匹配，优先匹配完全相同的项目
     for (let i = 0; i < providers.length; i++) {
-        const provider = providers[i];
-        if (modelId.includes(provider.id.toLowerCase())) {
-              return provider.id;
-          }
-          // 判断provider.includes是否非空，并且是否包含
-          if (provider.includes && provider.includes.some((item) => modelId.includes(item.toLowerCase()))) {
-              return provider.id;
-          }
+      const provider = providers[i];
+      if (provider.includes && provider.includes.some((item) => item.toLowerCase() === modelId)) {
+        return provider.id;
+      }
+    }
+    
+    // 第二轮：模糊匹配，匹配包含关系
+    for (let i = 0; i < providers.length; i++) {
+      const provider = providers[i];
+      if (modelId.includes(provider.id.toLowerCase())) {
+        return provider.id;
+      }
+      // 判断provider.includes是否非空，并且是否包含
+      if (provider.includes && provider.includes.some((item) => modelId.includes(item.toLowerCase()))) {
+        return provider.id;
+      }
     }
     return '其他';
   }, [providers]);
