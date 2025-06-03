@@ -85,19 +85,19 @@ func getTokenNum(tokenEncoder *tiktoken.Tiktoken, text string) int {
 	return len(tokenEncoder.Encode(text, nil, nil))
 }
 
-func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, model string, stream bool) (int, error) {
+func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, model string, stream bool) (int, string, error) {
 	if imageUrl == nil {
-		return 0, fmt.Errorf("image_url_is_nil")
+		return 0, "", fmt.Errorf("image_url_is_nil")
 	}
 	baseTokens := 85
 	if model == "glm-4v" {
-		return 1047, nil
+		return 1047, "", nil
 	}
 	if imageUrl.Detail == "low" {
-		return baseTokens, nil
+		return baseTokens, "", nil
 	}
 	if !constant.GetMediaTokenNotStream && !stream {
-		return 3 * baseTokens, nil
+		return 3 * baseTokens, "", nil
 	}
 
 	// 同步One API的图片计费逻辑
@@ -112,10 +112,10 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	}
 	// 是否统计图片token
 	if !constant.GetMediaToken {
-		return 3 * baseTokens, nil
+		return 3 * baseTokens, "", nil
 	}
 	if info.ChannelType == common.ChannelTypeGemini || info.ChannelType == common.ChannelTypeVertexAi || info.ChannelType == common.ChannelTypeAnthropic {
-		return 3 * baseTokens, nil
+		return 3 * baseTokens, "", nil
 	}
 	var config image.Config
 	var err error
@@ -134,7 +134,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 		config, format, _, err = DecodeBase64ImageData(imageUrl.Url)
 	}
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	imageUrl.MimeType = format
 
@@ -142,9 +142,9 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 		// not an image
 		if format != "" && base64Data != "" {
 			// file type
-			return 3 * baseTokens, nil
+			return 3 * baseTokens, "", nil
 		}
-		return 0, errors.New(fmt.Sprintf("fail to decode image config: %s", imageUrl.Url))
+		return 0, "", errors.New(fmt.Sprintf("fail to decode image config: %s", imageUrl.Url))
 	}
 
 	shortSide := config.Width
@@ -174,7 +174,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	if common.DebugEnabled {
 		common.SysDebug(fmt.Sprintf("tiles: %d", tiles))
 	}
-	return tiles*tileTokens + baseTokens, nil
+	return tiles*tileTokens + baseTokens, base64Data, nil
 }
 
 func CountTokenChatRequest(info *relaycommon.RelayInfo, request dto.GeneralOpenAIRequest) (int, error) {
@@ -395,7 +395,8 @@ func CountTokenMessages(info *relaycommon.RelayInfo, messages []dto.Message, mod
 		tokensPerName = 1
 	}
 	tokenNum := 0
-	for _, message := range messages {
+	for msgIndex := range messages {
+		message := &messages[msgIndex] // 获取指针引用
 		tokenNum += tokensPerMessage
 		tokenNum += getTokenNum(tokenEncoder, message.Role)
 		if len(message.Content) > 0 {
@@ -404,12 +405,24 @@ func CountTokenMessages(info *relaycommon.RelayInfo, messages []dto.Message, mod
 				tokenNum += getTokenNum(tokenEncoder, *message.Name)
 			}
 			arrayContent := message.ParseContent()
-			for _, m := range arrayContent {
+			contentModified := false
+			for i, m := range arrayContent {
 				if m.Type == dto.ContentTypeImageURL {
 					imageUrl := m.GetImageMedia()
-					imageTokenNum, err := getImageToken(info, imageUrl, model, stream)
+					imageTokenNum, base64Data, err := getImageToken(info, imageUrl, model, stream)
 					if err != nil {
 						return 0, err
+					}
+					// 判断base64Data是否为空
+					if base64Data != "" {
+						// 创建新的 MessageImageUrl 并更新到副本中
+						newImageUrl := &dto.MessageImageUrl{
+							Url:      base64Data,
+							Detail:   imageUrl.Detail,
+							MimeType: imageUrl.MimeType,
+						}
+						arrayContent[i].ImageUrl = newImageUrl
+						contentModified = true
 					}
 					tokenNum += imageTokenNum
 					if common.DebugEnabled {
@@ -425,6 +438,10 @@ func CountTokenMessages(info *relaycommon.RelayInfo, messages []dto.Message, mod
 				} else {
 					tokenNum += getTokenNum(tokenEncoder, m.Text)
 				}
+			}
+			// 如果内容被修改了，将修改后的内容设置回原始 message
+			if contentModified {
+				message.SetMediaContent(arrayContent)
 			}
 		}
 	}
