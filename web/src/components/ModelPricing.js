@@ -1021,7 +1021,14 @@ const ModelPricing = ({onInitialize}) => {
         setGroupRatio(group_ratio);
         setUsableGroup(usableGroupFiltered);
         setSelectedGroup('default')
-        setModelsFormat(data, group_ratio);
+        
+        // 先设置原始模型数据（不排序）
+        const formattedModels = data.map(model => ({
+          ...model,
+          key: model.model_name,
+          group_ratio: group_ratio[model.model_name]
+        }));
+        setModels(formattedModels);
       } else {
         showError(message);
       }
@@ -1031,7 +1038,94 @@ const ModelPricing = ({onInitialize}) => {
     } finally {
       setLoading(false);
     }
-  }, [userState.user, setModelsFormat]);
+  }, []);
+
+  // 当 providers 数据加载完成后，重新排序模型
+  const modelsSortedRef = useRef(false);
+  
+  useEffect(() => {
+    if (models.length > 0 && providers.length > 0 && !modelsSortedRef.current) {
+      const sortedModels = [...models];
+      
+      // 创建供应商优先级映射（按 providers 数组顺序）
+      const providerPriorityMap = new Map();
+      providers.forEach((provider, index) => {
+        providerPriorityMap.set(provider.id, index);
+      });
+
+      // 创建模型名称到 includes 中位置的映射，用于优化查找性能
+      const modelPositionMap = new Map();
+      
+      // 遍历所有 providers 的 includes，记录每个模型在 includes 中的位置
+      providers.forEach(provider => {
+        if (provider.includes && Array.isArray(provider.includes)) {
+          provider.includes.forEach((modelName, index) => {
+            const lowerModelName = modelName.toLowerCase();
+            // 如果该模型还没有记录位置，或者当前位置更靠前，则更新位置
+            if (!modelPositionMap.has(lowerModelName) || modelPositionMap.get(lowerModelName) > index) {
+              modelPositionMap.set(lowerModelName, index);
+            }
+          });
+        }
+      });
+
+      // 高效的排序函数
+      sortedModels.sort((a, b) => {
+        // 首先按计费类型排序（按量计费在前）
+        if (a.quota_type !== b.quota_type) {
+          return a.quota_type - b.quota_type;
+        }
+
+        // 获取每个模型所属的供应商
+        const aProvider = getProviderFromModelName(a.model_name);
+        const bProvider = getProviderFromModelName(b.model_name);
+        
+        // 获取供应商优先级
+        const aPriority = providerPriorityMap.get(aProvider) ?? 999; // 未知供应商排在最后
+        const bPriority = providerPriorityMap.get(bProvider) ?? 999;
+        
+        // 按供应商优先级排序
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+
+        // 同一供应商内部，按 includes 顺序排序
+        const aModelName = a.model_name.toLowerCase();
+        const bModelName = b.model_name.toLowerCase();
+        
+        const aIncludesPosition = modelPositionMap.get(aModelName);
+        const bIncludesPosition = modelPositionMap.get(bModelName);
+        
+        // 如果两个模型都在 includes 中
+        if (aIncludesPosition !== undefined && bIncludesPosition !== undefined) {
+          return aIncludesPosition - bIncludesPosition;
+        }
+        
+        // 如果只有 a 在 includes 中，a 排在前面
+        if (aIncludesPosition !== undefined && bIncludesPosition === undefined) {
+          return -1;
+        }
+        
+        // 如果只有 b 在 includes 中，b 排在前面
+        if (aIncludesPosition === undefined && bIncludesPosition !== undefined) {
+          return 1;
+        }
+        
+        // 如果都不在 includes 中，按字典序排序
+        return a.model_name.localeCompare(b.model_name);
+      });
+
+      setModels(sortedModels);
+      modelsSortedRef.current = true;
+    }
+  }, [providers.length, models.length, getProviderFromModelName]);
+
+  // 重置排序标记当模型数据重新加载时
+  useEffect(() => {
+    if (models.length === 0) {
+      modelsSortedRef.current = false;
+    }
+  }, [models.length]);
 
   const refresh = useCallback(async () => {
     await loadPricing();
