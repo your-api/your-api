@@ -24,8 +24,10 @@ func GenerateImageCaptcha(c *gin.Context) {
 	// 创建验证码
 	data, err := captcha.New(CaptchaWidth, CaptchaHeight, func(options *captcha.Options) {
 		options.TextLength = CaptchaLength
-		options.CurveNumber = 2
-		options.Noise = 1.0
+		options.CurveNumber = 0  // 减少曲线数量，从2降为0
+		options.Noise = 0.1      // 大幅减少噪点，从1.0降为0.1
+		options.CharPreset = "0123456789"    // 只使用数字，避免字母混淆
+		options.FontScale = 1.2   // 增大字体，让字符更清晰
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -76,8 +78,10 @@ func GenerateImageCaptchaBase64(c *gin.Context) {
 	// 创建验证码
 	data, err := captcha.New(CaptchaWidth, CaptchaHeight, func(options *captcha.Options) {
 		options.TextLength = CaptchaLength
-		options.CurveNumber = 2
-		options.Noise = 1.0
+		options.CurveNumber = 0  // 减少曲线数量，从2降为0
+		options.Noise = 0.1      // 大幅减少噪点，从1.0降为0.1
+		options.CharPreset = "0123456789"    // 只使用数字，避免字母混淆
+		options.FontScale = 1.2   // 增大字体，让字符更清晰
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
