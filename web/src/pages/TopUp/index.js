@@ -687,7 +687,7 @@ const TopUp = () => {
               {t('实付金额')}：¥{amount}
             </p>
             <p>
-              {t('到账额度')}：¥{customAmount ? topUpCount : selectedAmount}
+              {t('到账额度')}：${customAmount ? topUpCount : selectedAmount}
             </p>
             {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
               <p style={{ color: '#52c41a' }}>
@@ -745,7 +745,7 @@ const TopUp = () => {
                   }}>
                     <p className="text-xl font-semibold mb-1" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>¥{amount}</p>
                     <p className="text-xs text-gray-500">{t('订单号')}: {outTradeNo}</p>
-                    <p className="text-xs text-gray-500">{t('原价')}: ¥{customAmount ? topUpCount : selectedAmount} | {t('到账额度')}: ¥{customAmount ? topUpCount : selectedAmount}</p>
+                    <p className="text-xs text-gray-500">{t('原价')}: ¥{customAmount ? topUpCount : selectedAmount} | {t('到账额度')}: ${customAmount ? topUpCount : selectedAmount}</p>
                     {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
                       <p className="text-xs text-green-600 font-medium">{t('立省')} ¥{((customAmount ? topUpCount : selectedAmount) - amount).toFixed(2)}</p>
                     )}
@@ -1089,7 +1089,7 @@ const TopUp = () => {
                         <div className="mb-2">
                           <div className="text-xs text-gray-500 mb-1">{t('到账额度')}</div>
                           <div className="text-lg font-bold text-blue-500">
-                            ¥{amount}
+                            ${amount}
                           </div>
                         </div>
 
@@ -1235,7 +1235,7 @@ const TopUp = () => {
                               return (
                                   <>
                                     <div style={{ marginBottom: 8, color: 'var(--semi-color-text-1)' }}>
-                                      {t('原价')}: ¥{currentAmount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ¥{amountInfo.creditAmount}
+                                      {t('原价')}: ¥{currentAmount} | {t('实付')}: ¥{amountInfo.payAmount} | {t('到账额度')}: ${amountInfo.creditAmount}
                                     </div>
                                     {/* 显示适用的折扣信息 */}
                                     {customDiscountInfo.label && (
@@ -1275,7 +1275,7 @@ const TopUp = () => {
                   <div>
                     <div className="text-sm text-gray-600">{t('到账额度')}</div>
                     <div className="text-2xl font-bold text-green-600">
-                      ¥{amountInfo.creditAmount || (customAmount ? topUpCount : selectedAmount)}
+                      ${amountInfo.creditAmount || (customAmount ? topUpCount : selectedAmount)}
                     </div>
                   </div>
                 </div>
