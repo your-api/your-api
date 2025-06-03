@@ -263,20 +263,20 @@ const ModelPricing = ({onInitialize}) => {
   const [activePage, setActivePage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [apiDrawerVisible, setApiDrawerVisible] = useState(false);
-  const [currencyType, setCurrencyType] = useState('CNY');
+  const [currencyType, setCurrencyType] = useState('USD');
 
   // 检测是否为移动设备
   useEffect(() => {
     const checkIfMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     // 初始检测
     checkIfMobile();
-    
+
     // 监听窗口大小变化
     window.addEventListener('resize', checkIfMobile);
-    
+
     // 清理监听器
     return () => {
       window.removeEventListener('resize', checkIfMobile);
@@ -348,7 +348,7 @@ const ModelPricing = ({onInitialize}) => {
   const [showLeftScroll, setShowLeftScroll] = useState(true);
   const [showRightScroll, setShowRightScroll] = useState(true);
 
-  
+
   // 滚动处理函数
   const handleScroll = useCallback((direction) => {
     if (providerScrollRef.current) {
@@ -386,12 +386,12 @@ const ModelPricing = ({onInitialize}) => {
       // 然后检查是否匹配供应商筛选条件
       if (selectedProvider !== '全部') {
         const provider = getProviderFromModelName(model.model_name);
-        
+
         // 如果选择了"其他"供应商，则显示所有不属于已定义供应商的模型
         if (selectedProvider === '其他') {
           return provider === '其他';
         }
-        
+
         // 否则显示匹配选定供应商的模型
         return provider === selectedProvider;
       }
@@ -404,7 +404,7 @@ const ModelPricing = ({onInitialize}) => {
   // 计算每个供应商的模型数量
   const providerCounts = useMemo(() => {
     if (!models || models.length === 0) return {};
-    
+
     // 首先过滤掉不包含当前所选分组的模型
     const modelsInSelectedGroup = models.filter(model => {
       // 首先检查模型是否包含所选分组
@@ -415,13 +415,13 @@ const ModelPricing = ({onInitialize}) => {
 
       return true;
     });
-    
+
     const counts = { '全部': modelsInSelectedGroup.length };
     modelsInSelectedGroup.forEach(model => {
       const provider = getProviderFromModelName(model.model_name);
       counts[provider] = (counts[provider] || 0) + 1;
     });
-    
+
     return counts;
   }, [models, selectedGroup, showOnlySelectedGroup, getProviderFromModelName]);
 
@@ -574,7 +574,7 @@ const ModelPricing = ({onInitialize}) => {
       }
       return Math.abs(hash);
     };
-    
+
     const colors = [
       { bg: 'bg-slate-600 text-white',    unselected: 'bg-slate-100 text-slate-800' },
       { bg: 'bg-stone-600 text-white',    unselected: 'bg-stone-100 text-stone-800' },
@@ -589,7 +589,7 @@ const ModelPricing = ({onInitialize}) => {
       { bg: 'bg-teal-600 text-white',     unselected: 'bg-teal-100 text-teal-800' },
       { bg: 'bg-lime-600 text-white',     unselected: 'bg-lime-100 text-lime-800' },
     ];
-    
+
     const index = stringToHash(groupName) % colors.length;
     return colors[index];
   }, []);
@@ -668,7 +668,7 @@ const ModelPricing = ({onInitialize}) => {
                 {text.map((group) => {
                   if (usableGroup[group]) {
                     const colorStyle = getGroupColor(group);
-                    
+
                     if (group === selectedGroup) {
                       return (
                         <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
@@ -777,24 +777,24 @@ const ModelPricing = ({onInitialize}) => {
       title: () => (
           <div className="flex items-center gap-2 flex-wrap">
             <span>{t('模型价格')}</span>
-            <Popover
-                content={
-                  <div style={{ padding: 8 }}>
-                    {t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}<br/>
-                    {t('点击切换币种')}
-                  </div>
-                }
-                position='top'
-                style={{
-                  backgroundColor: 'var(--semi-color-bg-2)',
-                  borderColor: 'var(--semi-color-border)',
-                  color: 'var(--semi-color-text-0)',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                }}
-            >
-              <IconHelpCircle size="small" className="cursor-pointer" />
-            </Popover>
+            {/*<Popover*/}
+            {/*    content={*/}
+            {/*      <div style={{ padding: 8 }}>*/}
+            {/*        {t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}<br/>*/}
+            {/*        {t('点击切换币种')}*/}
+            {/*      </div>*/}
+            {/*    }*/}
+            {/*    position='top'*/}
+            {/*    style={{*/}
+            {/*      backgroundColor: 'var(--semi-color-bg-2)',*/}
+            {/*      borderColor: 'var(--semi-color-border)',*/}
+            {/*      color: 'var(--semi-color-text-0)',*/}
+            {/*      borderWidth: 1,*/}
+            {/*      borderStyle: 'solid',*/}
+            {/*    }}*/}
+            {/*>*/}
+            {/*  <IconHelpCircle size="small" className="cursor-pointer" />*/}
+            {/*</Popover>*/}
 
             {/* 币种切换 */}
             <div className="inline-flex items-center rounded-md shadow-sm ml-auto sm:ml-0" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
@@ -854,8 +854,8 @@ const ModelPricing = ({onInitialize}) => {
                   <span className="font-medium" style={{ color: 'var(--semi-color-primary)' }}>
                     {currencySymbol}
                               {currencyType === 'CNY'
-                                  ? (parseFloat(inputRatioPrice) * priceRatio).toFixed(2)
-                                  : inputRatioPrice} / 1M
+                                  ? (parseFloat(inputRatioPrice) ).toFixed(2)
+                                  : (parseFloat(inputRatioPrice) / 7.29).toFixed(2)} / 1M
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-md px-2 py-1" style={{
@@ -869,8 +869,8 @@ const ModelPricing = ({onInitialize}) => {
                   <span className="font-medium" style={{ color: 'var(--semi-color-success)' }}>
                     {currencySymbol}
                               {currencyType === 'CNY'
-                                  ? (parseFloat(completionRatioPrice) * priceRatio).toFixed(2)
-                                  : completionRatioPrice} / 1M
+                                  ? (parseFloat(completionRatioPrice) ).toFixed(2)
+                                  : (parseFloat(completionRatioPrice) / 7.29).toFixed(2)} / 1M
                   </span>
                 </div>
               </div>
@@ -1030,7 +1030,7 @@ const ModelPricing = ({onInitialize}) => {
     }));
   }, [t, groupRatio]);
 
-  
+
   // 当模型数据加载完成后重新检查
   useEffect(() => {
     if (models.length > 0) {
@@ -1059,14 +1059,14 @@ const ModelPricing = ({onInitialize}) => {
         <style>{getMobileStyles()}</style>
         <div className="model-pricing-section">
           <Card className="pricing-card">
-            <div className="mb-4">
-              <Banner
-                  type="info"
-                  fullMode={false}
-                  description={<div>{t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}</div>}
-                  closeIcon={null}
-              />
-            </div>
+            {/*<div className="mb-4">*/}
+            {/*  <Banner*/}
+            {/*      type="info"*/}
+            {/*      fullMode={false}*/}
+            {/*      description={<div>{t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}</div>}*/}
+            {/*      closeIcon={null}*/}
+            {/*  />*/}
+            {/*</div>*/}
 
             <div className="mb-4">
               <Banner
@@ -1097,15 +1097,15 @@ const ModelPricing = ({onInitialize}) => {
                           className="provider-scroll-btn scroll-left"
                           aria-label="显示所有供应商"
                           onClick={() => handleScroll('left')}
-                          style={{ 
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
-                            backgroundColor: 'var(--semi-color-bg-2)', 
-                            borderRadius: '50%', 
-                            width: '32px', 
-                            height: '32px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center' 
+                          style={{
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                            backgroundColor: 'var(--semi-color-bg-2)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                           }}
                       >
                         <IconChevronLeft size="large" />
@@ -1221,15 +1221,15 @@ const ModelPricing = ({onInitialize}) => {
                           className="provider-scroll-btn scroll-right"
                           aria-label="显示所有供应商"
                           onClick={() => handleScroll('right')}
-                          style={{ 
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)', 
-                            backgroundColor: 'var(--semi-color-bg-2)', 
-                            borderRadius: '50%', 
-                            width: '32px', 
-                            height: '32px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center' 
+                          style={{
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                            backgroundColor: 'var(--semi-color-bg-2)',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                           }}
                       >
                         <IconChevronRight size="large" />
@@ -1333,8 +1333,8 @@ const ModelPricing = ({onInitialize}) => {
                     className="group-select"
                     renderSelectedItem={(optionNode) => {
                       return (
-                        <div className="selected-group-item" style={{ 
-                          display: 'flex', 
+                        <div className="selected-group-item" style={{
+                          display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'var(--semi-color-primary)',
@@ -1464,7 +1464,7 @@ const ModelPricing = ({onInitialize}) => {
                       </div>
                     }
                     scroll={{ x: '100%' }}
-                    rowClassName={(record, index) => 
+                    rowClassName={(record, index) =>
                       'bg-gray-50 hover:bg-primary-light-default hover:bg-opacity-20 transition-colors'
                     }
                     headerClassName="bg-gray-50 text-gray-400 font-normal sticky top-0 z-10"
@@ -1477,7 +1477,7 @@ const ModelPricing = ({onInitialize}) => {
                     })}
                 />
               </div>
-              
+
               {/* 滚动阴影指示器 - 桌面端 */}
               <div className="hidden lg:hidden md:block absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-transparent to-transparent pointer-events-none scroll-indicator"></div>
               <div className="hidden lg:hidden md:block absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-transparent to-transparent pointer-events-none scroll-indicator"></div>
@@ -1533,20 +1533,20 @@ const ModelPricing = ({onInitialize}) => {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="p-4 space-y-3 bg-transparent">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">{t('计费类型')}</span>
                         <div>{renderQuotaType(parseInt(model.quota_type))}</div>
                       </div>
-                      
+
                       <div>
                         <div className="text-gray-600 mb-1">{t('可用分组')}</div>
                         <div className="flex flex-wrap gap-1">
                           {model.enable_groups.map((group) => {
                             if (usableGroup[group]) {
                               const colorStyle = getGroupColor(group);
-                              
+
                               if (group === selectedGroup) {
                                 return (
                                   <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
@@ -1579,7 +1579,7 @@ const ModelPricing = ({onInitialize}) => {
                           })}
                         </div>
                       </div>
-                      
+
                       {showRatioColumn && (
                         <div>
                           <div className="text-gray-600 mb-1">{t('倍率')}</div>
@@ -1599,7 +1599,7 @@ const ModelPricing = ({onInitialize}) => {
                           </div>
                         </div>
                       )}
-                      
+
                       <div>
                         <div className="text-gray-600 mb-1">{t('模型价格')}</div>
                         <div className="bg-blue-50 bg-opacity-60 p-2 rounded text-sm">
@@ -1637,8 +1637,8 @@ const ModelPricing = ({onInitialize}) => {
                                 <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                   {currencyType === 'CNY'
-                                    ? ((model.model_ratio * 2 * groupRatio[selectedGroup]) * priceRatio).toFixed(2)
-                                    : (model.model_ratio * 2 * groupRatio[selectedGroup]).toFixed(2)} / 1M tokens
+                                    ? ((model.model_ratio * 2 * groupRatio[selectedGroup])).toFixed(2)
+                                    : (model.model_ratio * 2 * groupRatio[selectedGroup] / 7.29).toFixed(2)} / 1M tokens
                                 </span>
                               </div>
                               <div className="flex justify-between items-center mt-1">
@@ -1646,8 +1646,8 @@ const ModelPricing = ({onInitialize}) => {
                                 <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                   {currencyType === 'CNY'
-                                    ? ((model.model_ratio * model.completion_ratio * 2 * groupRatio[selectedGroup]) * priceRatio).toFixed(2)
-                                    : (model.model_ratio * model.completion_ratio * 2 * groupRatio[selectedGroup]).toFixed(2)} / 1M tokens
+                                    ? ((model.model_ratio * model.completion_ratio * 2 * groupRatio[selectedGroup])).toFixed(2)
+                                    : (model.model_ratio * model.completion_ratio * 2 * groupRatio[selectedGroup]/7.29).toFixed(2)} / 1M tokens
                                 </span>
                               </div>
                             </>
