@@ -88,7 +88,7 @@ func CompleteOrder(outTradeNo string) error {
 	// 处理邀请充值返利：用户前三次充值时给邀请者返利
 	if user.InviterId > 0 && user.PayCount <= 3000000 {
 		// 计算返利额度：充值额度的2%
-		commissionQuota := int(float64(order.GetAmount*common.QuotaPerUnit) * 0.02)
+		commissionQuota := int(float64(order.PayAmount*common.QuotaPerUnit) * 0.02)
 
 		// 给邀请者分配返利
 		if commissionQuota > 0 {

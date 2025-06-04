@@ -34,8 +34,9 @@ type ModelDescription struct {
 }
 
 type DiscountTier struct {
-	MinAmount float64 `json:"min_amount"`
-	Rate      float64 `json:"rate"`
+	MinAmount  float64 `json:"min_amount"`
+	Rate       float64 `json:"rate"`
+	ExpireTime int64   `json:"expire_time"` // 活动到期时间，Unix时间戳
 }
 
 // 默认配置
@@ -110,13 +111,13 @@ var (
 
 var (
 	DiscountTiers = []DiscountTier{
-		{MinAmount: 3, Rate: 0.99},    // 满 3 元享 9.9 折 —— “3 元套餐”，极低门槛，强刺激初次尝试
-		{MinAmount: 10, Rate: 0.98},   // 满 10 元享 9.8 折 —— “10 元套餐”，小额加购引导
-		{MinAmount: 99, Rate: 0.97},   // 满 99 元享 9.6 折 —— “不到百元”尾数定价
-		{MinAmount: 199, Rate: 0.95},  // 满 199 元享 9.4 折 —— 中档跃层，省幅度明显
-		{MinAmount: 499, Rate: 0.93},  // 满 499 元享 9.2 折 —— 大额门槛＋锁定高客单
-		{MinAmount: 999, Rate: 0.91},  // 满 999 元享 9 折 —— 最高折扣，锚定最优价值
-		{MinAmount: 1999, Rate: 0.89}, // 满 1999 元享 89 折 —— 最高折扣，锚定最优价值
+		{MinAmount: 3, Rate: 0.99, ExpireTime: 1749001008},    // 满 3 元享 9.9 折 —— "3 元套餐"，极低门槛，强刺激初次尝试
+		{MinAmount: 10, Rate: 0.98, ExpireTime: 1749001008},   // 满 10 元享 9.8 折 —— "10 元套餐"，小额加购引导
+		{MinAmount: 99, Rate: 0.97, ExpireTime: 1749001008},   // 满 99 元享 9.6 折 —— "不到百元"尾数定价
+		{MinAmount: 199, Rate: 0.95, ExpireTime: 1749001008},  // 满 199 元享 9.4 折 —— 中档跃层，省幅度明显
+		{MinAmount: 499, Rate: 0.93, ExpireTime: 1749001008},  // 满 499 元享 9.2 折 —— 大额门槛＋锁定高客单
+		{MinAmount: 999, Rate: 0.91, ExpireTime: 1749001008},  // 满 999 元享 9 折 —— 最高折扣，锚定最优价值
+		{MinAmount: 1999, Rate: 0.89, ExpireTime: 1749001008}, // 满 1999 元享 89 折 —— 最高折扣，锚定最优价值
 	}
 	discountTiersMutex = sync.RWMutex{}
 )

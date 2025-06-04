@@ -71,6 +71,11 @@ const TopUp = () => {
   const timerRef = useRef(null);
   const statusCheckRef = useRef(null);
 
+  // 新增：活动倒计时相关状态
+  const [activityCountdown, setActivityCountdown] = useState(null);
+  const [activityEndTime, setActivityEndTime] = useState(null);
+  const activityTimerRef = useRef(null);
+
   // 默认预设金额（将根据折扣层级动态调整）
   const [predefinedAmounts, setPredefinedAmounts] = useState([10, 99, 199, 499, 999]);
 
@@ -80,6 +85,134 @@ const TopUp = () => {
     creditAmount: 0,   // 实际到账金额
     discount: 0        // 折扣比例
   });
+
+  // 新增：计算活动剩余时间的函数
+  const calculateActivityTime = (endTime = activityEndTime) => {
+    if (!endTime) return null;
+    
+    const now = Date.now();
+    const remaining = endTime - now;
+    
+    if (remaining <= 0) {
+      return null; // 活动已结束
+    }
+    
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+    const milliseconds = remaining % 1000;
+    
+    return { days, hours, minutes, seconds, milliseconds, remaining };
+  };
+
+  // 新增：格式化活动剩余时间显示
+  const formatActivityTime = (timeObj) => {
+    if (!timeObj) return null;
+    
+    const { days, hours, minutes, seconds, milliseconds } = timeObj;
+    
+    // 使用零填充确保位数固定
+    const formatNumber = (num, digits) => num.toString().padStart(digits, '0');
+    
+    if (days > 0) {
+      return `${formatNumber(days, 2)}天${formatNumber(hours, 2)}小时${formatNumber(minutes, 2)}分钟${formatNumber(seconds, 2)}秒${formatNumber(milliseconds, 3)}毫秒`;
+    } else if (hours > 0) {
+      return `${formatNumber(hours, 2)}小时${formatNumber(minutes, 2)}分钟${formatNumber(seconds, 2)}秒${formatNumber(milliseconds, 3)}毫秒`;
+    } else if (minutes > 0) {
+      return `${formatNumber(minutes, 2)}分钟${formatNumber(seconds, 2)}秒${formatNumber(milliseconds, 3)}毫秒`;
+    } else {
+      return `${formatNumber(seconds, 2)}秒${formatNumber(milliseconds, 3)}毫秒`;
+    }
+  };
+
+  // 新增：获取结构化的时间显示组件
+  const getTimeDisplay = (timeObj) => {
+    if (!timeObj) return null;
+    
+    const { days, hours, minutes, seconds, milliseconds } = timeObj;
+    const formatNumber = (num, digits) => num.toString().padStart(digits, '0');
+    
+    const timeUnits = [];
+    
+    // 数字显示的公共样式
+    const numberStyle = {
+      fontFamily: 'Monaco, Consolas, "Lucida Console", "Courier New", monospace',
+      display: 'inline-block',
+      textAlign: 'center',
+      backgroundColor: '#fef2f2',
+      color: '#991b1b',
+      borderRadius: '0.375rem',
+      padding: '0.25rem 0.5rem',
+      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+    };
+
+    const millisecondsStyle = {
+      ...numberStyle,
+      backgroundColor: '#fecaca',
+      color: '#991b1b'
+    };
+
+    const labelStyle = {
+      color: '#dc2626',
+      fontWeight: '500',
+      fontSize: '0.875rem',
+      marginLeft: '0.25rem'
+    };
+    
+    if (days > 0) {
+      timeUnits.push(
+        <span key="days" className="inline-flex items-center mx-1">
+          <span style={{ ...numberStyle, minWidth: '50px' }}>
+            {formatNumber(days, 2)}
+          </span>
+          <span style={labelStyle}>天</span>
+        </span>
+      );
+    }
+    
+    if (days > 0 || hours > 0) {
+      timeUnits.push(
+        <span key="hours" className="inline-flex items-center mx-1">
+          <span style={{ ...numberStyle, minWidth: '50px' }}>
+            {formatNumber(hours, 2)}
+          </span>
+          <span style={labelStyle}>小时</span>
+        </span>
+      );
+    }
+    
+    if (days > 0 || hours > 0 || minutes > 0) {
+      timeUnits.push(
+        <span key="minutes" className="inline-flex items-center mx-1">
+          <span style={{ ...numberStyle, minWidth: '50px' }}>
+            {formatNumber(minutes, 2)}
+          </span>
+          <span style={labelStyle}>分钟</span>
+        </span>
+      );
+    }
+    
+    timeUnits.push(
+      <span key="seconds" className="inline-flex items-center mx-1">
+        <span style={{ ...numberStyle, minWidth: '50px' }}>
+          {formatNumber(seconds, 2)}
+        </span>
+        <span style={labelStyle}>秒</span>
+      </span>
+    );
+    
+    timeUnits.push(
+      <span key="milliseconds" className="inline-flex items-center mx-1">
+        <span style={{ ...millisecondsStyle, minWidth: '60px', fontSize: '1.125rem' }}>
+          {formatNumber(milliseconds, 3)}
+        </span>
+        <span style={{ ...labelStyle, fontSize: '0.75rem' }}>毫秒</span>
+      </span>
+    );
+    
+    return timeUnits;
+  };
 
   // 获取折扣层级信息
   const getDiscountTiers = async () => {
@@ -102,6 +235,57 @@ const TopUp = () => {
             }, 100);
           }
         }
+        
+        // 新增：处理活动到期时间
+        // 找到最早的到期时间作为活动结束时间
+        const expireTimes = data
+          .map(tier => tier.expire_time || tier.ExpireTime)
+          .filter(time => time && time > 0)
+          .map(time => time * 1000); // 转换为毫秒
+        
+        if (expireTimes.length > 0) {
+          const earliestExpireTime = Math.min(...expireTimes);
+          const now = Date.now();
+          
+          console.log('活动到期时间处理:', {
+            expireTimes,
+            earliestExpireTime,
+            now,
+            remainingMs: earliestExpireTime - now,
+            expired: earliestExpireTime <= now
+          });
+          
+          // 只有当活动还未到期时才设置倒计时
+          if (earliestExpireTime > now) {
+            setActivityEndTime(earliestExpireTime);
+            
+            // 立即计算并设置初始倒计时状态
+            const initialTimeObj = calculateActivityTime(earliestExpireTime);
+            
+            console.log('初始倒计时状态:', initialTimeObj);
+            setActivityCountdown(initialTimeObj);
+            
+            // 启动倒计时定时器
+            if (activityTimerRef.current) {
+              clearInterval(activityTimerRef.current);
+            }
+            activityTimerRef.current = setInterval(() => {
+              const timeObj = calculateActivityTime(earliestExpireTime);
+              setActivityCountdown(timeObj);
+              
+              // 如果活动已结束，清除定时器
+              if (!timeObj) {
+                console.log('活动结束，清除定时器');
+                clearInterval(activityTimerRef.current);
+                activityTimerRef.current = null;
+                setActivityEndTime(null);
+              }
+            }, 100);
+          } else {
+            console.log('活动已到期，不显示倒计时');
+          }
+        }
+        
         setDiscountTiersLoaded(true);
       } else {
         console.warn('折扣层级数据格式不正确:', data);
@@ -661,6 +845,11 @@ const TopUp = () => {
       if (statusCheckRef.current) {
         clearInterval(statusCheckRef.current);
       }
+      
+      // 新增：清理活动倒计时定时器
+      if (activityTimerRef.current) {
+        clearInterval(activityTimerRef.current);
+      }
     };
   }, []);
 
@@ -1016,10 +1205,49 @@ const TopUp = () => {
                   }
                 </div>
               </div>
+              
+              {/* 新增：活动倒计时显示 */}
+              {(() => {
+                const showCountdown = activityCountdown && activityCountdown.remaining > 0 && formatActivityTime(activityCountdown);
+                if (activityCountdown) {
+                  console.log('倒计时状态:', {
+                    remaining: activityCountdown.remaining,
+                    shouldShow: showCountdown
+                  });
+                }
+                return showCountdown;
+              })() && (
+                <div 
+                  className="mb-4 p-4 border-2 rounded-xl"
+                  style={{
+                    background: 'linear-gradient(to right, #fef2f2, #fdf2f8)',
+                    borderColor: '#fecaca'
+                  }}
+                >
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="font-bold text-lg" style={{ color: '#b91c1c' }}>
+                        {t('活动倒计时')}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2 min-h-[60px]">
+                      {getTimeDisplay(activityCountdown)}
+                      <div className="text-sm ml-2 font-medium" style={{ color: '#ef4444' }}>
+                        {t('后结束')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center text-sm mt-2 font-medium" style={{ color: '#dc2626' }}>
+                    {t('限时优惠，充值立享折扣，机会难得！')}
+                  </div>
+                </div>
+              )}
+              
               <Typography.Text style={{ fontSize: 16, color: '#666' }}>
                 {discountTiersLoaded && discountTiers.length > 0
                   ? t('根据充值金额享受不同折扣，最高可享') + ' ' + Math.round((Math.min(...discountTiers.map(tier => tier.rate || tier.Rate))) * 100) + t('折优惠')
-                  : t('选择充值金额，享受超值折扣优惠')
+                  : t('选择金额进行充值')
                 }
               </Typography.Text>
             </div>
