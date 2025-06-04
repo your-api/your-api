@@ -81,12 +81,14 @@ func GetLogByKey(key string) (logs []*Log, err error) {
 	if os.Getenv("LOG_SQL_DSN") != "" {
 		err = LOG_DB.Table(table).
 			Where("token_id = ?", tk.Id).
+			Order("created_at DESC, id DESC").
 			Find(&logs).Error
 	} else {
 		// 如果你还想 join tokens 表，可先指定 Table
 		err = LOG_DB.Table(table).
 			Joins("left join tokens on tokens.id = "+table+".token_id").
 			Where("tokens.key = ?", strings.TrimPrefix(key, "sk-")).
+			Order("created_at DESC, id DESC").
 			Find(&logs).Error
 	}
 	formatUserLogs(logs)
@@ -221,8 +223,8 @@ func GetAllLogs(
 		return nil, 0, err
 	}
 
-	// 3) 拿分页数据
-	if err = tx.Order("id DESC").
+	// 3) 拿分页数据 - 按时间倒序排列
+	if err = tx.Order("created_at DESC, id DESC").
 		Limit(num).
 		Offset(startIdx).
 		Find(&logs).Error; err != nil {
@@ -283,7 +285,8 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if err = tx.Model(&Log{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err = tx.Order("id DESC").Limit(num).Offset(startIdx).Find(&logs).Error; err != nil {
+	// 按时间倒序排列，如果时间相同则按ID倒序
+	if err = tx.Order("created_at DESC, id DESC").Limit(num).Offset(startIdx).Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
 	formatUserLogs(logs)
@@ -293,7 +296,7 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 func SearchAllLogs(keyword string) (logs []*Log, err error) {
 	// 如果要跨分表，可改成遍历 100 张表或直接用 logs_all 视图
 	err = LOG_DB.Where("type = ? OR content LIKE ?", keyword, keyword+"%").
-		Order("id DESC").
+		Order("created_at DESC, id DESC").
 		Limit(common.MaxRecentItems).
 		Find(&logs).Error
 	return logs, err
@@ -303,7 +306,7 @@ func SearchUserLogs(userId int, keyword string) (logs []*Log, err error) {
 	table := getLogTableByUser(userId)
 	err = LOG_DB.Table(table).
 		Where("user_id = ? AND type = ?", userId, keyword).
-		Order("id DESC").
+		Order("created_at DESC, id DESC").
 		Limit(common.MaxRecentItems).
 		Find(&logs).Error
 	formatUserLogs(logs)
@@ -377,7 +380,7 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return token
 }
 
-// DeleteOldLog 会依次对 “logs” 及所有 “logs_XX” 分表执行批量删除
+// DeleteOldLog 会依次对 "logs" 及所有 "logs_XX" 分表执行批量删除
 // 每次在单表上删除不超过 limit 条，直到该表所有符合条件的行被清理完毕
 func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
 	// 构造要清理的表名列表：先原表，再所有分表
