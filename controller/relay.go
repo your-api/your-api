@@ -154,7 +154,10 @@ func Relay(c *gin.Context) {
 	originalModel := c.GetString("original_model")
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
+	// 使用新的重试配置，支持更多重试次数和循环重试
+	maxRetryTimes := common.GetEffectiveMaxRetryTimes()
+
+	for i := 0; i <= maxRetryTimes; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -170,7 +173,7 @@ func Relay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
 		}
 	}
@@ -226,7 +229,10 @@ func WssRelay(c *gin.Context) {
 	originalModel := c.GetString("original_model")
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
+	// 使用新的重试配置，支持更多重试次数和循环重试
+	maxRetryTimes := common.GetEffectiveMaxRetryTimes()
+
+	for i := 0; i <= maxRetryTimes; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -242,7 +248,7 @@ func WssRelay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
 		}
 	}
@@ -276,7 +282,10 @@ func RelayClaude(c *gin.Context) {
 	originalModel := c.GetString("original_model")
 	var claudeErr *dto.ClaudeErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
+	// 使用新的重试配置，支持更多重试次数和循环重试
+	maxRetryTimes := common.GetEffectiveMaxRetryTimes()
+
+	for i := 0; i <= maxRetryTimes; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -294,7 +303,7 @@ func RelayClaude(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
 		}
 	}
@@ -508,7 +517,9 @@ func RelayNotFound(c *gin.Context) {
 }
 
 func RelayTask(c *gin.Context) {
-	retryTimes := common.RetryTimes
+	// 使用新的重试配置，支持更多重试次数和循环重试
+	retryTimes := common.GetEffectiveMaxRetryTimes()
+	
 	channelId := c.GetInt("channel_id")
 	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")

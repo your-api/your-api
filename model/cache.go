@@ -112,6 +112,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 		return nil, errors.New("channel not found")
 	}
 
+	// 获取所有唯一优先级并按从高到低排序
 	uniquePriorities := make(map[int]bool)
 	for _, channel := range channels {
 		uniquePriorities[int(channel.GetPriority())] = true
@@ -122,18 +123,30 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
+	// 如果重试次数超过优先级数量，使用模运算实现循环
+	// 这样可以无限循环重试，按优先级从高到低循环
+	if len(sortedUniquePriorities) == 0 {
+		return nil, errors.New("no available priorities")
 	}
-	targetPriority := int64(sortedUniquePriorities[retry])
+	
+	// 使用新的重试配置计算优先级索引
+	priorityIndex := common.CalculateRetryIndex(retry, len(sortedUniquePriorities))
+	targetPriority := int64(sortedUniquePriorities[priorityIndex])
 
-	// get the priority for the given retry number
+	// 获取目标优先级的所有渠道
 	var targetChannels []*Channel
 	for _, channel := range channels {
 		if channel.GetPriority() == targetPriority {
 			targetChannels = append(targetChannels, channel)
 		}
 	}
+
+	if len(targetChannels) == 0 {
+		return nil, errors.New("no channels found for target priority")
+	}
+
+	// 对同优先级的渠道进行随机排序，实现负载均衡
+	common.ShuffleChannels(targetChannels)
 
 	// 平滑系数
 	smoothingFactor := 10

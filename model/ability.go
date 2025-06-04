@@ -63,14 +63,10 @@ func getPriority(group string, model string, retry int) (int, error) {
 		return 0, errors.New("数据库一致性被破坏")
 	}
 
-	// 确定要使用的优先级
-	var priorityToUse int
-	if retry >= len(priorities) {
-		// 如果重试次数大于优先级数，则使用最小的优先级
-		priorityToUse = priorities[len(priorities)-1]
-	} else {
-		priorityToUse = priorities[retry]
-	}
+	// 实现循环重试机制，使用模运算确保重试次数超过优先级数量时能够循环
+	priorityIndex := common.CalculateRetryIndex(retry, len(priorities))
+	priorityToUse := priorities[priorityIndex]
+
 	return priorityToUse, nil
 }
 
@@ -79,18 +75,23 @@ func getChannelQuery(group string, model string, retry int) *gorm.DB {
 	if common.UsingPostgreSQL {
 		trueVal = "true"
 	}
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model)
-	channelQuery := DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = (?)", group, model, maxPrioritySubQuery)
-	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
-		if err != nil {
-			common.SysError(fmt.Sprintf("Get priority failed: %s", err.Error()))
-		} else {
-			channelQuery = DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = ?", group, model, priority)
-		}
+
+	// 如果是第一次尝试（retry == 0），使用最高优先级
+	if retry == 0 {
+		maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model)
+		return DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = (?)", group, model, maxPrioritySubQuery)
 	}
 
-	return channelQuery
+	// 对于重试情况，使用循环优先级选择
+	priority, err := getPriority(group, model, retry)
+	if err != nil {
+		common.SysError(fmt.Sprintf("Get priority failed: %s", err.Error()))
+		// 降级到最高优先级
+		maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model)
+		return DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = (?)", group, model, maxPrioritySubQuery)
+	}
+
+	return DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = ?", group, model, priority)
 }
 
 func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
@@ -108,7 +109,10 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	}
 	channel := Channel{}
 	if len(abilities) > 0 {
-		// Randomly choose one
+		// 对同优先级的abilities进行随机排序，实现负载均衡
+		common.ShuffleChannels(abilities)
+
+		// Randomly choose one based on weight
 		weightSum := uint(0)
 		for _, ability_ := range abilities {
 			weightSum += ability_.Weight + 10
@@ -213,7 +217,7 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	models_ := strings.Split(channel.Models, ",")
 	groups_ := strings.Split(channel.Group, ",")
 	abilities := make([]Ability, 0, len(models_))
-	
+
 	// 使用map去重，避免重复的(group, model, channel_id)组合
 	abilityMap := make(map[string]bool)
 	for _, model := range models_ {
@@ -286,20 +290,20 @@ func UpdateAbilityByTag(tag string, newTag *string, priority *int64, weight *uin
 func FixAbility() (int, error) {
 	var channelIds []int
 	count := 0
-	
+
 	// 首先在事务中清理重复数据
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return 0, tx.Error
 	}
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			common.SysError(fmt.Sprintf("FixAbility panic: %v", r))
 		}
 	}()
-	
+
 	// 删除所有abilities数据，然后重新生成，这是最安全的方法
 	err := tx.Exec("DELETE FROM abilities").Error
 	if err != nil {
@@ -307,14 +311,14 @@ func FixAbility() (int, error) {
 		common.SysError(fmt.Sprintf("Failed to clear abilities table: %s", err.Error()))
 		return 0, err
 	}
-	
+
 	err = tx.Commit().Error
 	if err != nil {
 		return 0, err
 	}
-	
+
 	common.SysLog("Cleared all abilities data for regeneration")
-	
+
 	// Find all channel ids from channel table
 	err = DB.Model(&Channel{}).Pluck("id", &channelIds).Error
 	if err != nil {
@@ -347,7 +351,7 @@ func FixAbility() (int, error) {
 			count++
 		}
 	}
-	
+
 	// 安全地初始化缓存
 	defer func() {
 		if r := recover(); r != nil {
@@ -355,6 +359,6 @@ func FixAbility() (int, error) {
 		}
 	}()
 	InitChannelCache()
-	
+
 	return count, nil
 }
