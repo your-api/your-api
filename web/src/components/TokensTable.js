@@ -187,7 +187,7 @@ const TokensTable = () => {
         return (
           <div>
 
-            {record.expired_time === -1 ? <BubbleText bubbleText={t('永不过期')}/> : <BubbleText bubbleText={renderTimestamp(text)}/>}
+            {record.expired_time === -1 ? <BubbleText bubbleText={t('永不过期')}/> : <BubbleText bubbleText={timestamp2string(text)}/>}
           </div>
         );
       },

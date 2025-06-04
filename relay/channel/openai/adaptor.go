@@ -158,13 +158,13 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.MaxTokens = 0
 		}
 		request.Temperature = nil
-		if strings.HasSuffix(request.Model, "-high") {
+		if strings.HasSuffix(request.Model, "-high") && !strings.Contains(info.OriginModelName, "all") {
 			request.ReasoningEffort = "high"
 			request.Model = strings.TrimSuffix(request.Model, "-high")
-		} else if strings.HasSuffix(request.Model, "-low") {
+		} else if strings.HasSuffix(request.Model, "-low") && !strings.Contains(info.OriginModelName, "all") {
 			request.ReasoningEffort = "low"
 			request.Model = strings.TrimSuffix(request.Model, "-low")
-		} else if strings.HasSuffix(request.Model, "-medium") {
+		} else if strings.HasSuffix(request.Model, "-medium") && !strings.Contains(info.OriginModelName, "all") {
 			request.ReasoningEffort = "medium"
 			request.Model = strings.TrimSuffix(request.Model, "-medium")
 		}
