@@ -52,13 +52,35 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 		tokenId := c.GetInt("token_id")
 		userGroup := c.GetString("group")
 		channelId := c.GetInt("channel_id")
+		channelType := c.GetInt("channel_type")
+
+		// 记录原始错误信息到日志
+		originalMessage := err.Error.Message
+		originalType := err.Error.Type
+		originalCode := err.Error.Code
+
+		// 如果是自定义渠道，使用统一的友好错误信息
+		if channelType == common.ChannelTypeCustom && !err.LocalError {
+			common.LogError(c, fmt.Sprintf("custom channel original error: %s", originalMessage))
+			err.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			err.Error.Type = "service_unavailable"
+			err.Error.Code = "service_error"
+		}
+
 		other := make(map[string]interface{})
 		other["error_type"] = err.Error.Type
 		other["error_code"] = err.Error.Code
 		other["status_code"] = err.StatusCode
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
-		other["channel_type"] = c.GetInt("channel_type")
+		other["channel_type"] = channelType
+
+		// 对于自定义渠道，添加原始错误信息到other字段，方便排查问题
+		if channelType == common.ChannelTypeCustom && !err.LocalError {
+			other["original_error_message"] = originalMessage
+			other["original_error_type"] = originalType
+			other["original_error_code"] = originalCode
+		}
 
 		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.Error.Message, tokenId, 0, false, userGroup, other)
 	}
@@ -101,18 +123,18 @@ func Relay(c *gin.Context) {
 
 	if openaiErr != nil {
 		channelType := c.GetInt("channel_type")
-		
+
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
 			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
-			openaiErr.Error.Message = "服务暂时不可用，请稍后重试"
+			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
 			openaiErr.Error.Code = "service_error"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
-		
+
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		c.JSON(openaiErr.StatusCode, gin.H{
 			"error": openaiErr.Error,
@@ -174,16 +196,17 @@ func WssRelay(c *gin.Context) {
 
 	if openaiErr != nil {
 		channelType := c.GetInt("channel_type")
-		
+
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
 			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
-			openaiErr.Error.Message = "服务暂时不可用，请稍后重试"
+			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
+			openaiErr.Error.Code = "service_error"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
-		
+
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		helper.WssError(c, ws, openaiErr.Error)
 	}
