@@ -203,83 +203,92 @@ const LogsTable = () => {
       other?.is_model_mapped &&
       other?.upstream_model_name &&
       other?.upstream_model_name !== '';
-    if (!modelMapped) {
-      return (
-          <div
-              onClick={(event) => {
-                copyText(event, record.model_name).then((r) => {});
-              }}
-          >
-            <BubbleText bubbleText={record.model_name}/>
-          </div>
-      );
-    } else {
-      return (
-        <>
-          <Space vertical align={'start'}>
-            <Popover
-              content={
-                <div style={{ padding: 10 }}>
-                  <Space vertical align={'start'}>
-                    <div
-                        onClick={(event) => {
-                          copyText(event, record.model_name).then((r) => {});
-                        }}
-                    >
-                      <BubbleText bubbleText={t('请求并计费模型') + record.model_name} />
-                    </div>
-
-                    <div
-                        onClick={(event) => {
-                          copyText(event, other.upstream_model_name).then(
-                              (r) => {},
-                          );
-                        }}
-                    >
-                      <BubbleText bubbleText={t('实际模型') + other.upstream_model_name}/>
-                    </div>
-
-                  </Space>
-                </div>
-              }
-            >
-
-              <div
-                  onClick={(event) => {
-                    copyText(event, record.model_name).then((r) => {});
-                  }}
-              >
-                <BubbleText bubbleText={record.model_name}/>
-                <IconRefresh
-                    style={{
-                      width: '0.75em',
-                      height: '0.75em',
-                      opacity: 0.7,
-                      marginLeft: '3px',
-                      marginBottom: '3px',
-                      verticalAlign: 'middle',
-                      color: 'var(--semi-color-text-2)'
-                    }}
-                />
-              </div>
-
-
-            </Popover>
-            {/*<Tooltip content={t('实际模型')}>*/}
-            {/*  <Tag*/}
-            {/*    color={stringToColor(other.upstream_model_name)}*/}
-            {/*    size='large'*/}
-            {/*    onClick={(event) => {*/}
-            {/*      copyText(event, other.upstream_model_name).then(r => {});*/}
-            {/*    }}*/}
-            {/*  >*/}
-            {/*    {' '}{other.upstream_model_name}{' '}*/}
-            {/*  </Tag>*/}
-            {/*</Tooltip>*/}
-          </Space>
-        </>
-      );
-    }
+    return (
+        <div
+            onClick={(event) => {
+              copyText(event, record.model_name).then((r) => {});
+            }}
+        >
+          <BubbleText bubbleText={record.model_name}/>
+        </div>
+    );
+    // if (!modelMapped) {
+    //   return (
+    //       <div
+    //           onClick={(event) => {
+    //             copyText(event, record.model_name).then((r) => {});
+    //           }}
+    //       >
+    //         <BubbleText bubbleText={record.model_name}/>
+    //       </div>
+    //   );
+    // } else {
+    //   return (
+    //     <>
+    //       <Space vertical align={'start'}>
+    //         <Popover
+    //           content={
+    //             <div style={{ padding: 10 }}>
+    //               <Space vertical align={'start'}>
+    //                 <div
+    //                     onClick={(event) => {
+    //                       copyText(event, record.model_name).then((r) => {});
+    //                     }}
+    //                 >
+    //                   <BubbleText bubbleText={t('请求并计费模型') + record.model_name} />
+    //                 </div>
+    //
+    //                 <div
+    //                     onClick={(event) => {
+    //                       copyText(event, other.upstream_model_name).then(
+    //                           (r) => {},
+    //                       );
+    //                     }}
+    //                 >
+    //                   <BubbleText bubbleText={t('实际模型') + other.upstream_model_name}/>
+    //                 </div>
+    //
+    //               </Space>
+    //             </div>
+    //           }
+    //         >
+    //
+    //           <div
+    //               onClick={(event) => {
+    //                 copyText(event, record.model_name).then((r) => {});
+    //               }}
+    //           >
+    //             <BubbleText bubbleText={record.model_name}/>
+    //             <IconRefresh
+    //                 style={{
+    //                   width: '0.75em',
+    //                   height: '0.75em',
+    //                   opacity: 0.7,
+    //                   marginLeft: '3px',
+    //                   marginBottom: '3px',
+    //                   verticalAlign: 'middle',
+    //                   color: 'var(--semi-color-text-2)'
+    //                 }}
+    //             />
+    //           </div>
+    //
+    //
+    //         </Popover>
+    //         {/*<Tooltip content={t('实际模型')}>*/}
+    //         {/*  <Tag*/}
+    //         {/*    color={stringToColor(other.upstream_model_name)}*/}
+    //         {/*    size='large'*/}
+    //         {/*    onClick={(event) => {*/}
+    //         {/*      copyText(event, other.upstream_model_name).then(r => {});*/}
+    //         {/*    }}*/}
+    //         {/*  >*/}
+    //         {/*    {' '}{other.upstream_model_name}{' '}*/}
+    //         {/*  </Tag>*/}
+    //         {/*</Tooltip>*/}
+    //       </Space>
+    //     </>
+    //   );
+    // }
   }
 
   // Define column keys for selection
