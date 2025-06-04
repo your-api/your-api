@@ -188,6 +188,9 @@ func main() {
 	// Initialize HTTP server
 	server := gin.New()
 	
+	// 配置信任的代理IP（Docker网络）
+	server.SetTrustedProxies([]string{"172.0.0.0/8", "10.0.0.0/8", "192.168.0.0/16", "127.0.0.1"})
+	
 	// 使用我们的全局panic恢复中间件
 	server.Use(middleware.GlobalPanicRecover())
 	

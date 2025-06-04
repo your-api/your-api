@@ -182,7 +182,7 @@ func Register(c *gin.Context) {
 		Password:    user.Password,
 		DisplayName: user.Username,
 		InviterId:   inviterId,
-		RegisterIP:  c.ClientIP(), // 记录注册IP
+		RegisterIP:  common.GetClientIP(c), // 记录注册IP
 	}
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
@@ -706,7 +706,7 @@ func UpdateSelf(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
-		RegisterIP:  c.ClientIP(), // 记录创建者IP
+		RegisterIP:  common.GetClientIP(c), // 记录创建者IP
 	}
 	if user.Password == "$I_LOVE_U" {
 		user.Password = "" // rollback to what it should be
@@ -848,7 +848,7 @@ func CreateUser(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
-		RegisterIP:  c.ClientIP(), // 记录创建者IP
+		RegisterIP:  common.GetClientIP(c), // 记录创建者IP
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		c.JSON(http.StatusOK, gin.H{

@@ -12,11 +12,12 @@ func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.APIPanicRecover())
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))
-	apiRouter.Use(middleware.GlobalAPIRateLimit())
+	// apiRouter.Use(middleware.GlobalAPIRateLimit())
 	{
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/test-ip", controller.TestIP)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)

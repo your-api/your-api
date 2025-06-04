@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/gin-gonic/gin"
 )
 
 func OpenBrowser(url string) {
@@ -272,4 +273,51 @@ func GetAudioDuration(ctx context.Context, filename string) (float64, error) {
 	}
 
 	return strconv.ParseFloat(string(bytes.TrimSpace(output)), 64)
+}
+
+func GetClientIP(c *gin.Context) string {
+	// 1. 首先检查 X-Real-IP 头部（nginx设置的真实IP）
+	if realIP := c.GetHeader("X-Real-IP"); realIP != "" {
+		if DebugEnabled {
+			SysLog(fmt.Sprintf("GetClientIP: using X-Real-IP: %s", realIP))
+		}
+		return realIP
+	}
+	
+	// 2. 检查 X-Forwarded-For 头部
+	if forwardedFor := c.GetHeader("X-Forwarded-For"); forwardedFor != "" {
+		// X-Forwarded-For 可能包含多个IP，取第一个
+		if ips := strings.Split(forwardedFor, ","); len(ips) > 0 {
+			clientIP := strings.TrimSpace(ips[0])
+			if clientIP != "" {
+				if DebugEnabled {
+					SysLog(fmt.Sprintf("GetClientIP: using X-Forwarded-For: %s (from %s)", clientIP, forwardedFor))
+				}
+				return clientIP
+			}
+		}
+	}
+	
+	// 3. 检查 CF-Connecting-IP 头部（如果使用Cloudflare）
+	if cfIP := c.GetHeader("CF-Connecting-IP"); cfIP != "" {
+		if DebugEnabled {
+			SysLog(fmt.Sprintf("GetClientIP: using CF-Connecting-IP: %s", cfIP))
+		}
+		return cfIP
+	}
+	
+	// 4. 检查 X-Forwarded-Host 头部
+	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
+		if DebugEnabled {
+			SysLog(fmt.Sprintf("GetClientIP: using X-Forwarded-Host: %s", forwardedHost))
+		}
+		return forwardedHost
+	}
+	
+	// 5. 最后使用gin默认的ClientIP方法
+	defaultIP := c.ClientIP()
+	if DebugEnabled {
+		SysLog(fmt.Sprintf("GetClientIP: using default ClientIP: %s", defaultIP))
+	}
+	return defaultIP
 }

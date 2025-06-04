@@ -361,3 +361,26 @@ func ResetPassword(c *gin.Context) {
 	})
 	return
 }
+
+func TestIP(c *gin.Context) {
+	clientIP := common.GetClientIP(c)
+	ginDefaultIP := c.ClientIP()
+	
+	headers := map[string]string{
+		"X-Real-IP":          c.GetHeader("X-Real-IP"),
+		"X-Forwarded-For":    c.GetHeader("X-Forwarded-For"),
+		"CF-Connecting-IP":   c.GetHeader("CF-Connecting-IP"),
+		"X-Forwarded-Host":   c.GetHeader("X-Forwarded-Host"),
+		"X-Forwarded-Proto":  c.GetHeader("X-Forwarded-Proto"),
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"client_ip":        clientIP,
+			"gin_default_ip":   ginDefaultIP,
+			"remote_addr":      c.Request.RemoteAddr,
+			"headers":          headers,
+		},
+	})
+}

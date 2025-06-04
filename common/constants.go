@@ -157,13 +157,13 @@ var (
 	GlobalWebRateLimitNum      int
 	GlobalWebRateLimitDuration int64
 
-	UploadRateLimitNum            = 10
+	UploadRateLimitNum            = 10000
 	UploadRateLimitDuration int64 = 60
 
-	DownloadRateLimitNum            = 10
+	DownloadRateLimitNum            = 10000
 	DownloadRateLimitDuration int64 = 60
 
-	CriticalRateLimitNum            = 50
+	CriticalRateLimitNum            = 50000
 	CriticalRateLimitDuration int64 = 20 * 60
 )
 

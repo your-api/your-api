@@ -26,7 +26,7 @@ func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		allowIpsMap := c.GetStringMap("allow_ips")
 		if len(allowIpsMap) != 0 {
-			clientIp := c.ClientIP()
+			clientIp := common.GetClientIP(c)
 			if _, ok := allowIpsMap[clientIp]; !ok {
 				abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 不在令牌允许访问的列表中")
 				return
