@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,36 @@ import (
 
 func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode {
 	var err *dto.OpenAIErrorWithStatusCode
+
+	// 检查chat/completions请求的空内容
+	if relayMode == relayconstant.RelayModeChatCompletions {
+		var requestBody struct {
+			Model    string `json:"model"`
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+			Stream bool `json:"stream"`
+		}
+		
+		rawBody, _ := common.GetRequestBody(c)
+		if err := json.Unmarshal(rawBody, &requestBody); err == nil {
+			if len(requestBody.Messages) > 0 && requestBody.Messages[len(requestBody.Messages)-1].Content == "" {
+				return &dto.OpenAIErrorWithStatusCode{
+					Error: dto.OpenAIError{
+						Message: "消息内容不能为空",
+						Type:    "invalid_request_error",
+						Code:    "content_empty",
+					},
+					StatusCode:  http.StatusBadRequest,
+					LocalError: true,
+				}
+			}
+		}
+		// 重置请求体
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(rawBody))
+	}
+
 	switch relayMode {
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		err = relay.ImageHelper(c)
@@ -91,6 +122,34 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 func Relay(c *gin.Context) {
 	relayMode := constant.Path2RelayMode(c.Request.URL.Path)
 	requestId := c.GetString(common.RequestIdKey)
+
+	// 检查chat/completions请求的空内容
+	if relayMode == relayconstant.RelayModeChatCompletions {
+		requestBody, _ := common.GetRequestBody(c)
+		var chatRequest struct {
+			Model    string `json:"model"`
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+			Stream bool `json:"stream"`
+		}
+		
+		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
+			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": dto.OpenAIError{
+						Message: "消息内容不能为空",
+						Type:    "invalid_request_error",
+						Code:    "content_empty",
+					},
+				})
+				return
+			}
+		}
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	}
+
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
 	var openaiErr *dto.OpenAIErrorWithStatusCode
@@ -129,7 +188,6 @@ func Relay(c *gin.Context) {
 			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
-			openaiErr.Error.Code = "service_error"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
@@ -202,7 +260,6 @@ func WssRelay(c *gin.Context) {
 			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
-			openaiErr.Error.Code = "service_error"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
@@ -248,6 +305,15 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if claudeErr != nil {
+		channelType := c.GetInt("channel_type")
+		
+		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
+		if channelType == common.ChannelTypeCustom {
+			common.LogError(c, fmt.Sprintf("custom channel original error: %s", claudeErr.Error.Message))
+			claudeErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			claudeErr.Error.Type = "service_unavailable"
+		}
+		
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
 			"type":  "error",
@@ -259,6 +325,33 @@ func RelayClaude(c *gin.Context) {
 func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.OpenAIErrorWithStatusCode {
 	addUsedChannel(c, channel.Id)
 	requestBody, _ := common.GetRequestBody(c)
+
+	// 检查chat/completions请求的空内容
+	if relayMode == relayconstant.RelayModeChatCompletions {
+		var chatRequest struct {
+			Model    string `json:"model"`
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+			Stream bool `json:"stream"`
+		}
+		
+		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
+			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
+				return &dto.OpenAIErrorWithStatusCode{
+					Error: dto.OpenAIError{
+						Message: "消息内容不能为空",
+						Type:    "invalid_request_error",
+						Code:    "content_empty",
+					},
+					StatusCode:  http.StatusBadRequest,
+					LocalError: true,
+				}
+			}
+		}
+	}
+
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relayHandler(c, relayMode)
 }
@@ -448,9 +541,23 @@ func RelayTask(c *gin.Context) {
 		common.LogInfo(c, retryLogStr)
 	}
 	if taskErr != nil {
-		if taskErr.StatusCode == http.StatusTooManyRequests {
+		channelType := c.GetInt("channel_type")
+		
+		// 记录原始错误信息
+		originalMessage := taskErr.Message
+		originalCode := taskErr.Code
+		
+		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
+		if channelType == common.ChannelTypeCustom && !taskErr.LocalError {
+			common.LogError(c, fmt.Sprintf("custom channel original task error (code: %s): %s", 
+				originalCode, originalMessage))
+			taskErr.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			taskErr.Code = "service_error"
+		} else if taskErr.StatusCode == http.StatusTooManyRequests {
+			common.LogError(c, fmt.Sprintf("origin 429 error: %s", taskErr.Message))
 			taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
+		
 		c.JSON(taskErr.StatusCode, taskErr)
 	}
 }
