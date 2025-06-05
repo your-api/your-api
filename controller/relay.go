@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"one-api/common"
 	constant2 "one-api/constant"
@@ -37,7 +36,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		rawBody, _ := common.GetRequestBody(c)
 		if err := json.Unmarshal(rawBody, &requestBody); err == nil {
 			if len(requestBody.Messages) > 0 && requestBody.Messages[len(requestBody.Messages)-1].Content == "" {
@@ -47,7 +46,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 						Type:    "invalid_request_error",
 						Code:    "content_empty",
 					},
-					StatusCode:  http.StatusBadRequest,
+					StatusCode: http.StatusBadRequest,
 					LocalError: true,
 				}
 			}
@@ -90,12 +89,9 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 		originalType := err.Error.Type
 		originalCode := err.Error.Code
 
-		// 如果是自定义渠道，使用统一的友好错误信息
-		if channelType == common.ChannelTypeCustom && !err.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", originalMessage))
-			err.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
-			err.Error.Type = "service_unavailable"
-			err.Error.Code = "service_error"
+		// 记录原始错误到日志，便于调试
+		if !err.LocalError {
+			common.LogError(c, fmt.Sprintf("upstream error (channel #%d): %s", channelId, originalMessage))
 		}
 
 		other := make(map[string]interface{})
@@ -106,8 +102,8 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = channelType
 
-		// 对于自定义渠道，添加原始错误信息到other字段，方便排查问题
-		if channelType == common.ChannelTypeCustom && !err.LocalError {
+		// 保存原始错误信息到other字段，方便排查问题
+		if !err.LocalError {
 			other["original_error_message"] = originalMessage
 			other["original_error_type"] = originalType
 			other["original_error_code"] = originalCode
@@ -134,7 +130,7 @@ func Relay(c *gin.Context) {
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
 			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -184,16 +180,26 @@ func Relay(c *gin.Context) {
 	}
 
 	if openaiErr != nil {
-		channelType := c.GetInt("channel_type")
+		// 对于所有非本地错误，统一返回友好错误信息，避免泄露上游错误详情
+		if !openaiErr.LocalError {
+			// 记录原始错误用于调试
+			common.LogError(c, fmt.Sprintf("upstream service error: %s", openaiErr.Error.Message))
 
-		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
-		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
-			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			// 根据状态码返回不同的友好错误信息
+			if openaiErr.StatusCode == http.StatusTooManyRequests {
+				openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+			} else if openaiErr.StatusCode == http.StatusUnauthorized {
+				openaiErr.Error.Message = "认证失败，请检查API密钥"
+			} else if openaiErr.StatusCode == http.StatusForbidden {
+				openaiErr.Error.Message = "访问被拒绝，请检查权限设置"
+			} else if openaiErr.StatusCode/100 == 5 {
+				openaiErr.Error.Message = "上游服务暂时不可用，请稍后重试"
+			} else {
+				openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			}
+
 			openaiErr.Error.Type = "service_unavailable"
-		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
-			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+			openaiErr.Error.Code = "upstream_error"
 		}
 
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
@@ -259,15 +265,26 @@ func WssRelay(c *gin.Context) {
 	}
 
 	if openaiErr != nil {
-		channelType := c.GetInt("channel_type")
+		// 对于所有非本地错误，统一返回友好错误信息，避免泄露上游错误详情
+		if !openaiErr.LocalError {
+			// 记录原始错误用于调试
+			common.LogError(c, fmt.Sprintf("upstream websocket error: %s", openaiErr.Error.Message))
 
-		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
-		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
-			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			// 根据状态码返回不同的友好错误信息
+			if openaiErr.StatusCode == http.StatusTooManyRequests {
+				openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+			} else if openaiErr.StatusCode == http.StatusUnauthorized {
+				openaiErr.Error.Message = "认证失败，请检查API密钥"
+			} else if openaiErr.StatusCode == http.StatusForbidden {
+				openaiErr.Error.Message = "访问被拒绝，请检查权限设置"
+			} else if openaiErr.StatusCode/100 == 5 {
+				openaiErr.Error.Message = "上游服务暂时不可用，请稍后重试"
+			} else {
+				openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			}
+
 			openaiErr.Error.Type = "service_unavailable"
-		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
-			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+			openaiErr.Error.Code = "upstream_error"
 		}
 
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
@@ -314,15 +331,27 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if claudeErr != nil {
-		channelType := c.GetInt("channel_type")
-		
-		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
-		if channelType == common.ChannelTypeCustom {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", claudeErr.Error.Message))
-			claudeErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+		// 对于所有非本地错误，统一返回友好错误信息，避免泄露上游错误详情
+		if !claudeErr.LocalError {
+			// 记录原始错误用于调试
+			common.LogError(c, fmt.Sprintf("upstream claude error: %s", claudeErr.Error.Message))
+
+			// 根据状态码返回不同的友好错误信息
+			if claudeErr.StatusCode == http.StatusTooManyRequests {
+				claudeErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+			} else if claudeErr.StatusCode == http.StatusUnauthorized {
+				claudeErr.Error.Message = "认证失败，请检查API密钥"
+			} else if claudeErr.StatusCode == http.StatusForbidden {
+				claudeErr.Error.Message = "访问被拒绝，请检查权限设置"
+			} else if claudeErr.StatusCode/100 == 5 {
+				claudeErr.Error.Message = "上游服务暂时不可用，请稍后重试"
+			} else {
+				claudeErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			}
+
 			claudeErr.Error.Type = "service_unavailable"
 		}
-		
+
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
 			"type":  "error",
@@ -345,7 +374,7 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.Op
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
 			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
 				return &dto.OpenAIErrorWithStatusCode{
@@ -354,7 +383,7 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.Op
 						Type:    "invalid_request_error",
 						Code:    "content_empty",
 					},
-					StatusCode:  http.StatusBadRequest,
+					StatusCode: http.StatusBadRequest,
 					LocalError: true,
 				}
 			}
@@ -475,13 +504,23 @@ func RelayMidjourney(c *gin.Context) {
 		err = relay.RelayMidjourneySubmit(c, relayMode)
 	}
 	//err = relayMidjourneySubmit(c, relayMode)
-	log.Println(err)
 	if err != nil {
+		// 记录原始错误用于调试
+		common.LogError(c, fmt.Sprintf("upstream midjourney error (code: %d): %s %s", err.Code, err.Description, err.Result))
+
 		statusCode := http.StatusBadRequest
+
+		// 根据错误代码返回不同的友好错误信息，不暴露具体的上游错误
 		if err.Code == 30 {
+			err.Description = "服务负载"
 			err.Result = "当前分组负载已饱和，请稍后再试，或升级账户以提升服务质量。"
 			statusCode = http.StatusTooManyRequests
+		} else {
+			// 对于其他错误，返回通用错误信息
+			err.Description = "服务暂时不可用"
+			err.Result = "当前渠道由于负载较大，暂不可用，请稍后重试"
 		}
+
 		c.JSON(statusCode, gin.H{
 			"description": fmt.Sprintf("%s %s", err.Description, err.Result),
 			"type":        "upstream_error",
@@ -519,7 +558,7 @@ func RelayNotFound(c *gin.Context) {
 func RelayTask(c *gin.Context) {
 	// 使用新的重试配置，支持更多重试次数和循环重试
 	retryTimes := common.GetEffectiveMaxRetryTimes()
-	
+
 	channelId := c.GetInt("channel_id")
 	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")
@@ -552,23 +591,28 @@ func RelayTask(c *gin.Context) {
 		common.LogInfo(c, retryLogStr)
 	}
 	if taskErr != nil {
-		channelType := c.GetInt("channel_type")
-		
-		// 记录原始错误信息
-		originalMessage := taskErr.Message
-		originalCode := taskErr.Code
-		
-		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
-		if channelType == common.ChannelTypeCustom && !taskErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original task error (code: %s): %s", 
-				originalCode, originalMessage))
-			taskErr.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
-			taskErr.Code = "service_error"
-		} else if taskErr.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", taskErr.Message))
-			taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
+		// 对于所有非本地错误，统一返回友好错误信息，避免泄露上游错误详情
+		if !taskErr.LocalError {
+			// 记录原始错误用于调试
+			common.LogError(c, fmt.Sprintf("upstream task error (code: %s): %s",
+				taskErr.Code, taskErr.Message))
+
+			// 根据状态码返回不同的友好错误信息
+			if taskErr.StatusCode == http.StatusTooManyRequests {
+				taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
+			} else if taskErr.StatusCode == http.StatusUnauthorized {
+				taskErr.Message = "认证失败，请检查API密钥"
+			} else if taskErr.StatusCode == http.StatusForbidden {
+				taskErr.Message = "访问被拒绝，请检查权限设置"
+			} else if taskErr.StatusCode/100 == 5 {
+				taskErr.Message = "上游服务暂时不可用，请稍后重试"
+			} else {
+				taskErr.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
+			}
+
+			taskErr.Code = "upstream_error"
 		}
-		
+
 		c.JSON(taskErr.StatusCode, taskErr)
 	}
 }
