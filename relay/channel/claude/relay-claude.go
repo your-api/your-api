@@ -477,7 +477,7 @@ func FormatClaudeResponseInfo(requestMode int, claudeResponse *dto.ClaudeRespons
 			if claudeResponse.Usage.InputTokens > 0 {
 				claudeInfo.Usage.PromptTokens = claudeResponse.Usage.InputTokens
 			}
-			claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeResponse.Usage.OutputTokens
+			claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.OutputTokens
 		} else if claudeResponse.Type == "content_block_start" {
 		} else {
 			return false
@@ -499,11 +499,15 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		return service.OpenAIErrorWrapper(err, "stream_response_error", http.StatusInternalServerError)
 	}
 	if claudeResponse.Error != nil && claudeResponse.Error.Type != "" {
+		// 记录原始错误信息用于调试
+		common.LogError(c, fmt.Sprintf("claude stream error: %s (type: %s)", claudeResponse.Error.Message, claudeResponse.Error.Type))
+		
+		// 返回统一的友好错误信息，不暴露上游错误详情
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
-				Code:    "stream_response_error",
-				Type:    claudeResponse.Error.Type,
-				Message: claudeResponse.Error.Message,
+				Code:    "service_error",
+				Type:    "service_unavailable",
+				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
 			},
 			StatusCode: http.StatusInternalServerError,
 		}
@@ -612,11 +616,15 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		return service.OpenAIErrorWrapper(err, "unmarshal_claude_response_failed", http.StatusInternalServerError)
 	}
 	if claudeResponse.Error != nil && claudeResponse.Error.Type != "" {
+		// 记录原始错误信息用于调试
+		common.LogError(c, fmt.Sprintf("claude response error: %s (type: %s)", claudeResponse.Error.Message, claudeResponse.Error.Type))
+		
+		// 返回统一的友好错误信息，不暴露上游错误详情
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
-				Message: claudeResponse.Error.Message,
-				Type:    claudeResponse.Error.Type,
-				Code:    claudeResponse.Error.Type,
+				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
+				Type:    "service_unavailable",
+				Code:    "service_error",
 			},
 			StatusCode: http.StatusInternalServerError,
 		}

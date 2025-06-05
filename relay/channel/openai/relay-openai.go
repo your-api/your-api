@@ -189,7 +189,18 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	})
 
 	if isEmptyResp {
-		return service.OpenAIErrorWrapper(fmt.Errorf("empty response"), "empty_response", http.StatusInternalServerError), nil
+		// 记录原始错误信息用于调试
+		common.LogError(c, "received empty response from upstream")
+		
+		// 返回统一的友好错误信息，不暴露上游错误详情
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
+				Type:    "service_unavailable", 
+				Code:    "service_error",
+			},
+			StatusCode: http.StatusInternalServerError,
+		}, nil
 	}
 
 	shouldSendLastResp := true
@@ -212,27 +223,32 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 				shouldSendLastResp = true
 			}
 		}
+	} else {
+		// 记录解析错误用于调试
+		common.LogError(c, fmt.Sprintf("failed to decode last stream response: %s", err.Error()))
 	}
 
-	if shouldSendLastResp {
-		sendStreamData(c, info, lastStreamData, forceFormat, thinkToContent)
-		//err = handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
+	if shouldSendLastResp && len(lastStreamData) > 0 {
+		err := handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
+		if err != nil {
+			common.SysError("error handling last stream format: " + err.Error())
+		}
 	}
 
-	// 处理token计算
-	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
-		common.SysError("error processing tokens: " + err.Error())
+	switch info.RelayMode {
+	case relayconstant.RelayModeChatCompletions:
+		err = processChatCompletions(lastStreamData, streamItems, &responseTextBuilder, &toolCount)
+	case relayconstant.RelayModeCompletions:
+		err = processCompletions(lastStreamData, streamItems, &responseTextBuilder)
+	}
+
+	if err != nil {
+		common.SysError("error processing stream response: " + err.Error())
 	}
 
 	if !containStreamUsage {
 		usage, _ = service.ResponseText2Usage(responseTextBuilder.String(), info.UpstreamModelName, info.PromptTokens)
 		usage.CompletionTokens += toolCount * 7
-	} else {
-		if info.ChannelType == common.ChannelTypeDeepSeek {
-			if usage.PromptCacheHitTokens != 0 {
-				usage.PromptTokensDetails.CachedTokens = usage.PromptCacheHitTokens
-			}
-		}
 	}
 
 	handleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
