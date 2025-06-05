@@ -9,7 +9,7 @@ import (
 )
 
 func SetRelayRouter(router *gin.Engine) {
-	router.Use(middleware.CORS())
+	// router.Use(middleware.CORS()) // 已在全局应用，无需重复
 	router.Use(middleware.DecompressRequestMiddleware())
 	router.Use(middleware.GlobalPanicRecover())
 	// https://platform.openai.com/docs/api-reference/introduction

@@ -194,6 +194,9 @@ func main() {
 	// 使用我们的全局panic恢复中间件
 	server.Use(middleware.GlobalPanicRecover())
 	
+	// 添加全局CORS中间件，解决跨域问题
+	server.Use(middleware.CORS())
+	
 	// This will cause SSE not to work!!!
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
