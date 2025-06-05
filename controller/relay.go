@@ -171,7 +171,8 @@ func Relay(c *gin.Context) {
 			return // 成功处理请求，直接返回
 		}
 
-		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
+		// 同步处理渠道错误，确保及时更新渠道状态
+		processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
 		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
@@ -246,7 +247,8 @@ func WssRelay(c *gin.Context) {
 			return // 成功处理请求，直接返回
 		}
 
-		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
+		// 同步处理渠道错误，确保及时更新渠道状态
+		processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
 		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
@@ -300,8 +302,9 @@ func RelayClaude(c *gin.Context) {
 		}
 
 		openaiErr := service.ClaudeErrorToOpenAIError(claudeErr)
-
-		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
+		
+		// 同步处理渠道错误，确保及时更新渠道状态
+		processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
 		if !shouldRetry(c, openaiErr, maxRetryTimes-i) {
 			break
@@ -524,27 +527,34 @@ func RelayTask(c *gin.Context) {
 	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
+	
 	c.Set("use_channel", []string{fmt.Sprintf("%d", channelId)})
 	taskErr := taskRelayHandler(c, relayMode)
 	if taskErr == nil {
-		retryTimes = 0
+		return // 成功处理请求，直接返回
 	}
+	
 	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
-		channel, err := model.CacheGetRandomSatisfiedChannel(group, originalModel, i)
+		channel, err := model.CacheGetRandomSatisfiedChannel(group, originalModel, i+1)
 		if err != nil {
 			common.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", err.Error()))
 			break
 		}
+		
 		channelId = channel.Id
 		useChannel := c.GetStringSlice("use_channel")
 		useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
 		c.Set("use_channel", useChannel)
-		common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, i))
+		common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, retryTimes-i-1))
 		middleware.SetupContextForSelectedChannel(c, channel, originalModel)
 
 		requestBody, err := common.GetRequestBody(c)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 		taskErr = taskRelayHandler(c, relayMode)
+		
+		if taskErr == nil {
+			return // 成功处理请求，直接返回
+		}
 	}
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {

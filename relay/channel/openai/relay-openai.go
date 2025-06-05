@@ -12,6 +12,7 @@ import (
 	"one-api/constant"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
+	relayconstant "one-api/relay/constant"
 	"one-api/relay/helper"
 	"one-api/service"
 	"os"
@@ -191,12 +192,12 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	if isEmptyResp {
 		// 记录原始错误信息用于调试
 		common.LogError(c, "received empty response from upstream")
-		
+
 		// 返回统一的友好错误信息，不暴露上游错误详情
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
 				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
-				Type:    "service_unavailable", 
+				Type:    "service_unavailable",
 				Code:    "service_error",
 			},
 			StatusCode: http.StatusInternalServerError,
@@ -336,9 +337,9 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
 	// the status code has been judged before, if there is a body reading failure,
 	// it should be regarded as a non-recoverable error, so it should not return err for external retry.
-	// Analogous to nginx's load balancing, it will only retry if it can't be requested or 
-	// if the upstream returns a specific status code, once the upstream has already written the header, 
-	// the subsequent failure of the response body should be regarded as a non-recoverable error, 
+	// Analogous to nginx's load balancing, it will only retry if it can't be requested or
+	// if the upstream returns a specific status code, once the upstream has already written the header,
+	// the subsequent failure of the response body should be regarded as a non-recoverable error,
 	// and can be terminated directly.
 	defer resp.Body.Close()
 	usage := &dto.Usage{}

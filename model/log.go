@@ -148,10 +148,36 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 
 	common.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, 用户调用前余额=%d, channelId=%d, promptTokens=%d, completionTokens=%d, modelName=%s, tokenName=%s, quota=%d, content=%s",
 		userId, userQuota, channelId, promptTokens, completionTokens, modelName, tokenName, quota, content))
+	
 	if !common.LogConsumeEnabled {
 		return
 	}
+	
+	// 检查重复日志记录：使用请求ID来防止同一请求的重复记录
+	requestId := c.GetString(common.RequestIdKey)
+	if requestId != "" {
+		table := getLogTableByUser(userId)
+		var existingCount int64
+		err := LOG_DB.Table(table).
+			Where("user_id = ? AND other LIKE ?", userId, "%\"request_id\":\""+requestId+"\"%").
+			Count(&existingCount).Error
+		
+		if err == nil && existingCount > 0 {
+			common.LogWarn(c, fmt.Sprintf("检测到重复的消费日志记录，请求ID: %s, 用户ID: %d，跳过记录", requestId, userId))
+			return
+		}
+	}
+	
 	username := c.GetString("username")
+	
+	// 在other中添加请求ID用于后续重复检查
+	if other == nil {
+		other = make(map[string]interface{})
+	}
+	if requestId != "" {
+		other["request_id"] = requestId
+	}
+	
 	log := &Log{
 		UserId:           userId,
 		Username:         username,

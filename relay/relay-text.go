@@ -340,6 +340,19 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	
+	// 检查是否已经记录过此请求的日志，避免重复记录
+	requestId := ctx.GetString(common.RequestIdKey)
+	if requestId != "" {
+		logKey := fmt.Sprintf("quota_logged_%s", requestId)
+		if _, exists := ctx.Get(logKey); exists {
+			common.LogWarn(ctx, fmt.Sprintf("请求 %s 的消费配额已处理，跳过重复记录", requestId))
+			return
+		}
+		// 标记此请求已处理配额
+		ctx.Set(logKey, true)
+	}
+	
 	if usage == nil {
 		usage = &dto.Usage{
 			PromptTokens:     relayInfo.PromptTokens,
