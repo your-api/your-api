@@ -28,13 +28,20 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
-	if !forceFormat && !thinkToContent {
-		return helper.StringData(c, data)
-	}
-
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
 	if err := common.DecodeJsonStr(data, &lastStreamResponse); err != nil {
+		if !forceFormat && !thinkToContent {
+			return helper.StringData(c, data)
+		}
 		return err
+	}
+
+	if isEmptyStreamResponse(&lastStreamResponse) {
+		return nil
+	}
+
+	if !forceFormat && !thinkToContent {
+		return helper.StringData(c, data)
 	}
 
 	if !thinkToContent {

@@ -15,6 +15,20 @@ import (
 
 // 辅助函数
 func handleStreamFormat(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
+	// 早期检测空数据
+	if data == "" {
+		return nil
+	}
+
+	// 解析并检测空回复
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := json.Unmarshal(common.StringToByteSlice(data), &streamResponse); err == nil {
+		// 检查是否为空回复，如果是则直接返回，不增加发送计数
+		if isEmptyStreamResponse(&streamResponse) {
+			return nil
+		}
+	}
+
 	info.SendResponseCount++
 	switch info.RelayFormat {
 	case relaycommon.RelayFormatOpenAI:
@@ -23,6 +37,50 @@ func handleStreamFormat(c *gin.Context, info *relaycommon.RelayInfo, data string
 		return handleClaudeFormat(c, data, info)
 	}
 	return nil
+}
+
+// isEmptyStreamResponse 检查流回复是否为空，用于过滤无意义的空回复
+func isEmptyStreamResponse(response *dto.ChatCompletionsStreamResponse) bool {
+	// 检查基本字段是否为空值
+	if response.Id == "" && response.Object == "" && response.Created == 0 {
+		// 检查choices是否为空或者只包含空的delta
+		if response.Choices == nil || len(response.Choices) == 0 {
+			return true
+		}
+		
+		// 检查所有choices是否都没有实际内容
+		hasValidContent := false
+		for _, choice := range response.Choices {
+			// 检查delta是否有实际内容
+			if choice.Delta.GetContentString() != "" || 
+			   choice.Delta.GetReasoningContent() != "" ||
+			   choice.Delta.Role != "" ||
+			   choice.Delta.ToolCalls != nil && len(choice.Delta.ToolCalls) > 0 ||
+			   choice.FinishReason != nil {
+				hasValidContent = true
+				break
+			}
+		}
+		
+		if !hasValidContent {
+			return true
+		}
+	}
+
+	// 检查choices长度为0的情况（用户提到的情况）
+	if response.Choices != nil && len(response.Choices) == 1 {
+		choice := response.Choices[0]
+		// 检查choices.length为0的特殊情况
+		if choice.Delta.GetContentString() == "" && 
+		   choice.Delta.GetReasoningContent() == "" &&
+		   choice.Delta.Role == "" &&
+		   (choice.Delta.ToolCalls == nil || len(choice.Delta.ToolCalls) == 0) &&
+		   choice.FinishReason == nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo) error {
