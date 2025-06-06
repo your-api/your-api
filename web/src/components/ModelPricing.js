@@ -204,15 +204,14 @@ const styles = {
 
 const ModelPricing = ({onInitialize}) => {
   const { t } = useTranslation();
-  
+
   // 添加前缀分组定义
   const prefixGroups = {
-    'discount:': { name: '折扣', description: '低价折扣' },
-    'azure:': { name: 'Azure特价渠道', description: '特价，但稳定性较差' },
-    'mix:': { name: '混合分组', description: '兼具性价比和性能' },
-    'reverse:': { name: '逆向渠道', description: '价格非常低，但是稳定性较差' },
-    'official:': { name: '官方正价渠道', description: '极致的稳定' },
-    'default': { name: '默认分组', description: '默认分组' }
+    'discount:': { name: '折扣', description: '限时的折扣特价分组，稳定性和混合分组相当，推荐用于大多数常规业务' },
+    'azure:': { name: 'Azure特价渠道', description: '具备很大性价比，但可能存在稳定性波动' },
+    'mix:': { name: '混合分组', description: '综合性价比与性能，推荐用于大多数常规业务' },
+    'reverse:': { name: '逆向渠道', description: '价格极低，但稳定性和可用性相对较差，适合非关键场景' },
+    'official:': { name: '官方正价渠道', description: '官方正价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' }
   };
 
   // 获取模型的前缀分组
@@ -245,7 +244,7 @@ const ModelPricing = ({onInitialize}) => {
       padding-bottom: 16px;
     }
   `;
-  
+
   const [filteredValue, setFilteredValue] = useState([]);
   const compositionRef = useRef({ isComposition: false });
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
@@ -265,7 +264,7 @@ const ModelPricing = ({onInitialize}) => {
   const [activePage, setActivePage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [apiDrawerVisible, setApiDrawerVisible] = useState(false);
-  const [currencyType, setCurrencyType] = useState('USD');
+  const [currencyType, setCurrencyType] = useState('CNY'); // 新增货币类型状态
 
   // 检测是否为移动设备
   useEffect(() => {
@@ -331,7 +330,7 @@ const ModelPricing = ({onInitialize}) => {
   // 根据模型名称判断供应商
   const getProviderFromModelName = useCallback((modelId) => {
     modelId = modelId.toLowerCase();
-    
+
     // 第一轮：精确匹配，优先匹配完全相同的项目
     for (let i = 0; i < providers.length; i++) {
       const provider = providers[i];
@@ -339,7 +338,7 @@ const ModelPricing = ({onInitialize}) => {
         return provider.id;
       }
     }
-    
+
     // 第二轮：模糊匹配，匹配包含关系
     for (let i = 0; i < providers.length; i++) {
       const provider = providers[i];
@@ -395,7 +394,7 @@ const ModelPricing = ({onInitialize}) => {
         // 检查是否匹配前缀分组或enable_groups
         const modelPrefixGroup = getModelPrefixGroup(model.model_name);
         const hasEnableGroup = model.enable_groups.includes(selectedGroup);
-        
+
         // 如果开启了仅显示当前分组
         if (showOnlySelectedGroup) {
           // 必须匹配前缀分组或在enable_groups中
@@ -468,9 +467,9 @@ const ModelPricing = ({onInitialize}) => {
 
   const rowSelection = useMemo(
       () => ({
-          onChange: (selectedRowKeys, selectedRows) => {
-            setSelectedRowKeys(selectedRowKeys);
-          },
+        onChange: (selectedRowKeys, selectedRows) => {
+          setSelectedRowKeys(selectedRowKeys);
+        },
       }),
       []
   );
@@ -510,7 +509,7 @@ const ModelPricing = ({onInitialize}) => {
                   <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 4V20M18 12H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-              }
+                }
             />
         );
       case 0:
@@ -660,7 +659,7 @@ const ModelPricing = ({onInitialize}) => {
                 >
                   <span className="truncate">{text}</span>
                 </div>
-                </>
+              </>
           );
         },
         onFilter: (value, record) =>
@@ -697,28 +696,28 @@ const ModelPricing = ({onInitialize}) => {
 
                     if (group === selectedGroup) {
                       return (
-                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
-                          </svg>
-                          {group}
-                        </div>
+                          <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            {group}
+                          </div>
                       );
                     } else {
                       return (
-                        <div
-                          key={group}
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
-                          onClick={() => {
-                            // setSelectedGroup(group);
-                            // setActivePage(1); // 重置页码为第一页
-                            // showInfo(t('当前查看的分组为：{{group}}', {
-                            //   group: group
-                            // }));
-                          }}
-                        >
-                          {group}
-                        </div>
+                          <div
+                              key={group}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
+                              onClick={() => {
+                                // setSelectedGroup(group);
+                                // setActivePage(1); // 重置页码为第一页
+                                // showInfo(t('当前查看的分组为：{{group}}', {
+                                //   group: group
+                                // }));
+                              }}
+                          >
+                            {group}
+                          </div>
                       );
                     }
                   }
@@ -802,33 +801,6 @@ const ModelPricing = ({onInitialize}) => {
       title: () => (
           <div className="flex items-center gap-1 whitespace-nowrap">
             <span className="flex-shrink-0">{t('模型价格')}</span>
-            {/* 币种切换 */}
-            <div className="inline-flex items-center rounded-full p-0.5 ml-1" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
-              <button
-                className="px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200"
-                style={{
-                  backgroundColor: currencyType === 'USD' ? 'var(--semi-color-bg-2)' : 'transparent',
-                  color: currencyType === 'USD' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
-                  boxShadow: currencyType === 'USD' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                }}
-                onClick={() => setCurrencyType('USD')}
-                aria-label="Use USD"
-              >
-                USD
-              </button>
-              <button
-                className="px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200"
-                style={{
-                  backgroundColor: currencyType === 'CNY' ? 'var(--semi-color-bg-2)' : 'transparent',
-                  color: currencyType === 'CNY' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
-                  boxShadow: currencyType === 'CNY' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                }}
-                onClick={() => setCurrencyType('CNY')}
-                aria-label="Use CNY"
-              >
-                CNY
-              </button>
-            </div>
           </div>
       ),
       dataIndex: 'model_price',
@@ -855,9 +827,9 @@ const ModelPricing = ({onInitialize}) => {
                   </div>
                   <span className="font-medium" style={{ color: 'var(--semi-color-primary)' }}>
                     {currencySymbol}
-                              {currencyType === 'CNY'
-                                  ? (parseFloat(inputRatioPrice) ).toFixed(2)
-                                  : (parseFloat(inputRatioPrice) / 7.29).toFixed(2)} / 1M
+                    {currencyType === 'CNY'
+                        ? (parseFloat(inputRatioPrice) ).toFixed(2)
+                        : (parseFloat(inputRatioPrice)).toFixed(2)} / 1M
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-md px-2 py-1" style={{
@@ -870,9 +842,9 @@ const ModelPricing = ({onInitialize}) => {
                   </div>
                   <span className="font-medium" style={{ color: 'var(--semi-color-success)' }}>
                     {currencySymbol}
-                              {currencyType === 'CNY'
-                                  ? (parseFloat(completionRatioPrice) ).toFixed(2)
-                                  : (parseFloat(completionRatioPrice) / 7.29).toFixed(2)} / 1M
+                    {currencyType === 'CNY'
+                        ? (parseFloat(completionRatioPrice) ).toFixed(2)
+                        : (parseFloat(completionRatioPrice)).toFixed(2)} / 1M
                   </span>
                 </div>
               </div>
@@ -882,8 +854,8 @@ const ModelPricing = ({onInitialize}) => {
           content = (
               <BubbleText
                   bubbleText={`${currencyType === 'USD' ? '$' : '￥'} ${currencyType === 'CNY'
-                        ? (parseFloat(price) * priceRatio).toFixed(2)
-                        : price} / ${t('次')}`}
+                      ? (parseFloat(price) * priceRatio).toFixed(2)
+                      : price} / ${t('次')}`}
                   background="linear-gradient(to right, var(--semi-color-warning-light-default), var(--semi-color-warning-light-hover))"
                   color="var(--semi-color-warning)"
                   borderColor="var(--semi-color-warning-light-active)"
@@ -949,7 +921,7 @@ const ModelPricing = ({onInitialize}) => {
 
     // 创建模型名称到 includes 中位置的映射，用于优化查找性能
     const modelPositionMap = new Map();
-    
+
     // 遍历所有 providers 的 includes，记录每个模型在 includes 中的位置
     providers.forEach(provider => {
       if (provider.includes && Array.isArray(provider.includes)) {
@@ -973,11 +945,11 @@ const ModelPricing = ({onInitialize}) => {
       // 获取每个模型所属的供应商
       const aProvider = getProviderFromModelName(a.model_name);
       const bProvider = getProviderFromModelName(b.model_name);
-      
+
       // 获取供应商优先级
       const aPriority = providerPriorityMap.get(aProvider) ?? 999; // 未知供应商排在最后
       const bPriority = providerPriorityMap.get(bProvider) ?? 999;
-      
+
       // 按供应商优先级排序
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
@@ -986,25 +958,25 @@ const ModelPricing = ({onInitialize}) => {
       // 同一供应商内部，按 includes 顺序排序
       const aModelName = a.model_name.toLowerCase();
       const bModelName = b.model_name.toLowerCase();
-      
+
       const aIncludesPosition = modelPositionMap.get(aModelName);
       const bIncludesPosition = modelPositionMap.get(bModelName);
-      
+
       // 如果两个模型都在 includes 中
       if (aIncludesPosition !== undefined && bIncludesPosition !== undefined) {
         return aIncludesPosition - bIncludesPosition;
       }
-      
+
       // 如果只有 a 在 includes 中，a 排在前面
       if (aIncludesPosition !== undefined && bIncludesPosition === undefined) {
         return -1;
       }
-      
+
       // 如果只有 b 在 includes 中，b 排在前面
       if (aIncludesPosition === undefined && bIncludesPosition !== undefined) {
         return 1;
       }
-      
+
       // 如果都不在 includes 中，按字典序排序
       return a.model_name.localeCompare(b.model_name);
     });
@@ -1037,7 +1009,7 @@ const ModelPricing = ({onInitialize}) => {
         setGroupRatio(group_ratio);
         setUsableGroup(usableGroupFiltered);
         setSelectedGroup('all')
-        
+
         // 先设置原始模型数据（不排序）
         const formattedModels = data.map(model => ({
           ...model,
@@ -1045,7 +1017,7 @@ const ModelPricing = ({onInitialize}) => {
           group_ratio: group_ratio[model.model_name]
         }));
         setModels(formattedModels);
-        
+
         // 加载前缀分组选项
         loadGroupOptions();
       } else {
@@ -1061,11 +1033,11 @@ const ModelPricing = ({onInitialize}) => {
 
   // 当 providers 数据加载完成后，重新排序模型
   const modelsSortedRef = useRef(false);
-  
+
   useEffect(() => {
     if (models.length > 0 && providers.length > 0 && !modelsSortedRef.current) {
       const sortedModels = [...models];
-      
+
       // 创建供应商优先级映射（按 providers 数组顺序）
       const providerPriorityMap = new Map();
       providers.forEach((provider, index) => {
@@ -1074,7 +1046,7 @@ const ModelPricing = ({onInitialize}) => {
 
       // 创建模型名称到 includes 中位置的映射，用于优化查找性能
       const modelPositionMap = new Map();
-      
+
       // 遍历所有 providers 的 includes，记录每个模型在 includes 中的位置
       providers.forEach(provider => {
         if (provider.includes && Array.isArray(provider.includes)) {
@@ -1098,11 +1070,11 @@ const ModelPricing = ({onInitialize}) => {
         // 获取每个模型所属的供应商
         const aProvider = getProviderFromModelName(a.model_name);
         const bProvider = getProviderFromModelName(b.model_name);
-        
+
         // 获取供应商优先级
         const aPriority = providerPriorityMap.get(aProvider) ?? 999; // 未知供应商排在最后
         const bPriority = providerPriorityMap.get(bProvider) ?? 999;
-        
+
         // 按供应商优先级排序
         if (aPriority !== bPriority) {
           return aPriority - bPriority;
@@ -1111,25 +1083,25 @@ const ModelPricing = ({onInitialize}) => {
         // 同一供应商内部，按 includes 顺序排序
         const aModelName = a.model_name.toLowerCase();
         const bModelName = b.model_name.toLowerCase();
-        
+
         const aIncludesPosition = modelPositionMap.get(aModelName);
         const bIncludesPosition = modelPositionMap.get(bModelName);
-        
+
         // 如果两个模型都在 includes 中
         if (aIncludesPosition !== undefined && bIncludesPosition !== undefined) {
           return aIncludesPosition - bIncludesPosition;
         }
-        
+
         // 如果只有 a 在 includes 中，a 排在前面
         if (aIncludesPosition !== undefined && bIncludesPosition === undefined) {
           return -1;
         }
-        
+
         // 如果只有 b 在 includes 中，b 排在前面
         if (aIncludesPosition === undefined && bIncludesPosition !== undefined) {
           return 1;
         }
-        
+
         // 如果都不在 includes 中，按字典序排序
         return a.model_name.localeCompare(b.model_name);
       });
@@ -1156,32 +1128,32 @@ const ModelPricing = ({onInitialize}) => {
     const options = [
       {
         label: (
-          <div className="group-option">
-            <span>全部</span>
-            <span className="group-ratio-badge" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
-              显示所有渠道的模型
+            <div className="group-option">
+              <span>全部</span>
+              <span className="group-ratio-badge" style={{ fontSize: '10px', color: 'var(--semi-color-text-2)' }}>
+              显示所有模型
             </span>
-          </div>
+            </div>
         ),
         value: 'all'
       }
     ];
-    
+
     // 添加前缀分组选项，显示名称和描述，但排除default
     const prefixOptions = Object.keys(prefixGroups)
-      .filter(prefix => prefix !== 'default')
-      .map(prefix => ({
-        label: (
-          <div className="group-option">
-            <span>{prefixGroups[prefix].name}</span>
-            <span className="group-ratio-badge" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
+        .filter(prefix => prefix !== 'default')
+        .map(prefix => ({
+          label: (
+              <div className="group-option">
+                <span>{prefixGroups[prefix].name}</span>
+                <span className="group-ratio-badge" style={{ fontSize: '10px', color: 'var(--semi-color-text-2)' }}>
               {prefixGroups[prefix].description}
             </span>
-          </div>
-        ),
-        value: prefix
-      }));
-    
+              </div>
+          ),
+          value: prefix
+        }));
+
     options.push(...prefixOptions);
     setGroupOptions(options);
   }, []);
@@ -1190,7 +1162,7 @@ const ModelPricing = ({onInitialize}) => {
   const handleGroupChange = useCallback((value) => {
     setSelectedGroup(value);
     setActivePage(1); // 重置页码为第一页
-    
+
     if (value === 'all') {
       showInfo(t('当前查看：全部分组'));
     } else {
@@ -1213,44 +1185,44 @@ const ModelPricing = ({onInitialize}) => {
   }, [refresh]);
 
   return (
-    <>
+      <>
 
-      {/* API接入指南抽屉 */}
-      <ApiGuideDrawer
-          visible={apiDrawerVisible}
-          onClose={() => setApiDrawerVisible(false)}
-          baseUrl=""
-          modelId="gpt-4o"
-      />
+        {/* API接入指南抽屉 */}
+        <ApiGuideDrawer
+            visible={apiDrawerVisible}
+            onClose={() => setApiDrawerVisible(false)}
+            baseUrl=""
+            modelId="gpt-4o"
+        />
 
-      <Layout>
-        {/* 添加内联样式 */}
-        <style>{tableStyles}</style>
-        <style>{getMobileStyles()}</style>
-        <div className="model-pricing-section">
-          <Card className="pricing-card">
-            {/*<div className="mb-4">*/}
-            {/*  <Banner*/}
-            {/*      type="info"*/}
-            {/*      fullMode={false}*/}
-            {/*      description={<div>{t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}</div>}*/}
-            {/*      closeIcon={null}*/}
-            {/*  />*/}
-            {/*</div>*/}
+        <Layout>
+          {/* 添加内联样式 */}
+          <style>{tableStyles}</style>
+          <style>{getMobileStyles()}</style>
+          <div className="model-pricing-section">
+            <Card className="pricing-card">
+              {/*<div className="mb-4">*/}
+              {/*  <Banner*/}
+              {/*      type="info"*/}
+              {/*      fullMode={false}*/}
+              {/*      description={<div>{t('本站模型换算汇率为：1美元 =') + priceRatio + t('人民币')}</div>}*/}
+              {/*      closeIcon={null}*/}
+              {/*  />*/}
+              {/*</div>*/}
 
-            <div className="mb-4">
-              <Banner
-                  type="info"
-                  fullMode={false}
-                  description={<div>{t('按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 × 补全倍率）/ 500000 ')}</div>}
-                  closeIcon={null}
-              />
-            </div>
+              <div className="mb-4">
+                <Banner
+                    type="info"
+                    fullMode={false}
+                    description={<div>{t('按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 × 补全倍率）/ 500000 ')}</div>}
+                    closeIcon={null}
+                />
+              </div>
 
-            {/* 供应商导航栏 */}
-            <div className="provider-section mb-4">
-              <div className="section-title">{t('按供应商过滤')}
-                <span style={{marginLeft: '10px'}}>
+              {/* 供应商导航栏 */}
+              <div className="provider-section mb-4">
+                <div className="section-title">{t('按供应商过滤')}
+                  <span style={{marginLeft: '10px'}}>
 
                   <Button theme="light" type="primary" size="default" onClick={handleQuickAccess}>
                     <div className="flex items-center">
@@ -1259,31 +1231,31 @@ const ModelPricing = ({onInitialize}) => {
                     </div>
                 </Button>
                </span>
-              </div>
-              <div className="provider-navbar" style={{ position: 'relative', paddingLeft: '12px', paddingRight: '12px' }}>
-                {showLeftScroll && (
-                    <div className="relative group" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-                      <button
-                          className="provider-scroll-btn scroll-left"
-                          aria-label="显示所有供应商"
-                          onClick={() => handleScroll('left')}
-                          style={{
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                            backgroundColor: 'var(--semi-color-bg-2)',
-                            borderRadius: '50%',
-                            width: '32px',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                      >
-                        <IconChevronLeft size="large" />
-                      </button>
+                </div>
+                <div className="provider-navbar" style={{ position: 'relative', paddingLeft: '12px', paddingRight: '12px' }}>
+                  {showLeftScroll && (
+                      <div className="relative group" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+                        <button
+                            className="provider-scroll-btn scroll-left"
+                            aria-label="显示所有供应商"
+                            onClick={() => handleScroll('left')}
+                            style={{
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                              backgroundColor: 'var(--semi-color-bg-2)',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                        >
+                          <IconChevronLeft size="large" />
+                        </button>
 
-                      {/* Dropdown that appears on hover */}
-                      <div
-                          className="
+                        {/* Dropdown that appears on hover */}
+                        <div
+                            className="
                           absolute left-0 top-full mt-2 w-64
                           bg-white bg-opacity-60 backdrop-blur-sm
                           border border-gray-200 rounded-xl shadow-lg
@@ -1292,12 +1264,12 @@ const ModelPricing = ({onInitialize}) => {
                           max-h-80    overflow-x-hidden overflow-y-auto
                           overscroll-contain scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent z-20
                           "
-                      >
-                        <div className="py-2 divide-y divide-gray-100">
-                          {providers.map(provider => (
-                              <div
-                                  key={provider.id}
-                                  className={`
+                        >
+                          <div className="py-2 divide-y divide-gray-100">
+                            {providers.map(provider => (
+                                <div
+                                    key={provider.id}
+                                    className={`
                                     provider-item
                                     flex items-center px-4 py-3
                                     hover:bg-gray-50 cursor-pointer
@@ -1305,109 +1277,109 @@ const ModelPricing = ({onInitialize}) => {
                                     ${selectedProvider === provider.id ? 'bg-blue-50' : ''}
                                     mb-1 border-b border-gray-100
                                   `}
-                                  onClick={() => {
-                                    setSelectedProvider(provider.id);
-                                    setActivePage(1); // 重置页码为第一页
-                                    // Close popover after selection
-                                    document.body.click();
-                                    // Scroll to the selected provider in the navigation bar
-                                    setTimeout(() => {
-                                      const providerElements = providerScrollRef.current.querySelectorAll('.provider-item');
-                                      for (let i = 0; i < providerElements.length; i++) {
-                                        if (providerElements[i].textContent.includes(provider.name)) {
-                                          const containerWidth = providerScrollRef.current.clientWidth;
-                                          const elementOffset = providerElements[i].offsetLeft;
-                                          providerScrollRef.current.scrollTo({
-                                            left: elementOffset - containerWidth / 2 + providerElements[i].offsetWidth / 2,
-                                            behavior: 'smooth'
-                                          });
-                                          break;
+                                    onClick={() => {
+                                      setSelectedProvider(provider.id);
+                                      setActivePage(1); // 重置页码为第一页
+                                      // Close popover after selection
+                                      document.body.click();
+                                      // Scroll to the selected provider in the navigation bar
+                                      setTimeout(() => {
+                                        const providerElements = providerScrollRef.current.querySelectorAll('.provider-item');
+                                        for (let i = 0; i < providerElements.length; i++) {
+                                          if (providerElements[i].textContent.includes(provider.name)) {
+                                            const containerWidth = providerScrollRef.current.clientWidth;
+                                            const elementOffset = providerElements[i].offsetLeft;
+                                            providerScrollRef.current.scrollTo({
+                                              left: elementOffset - containerWidth / 2 + providerElements[i].offsetWidth / 2,
+                                              behavior: 'smooth'
+                                            });
+                                            break;
+                                          }
                                         }
-                                      }
-                                    }, 100);
-                                  }}
-                              >
-                                <div className="flex-shrink-0 mr-3">
-                                  {provider.icon ? (
-                                      <img
-                                          src={provider.icon}
-                                          alt={provider.name}
-                                          className="w-6 h-6 rounded-full object-cover"
-                                      />
-                                  ) : (
-                                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                                        {provider.name.charAt(0)}
-                                      </div>
-                                  )}
+                                      }, 100);
+                                    }}
+                                >
+                                  <div className="flex-shrink-0 mr-3">
+                                    {provider.icon ? (
+                                        <img
+                                            src={provider.icon}
+                                            alt={provider.name}
+                                            className="w-6 h-6 rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                                          {provider.name.charAt(0)}
+                                        </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-grow text-sm font-medium text-gray-700">
+                                    {provider.name}
+                                  </div>
+                                  <div className="ml-auto bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
+                                    {providerCounts[provider.id] || 0}
+                                  </div>
                                 </div>
-                                <div className="flex-grow text-sm font-medium text-gray-700">
-                                  {provider.name}
-                                </div>
-                                <div className="ml-auto bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                                  {providerCounts[provider.id] || 0}
-                                </div>
-                              </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                )}
+                  )}
 
-                <div
-                    className="provider-scroll-container"
-                    ref={providerScrollRef}
-                    style={{ margin: '0 8px' }}
-                >
-                  {providers.map(provider => (
-                      <div
-                          key={provider.id}
-                          className={`provider-item ${selectedProvider === provider.id ? 'active' : ''}`}
-                          onClick={(e) => {
-                            e.preventDefault(); // 阻止默认行为
-                            setSelectedProvider(provider.id);
-                            setActivePage(1); // 重置页码为第一页
-                          }}
-                      >
-                        <div className="provider-icon">
-                          {provider.icon ? (
-                              <Avatar
-                                  src={provider.icon}
-                                  size="small"
-                                  alt={provider.name}
-                              />
-                          ) : (
-                              <div className="provider-fallback-icon">{provider.name.charAt(0)}</div>
-                          )}
+                  <div
+                      className="provider-scroll-container"
+                      ref={providerScrollRef}
+                      style={{ margin: '0 8px' }}
+                  >
+                    {providers.map(provider => (
+                        <div
+                            key={provider.id}
+                            className={`provider-item ${selectedProvider === provider.id ? 'active' : ''}`}
+                            onClick={(e) => {
+                              e.preventDefault(); // 阻止默认行为
+                              setSelectedProvider(provider.id);
+                              setActivePage(1); // 重置页码为第一页
+                            }}
+                        >
+                          <div className="provider-icon">
+                            {provider.icon ? (
+                                <Avatar
+                                    src={provider.icon}
+                                    size="small"
+                                    alt={provider.name}
+                                />
+                            ) : (
+                                <div className="provider-fallback-icon">{provider.name.charAt(0)}</div>
+                            )}
+                          </div>
+                          <span className="provider-name">{provider.name}</span>
+                          <span className="provider-count">{providerCounts[provider.id] || 0}</span>
                         </div>
-                        <span className="provider-name">{provider.name}</span>
-                        <span className="provider-count">{providerCounts[provider.id] || 0}</span>
-                      </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
 
-                {showRightScroll && (
-                    <div className="relative group" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-                      <button
-                          className="provider-scroll-btn scroll-right"
-                          aria-label="显示所有供应商"
-                          onClick={() => handleScroll('right')}
-                          style={{
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                            backgroundColor: 'var(--semi-color-bg-2)',
-                            borderRadius: '50%',
-                            width: '32px',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                      >
-                        <IconChevronRight size="large" />
-                      </button>
+                  {showRightScroll && (
+                      <div className="relative group" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+                        <button
+                            className="provider-scroll-btn scroll-right"
+                            aria-label="显示所有供应商"
+                            onClick={() => handleScroll('right')}
+                            style={{
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                              backgroundColor: 'var(--semi-color-bg-2)',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                        >
+                          <IconChevronRight size="large" />
+                        </button>
 
-                      {/* Dropdown that appears on hover */}
-                      <div
-                          className="
+                        {/* Dropdown that appears on hover */}
+                        <div
+                            className="
                           absolute right-0 top-full mt-2 w-64
                           bg-white bg-opacity-60 backdrop-blur-sm
                           border border-gray-200 rounded-xl shadow-lg
@@ -1416,12 +1388,12 @@ const ModelPricing = ({onInitialize}) => {
                           max-h-80    overflow-x-hidden overflow-y-auto
                           overscroll-contain scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent z-20
                           "
-                      >
-                        <div className="py-2 divide-y divide-gray-100">
-                          {providers.map(provider => (
-                              <div
-                                  key={provider.id}
-                                  className={`
+                        >
+                          <div className="py-2 divide-y divide-gray-100">
+                            {providers.map(provider => (
+                                <div
+                                    key={provider.id}
+                                    className={`
                                     provider-item
                                     flex items-center px-4 py-3
                                     hover:bg-gray-50 cursor-pointer
@@ -1429,516 +1401,526 @@ const ModelPricing = ({onInitialize}) => {
                                     ${selectedProvider === provider.id ? 'bg-blue-50' : ''}
                                     mb-1 border-b border-gray-100
                                   `}
-                                  onClick={() => {
-                                    setSelectedProvider(provider.id);
-                                    setActivePage(1); // 重置页码为第一页
-                                    // Close popover after selection
-                                    document.body.click();
-                                    // Scroll to the selected provider in the navigation bar
-                                    setTimeout(() => {
-                                      const providerElements = providerScrollRef.current.querySelectorAll('.provider-item');
-                                      for (let i = 0; i < providerElements.length; i++) {
-                                        if (providerElements[i].textContent.includes(provider.name)) {
-                                          const containerWidth = providerScrollRef.current.clientWidth;
-                                          const elementOffset = providerElements[i].offsetLeft;
-                                          providerScrollRef.current.scrollTo({
-                                            left: elementOffset - containerWidth / 2 + providerElements[i].offsetWidth / 2,
-                                            behavior: 'smooth'
-                                          });
-                                          break;
+                                    onClick={() => {
+                                      setSelectedProvider(provider.id);
+                                      setActivePage(1); // 重置页码为第一页
+                                      // Close popover after selection
+                                      document.body.click();
+                                      // Scroll to the selected provider in the navigation bar
+                                      setTimeout(() => {
+                                        const providerElements = providerScrollRef.current.querySelectorAll('.provider-item');
+                                        for (let i = 0; i < providerElements.length; i++) {
+                                          if (providerElements[i].textContent.includes(provider.name)) {
+                                            const containerWidth = providerScrollRef.current.clientWidth;
+                                            const elementOffset = providerElements[i].offsetLeft;
+                                            providerScrollRef.current.scrollTo({
+                                              left: elementOffset - containerWidth / 2 + providerElements[i].offsetWidth / 2,
+                                              behavior: 'smooth'
+                                            });
+                                            break;
+                                          }
                                         }
-                                      }
-                                    }, 100);
-                                  }}
-                              >
-                                <div className="flex-shrink-0 mr-3">
-                                  {provider.icon ? (
-                                      <img
-                                          src={provider.icon}
-                                          alt={provider.name}
-                                          className="w-6 h-6 rounded-full object-cover"
-                                      />
-                                  ) : (
-                                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                                        {provider.name.charAt(0)}
-                                      </div>
-                                  )}
+                                      }, 100);
+                                    }}
+                                >
+                                  <div className="flex-shrink-0 mr-3">
+                                    {provider.icon ? (
+                                        <img
+                                            src={provider.icon}
+                                            alt={provider.name}
+                                            className="w-6 h-6 rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                                          {provider.name.charAt(0)}
+                                        </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-grow text-sm font-medium text-gray-700">
+                                    {provider.name}
+                                  </div>
+                                  <div className="ml-auto bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
+                                    {providerCounts[provider.id] || 0}
+                                  </div>
                                 </div>
-                                <div className="flex-grow text-sm font-medium text-gray-700">
-                                  {provider.name}
-                                </div>
-                                <div className="ml-auto bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                                  {providerCounts[provider.id] || 0}
-                                </div>
-                              </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                )}
-              </div>
-            </div>
-
-            <div className="action-bar mb-4 flex items-center flex-wrap gap-2">
-              <div className="search-section">
-                <Input
-                    prefix={<IconHelpCircle size="small" />}
-                    placeholder={t('模糊搜索模型名称')}
-                    style={{ width: 220 }}
-                    onCompositionStart={handleCompositionStart}
-                    onCompositionEnd={handleCompositionEnd}
-                    onChange={handleChange}
-                    showClear
-                />
+                  )}
+                </div>
               </div>
 
-              <div className="group-selector">
-                <Select
-                    prefix={<IconFilter size="small" />}
-                    placeholder={t('选择分组')}
-                    value={selectedGroup}
-                    onChange={handleGroupChange}
-                    optionList={groupOptions}
-                    style={{ width: 250 }}
-                    className="group-select"
-                    renderSelectedItem={(optionNode) => {
-                      // 获取选中项的文本，如果是全部则显示"全部"，否则显示对应的分组名称
-                      let displayText = '';
-                      if (selectedGroup === 'all') {
-                        displayText = '全部';
-                      } else if (prefixGroups[selectedGroup]) {
-                        displayText = prefixGroups[selectedGroup].name;
-                      }
-                      
-                      return (
-                        <div className="selected-group-item" style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--semi-color-primary)',
-                          backgroundColor: 'var(--semi-color-bg-0)',
-                          padding: '4px 12px',
-                          borderRadius: '4px',
-                          fontWeight: 500,
-                          boxShadow: '0 0 0 1px var(--semi-color-primary-light-active)',
-                          minWidth: '100px',
-                          width: '100%',
-                          height: '100%'
-                        }}>
-                          <IconFilter size="small" style={{ marginRight: '6px', color: 'var(--semi-color-primary)' }} />
-                          <span style={{ color: 'var(--semi-color-primary)' }}>{displayText}</span>
+              <div className="action-bar mb-4 flex items-center flex-wrap gap-2">
+                <div className="search-section">
+                  <Input
+                      prefix={<IconHelpCircle size="small" />}
+                      placeholder={t('模糊搜索模型名称')}
+                      style={{ width: 220 }}
+                      onCompositionStart={handleCompositionStart}
+                      onCompositionEnd={handleCompositionEnd}
+                      onChange={handleChange}
+                      showClear
+                  />
+                </div>
+
+                <div className="group-selector flex items-center gap-2">
+                  <Select
+                      prefix={<IconFilter size="small" />}
+                      placeholder={t('选择分组')}
+                      value={selectedGroup}
+                      onChange={handleGroupChange}
+                      optionList={groupOptions}
+                      style={{ width: 250 }}
+                      className="group-select"
+                      renderSelectedItem={(optionNode) => {
+                        // 获取选中项的文本，如果是全部则显示"全部"，否则显示对应的分组名称
+                        let displayText = '';
+                        if (selectedGroup === 'all') {
+                          displayText = '全部';
+                        } else if (prefixGroups[selectedGroup]) {
+                          displayText = prefixGroups[selectedGroup].name;
+                        }
+
+                        return (
+                            <div className="selected-group-item" style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'var(--semi-color-primary)',
+                              backgroundColor: 'var(--semi-color-bg-0)',
+                              padding: '4px 12px',
+                              borderRadius: '4px',
+                              fontWeight: 500,
+                              boxShadow: '0 0 0 1px var(--semi-color-primary-light-active)',
+                              minWidth: '100px',
+                              width: '100%',
+                              height: '100%'
+                            }}>
+                              <IconFilter size="small" style={{ marginRight: '6px', color: 'var(--semi-color-primary)' }} />
+                              <span style={{ color: 'var(--semi-color-primary)' }}>{displayText}</span>
+                            </div>
+                        );
+                      }}
+                  />
+                  <Popover
+                      content={
+                        <div className="w-80 md:w-96 p-4 font-sans text-sm leading-normal text-gray-700 bg-white rounded-xl shadow-lg border border-gray-100">
+                          <div className="flex items-bottom mb-3 text-gray-800">
+                            <h3 className="font-semibold text-base leading-none">分组说明(不通渠道的前缀不同)</h3>
+                          </div>
+                          <div className="space-y-3">
+
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <p className="font-bold text-gray-800">折扣分组</p>
+                              <p className="text-gray-600 mt-1 text-xs">限时的折扣分组，稳定性和混合分组相当，推荐用于大多数常规业务。</p>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <p className="font-bold text-gray-800">Azure特价渠道</p>
+                              <p className="text-gray-600 mt-1 text-xs">具备一定性价比，但可能存在稳定性波动。</p>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <p className="font-bold text-gray-800">混合分组</p>
+                              <p className="text-gray-600 mt-1 text-xs">综合性价比与性能，推荐用于大多数常规业务。</p>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <p className="font-bold text-gray-800">逆向渠道</p>
+                              <p className="text-gray-600 mt-1 text-xs">价格极低，但稳定性和可用性相对较差，适合非关键场景。</p>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <p className="font-bold text-gray-800">官方正价渠道</p>
+                              <p className="text-gray-600 mt-1 text-xs">价格较高但提供最优稳定性与可靠性，适用于生产环境或高要求任务。</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-gray-200">
+                            <p className="text-xs text-gray-500 italic">请根据业务需求合理选择模型，并及时调整API调用配置。</p>
+                          </div>
                         </div>
-                      );
-                    }}
-                />
+                      }
+                      position="top"
+                      trigger="hover"
+                  >
+                    <IconHelpCircle className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors" />
+                  </Popover>
+                </div>
+
+                {/* Add the toggle switch here */}
+                {/*<div className="group-toggle flex items-center">*/}
+                {/*  <span className="text-sm text-gray-500 mr-2">{t('仅显示当前分组')}</span>*/}
+                {/*  <div*/}
+                {/*      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${showOnlySelectedGroup ? 'bg-blue-600' : 'bg-gray-200'}`}*/}
+                {/*      onClick={() => {*/}
+                {/*        setShowOnlySelectedGroup(!showOnlySelectedGroup);*/}
+                {/*        setActivePage(1); // 重置页码为第一页*/}
+                {/*      }}*/}
+                {/*      role="switch"*/}
+                {/*      aria-checked={showOnlySelectedGroup}*/}
+                {/*      tabIndex="0"*/}
+                {/*  >*/}
+                {/*    <span*/}
+                {/*        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${showOnlySelectedGroup ? 'translate-x-6' : 'translate-x-1'}`}*/}
+                {/*    />*/}
+                {/*  </div>*/}
+                {/*</div>*/}
+
+                <div className="model-count flex items-center">
+                  <IconStar size="small" style={{ marginRight: '6px', color: 'rgba(var(--semi-blue-5), 1)' }} />
+                  <span>{t('当前展示 {{count}} 个模型', { count: filteredModels.length })}</span>
+                  {(selectedProvider !== '全部' || filteredValue.length > 0) && (
+                      <Button
+                          type="tertiary"
+                          theme="borderless"
+                          onClick={(e) => {
+                            e.preventDefault(); // 阻止默认行为
+                            setSelectedProvider('全部');
+                            setFilteredValue([]);
+                            setActivePage(1); // 重置页码为第一页
+                          }}
+                          style={{marginLeft: '8px'}}
+                      >
+                        {t('清除筛选')}
+                      </Button>
+                  )}
+                </div>
+
+                <div className="action-buttons flex items-center gap-2">
+                  <Button
+                      theme='light'
+                      type='tertiary'
+                      style={{width: 150}}
+                      onClick={(e) => {
+                        copyText(selectedRowKeys);
+                      }}
+                      disabled={selectedRowKeys == ""}
+                      icon={<IconTerminal size="small" />}
+                  >
+                    {t('复制选中模型')}
+                  </Button>
+
+                  <Button
+                      theme='light'
+                      type='tertiary'
+                      onClick={() => setShowRatioColumn(!showRatioColumn)}
+                      className="toggle-ratio-btn"
+                  >
+                    {showRatioColumn ? t('隐藏倍率列') : t('显示倍率列')}
+                  </Button>
+                </div>
               </div>
 
-              {/* Add the toggle switch here */}
-              {/*<div className="group-toggle flex items-center">*/}
-              {/*  <span className="text-sm text-gray-500 mr-2">{t('仅显示当前分组')}</span>*/}
-              {/*  <div*/}
-              {/*      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${showOnlySelectedGroup ? 'bg-blue-600' : 'bg-gray-200'}`}*/}
-              {/*      onClick={() => {*/}
-              {/*        setShowOnlySelectedGroup(!showOnlySelectedGroup);*/}
-              {/*        setActivePage(1); // 重置页码为第一页*/}
-              {/*      }}*/}
-              {/*      role="switch"*/}
-              {/*      aria-checked={showOnlySelectedGroup}*/}
-              {/*      tabIndex="0"*/}
-              {/*  >*/}
-              {/*    <span*/}
-              {/*        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${showOnlySelectedGroup ? 'translate-x-6' : 'translate-x-1'}`}*/}
-              {/*    />*/}
-              {/*  </div>*/}
-              {/*</div>*/}
-
-              <div className="model-count flex items-center">
-                <IconStar size="small" style={{ marginRight: '6px', color: 'rgba(var(--semi-blue-5), 1)' }} />
-                <span>{t('当前展示 {{count}} 个模型', { count: filteredModels.length })}</span>
-                {(selectedProvider !== '全部' || filteredValue.length > 0) && (
-                    <Button
-                        type="tertiary"
-                        theme="borderless"
-                        onClick={(e) => {
-                          e.preventDefault(); // 阻止默认行为
-                          setSelectedProvider('全部');
-                          setFilteredValue([]);
-                          setActivePage(1); // 重置页码为第一页
-                        }}
-                        style={{marginLeft: '8px'}}
-                    >
-                      {t('清除筛选')}
-                    </Button>
-                )}
-              </div>
-
-              <div className="action-buttons flex items-center gap-2">
-                <Button
-                    theme='light'
-                    type='tertiary'
-                    style={{width: 150}}
-                    onClick={(e) => {
-                      copyText(selectedRowKeys);
-                    }}
-                    disabled={selectedRowKeys == ""}
-                    icon={<IconTerminal size="small" />}
-                >
-                  {t('复制选中模型')}
-                </Button>
-
-                <Button
-                    theme='light'
-                    type='tertiary'
-                    onClick={() => setShowRatioColumn(!showRatioColumn)}
-                    className="toggle-ratio-btn"
-                >
-                  {showRatioColumn ? t('隐藏倍率列') : t('显示倍率列')}
-                </Button>
-              </div>
-            </div>
-
-            {/* 添加表格容器，增强滚动体验 */}
-            <div className="relative overflow-hidden md:rounded-lg border border-gray-50 shadow-sm hidden md:block">
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-gray-50 mobile-table-container max-w-full lg:max-w-[95vw] xl:max-w-[1400px] 2xl:max-w-[1800px] mx-auto">
-                <Table
-                    style={{ marginTop: 0, width: '100%', tableLayout: 'fixed' }}
-                    columns={columns}
-                    dataSource={filteredModels}
-                    loading={loading}
-                    pagination={{
-                      formatPageText: (page) =>
-                          t('第 {{start}} - {{end}} 条，共 {{total}} 条', {
-                            start: page.currentStart,
-                            end: page.currentEnd,
-                            total: filteredModels.length
-                          }),
-                      pageSize: pageSize,
-                      total: filteredModels.length,
-                      showSizeChanger: true,
-                      pageSizeOptions: [10, 20, 50, 100],
-                      onPageSizeChange: (size) => {
-                        setPageSize(size);
-                        setActivePage(1);
-                      },
-                      onPageChange: (page) => setActivePage(page)
-                    }}
-                    rowSelection={rowSelection}
-                    className="responsive-table model-table w-full"
-                    empty={
-                      <div className="empty-state">
-                        <p>{t('没有找到匹配的模型')}</p>
-                        <Button
-                            type="tertiary"
-                            onClick={(e) => {
-                              e.preventDefault(); // 阻止默认行为
-                              setSelectedProvider('全部');
-                              setFilteredValue([]);
-                              setActivePage(1); // 重置页码为第一页
-                            }}
-                            className="mx-auto"
+              {/* 添加表格容器，增强滚动体验 */}
+              <div className="relative overflow-hidden md:rounded-lg border border-gray-50 shadow-sm hidden md:block">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-gray-50 mobile-table-container max-w-full lg:max-w-[95vw] xl:max-w-[1400px] 2xl:max-w-[1800px] mx-auto">
+                  <Table
+                      style={{ marginTop: 0, width: '100%', tableLayout: 'fixed' }}
+                      columns={columns}
+                      dataSource={filteredModels}
+                      loading={loading}
+                      pagination={{
+                        formatPageText: (page) =>
+                            t('第 {{start}} - {{end}} 条，共 {{total}} 条', {
+                              start: page.currentStart,
+                              end: page.currentEnd,
+                              total: filteredModels.length
+                            }),
+                        pageSize: pageSize,
+                        total: filteredModels.length,
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50, 100],
+                        onPageSizeChange: (size) => {
+                          setPageSize(size);
+                          setActivePage(1);
+                        },
+                        onPageChange: (page) => setActivePage(page)
+                      }}
+                      rowSelection={rowSelection}
+                      className="responsive-table model-table w-full"
+                      empty={
+                        <div className="empty-state">
+                          <p>{t('没有找到匹配的模型')}</p>
+                          <Button
+                              type="tertiary"
+                              onClick={(e) => {
+                                e.preventDefault(); // 阻止默认行为
+                                setSelectedProvider('全部');
+                                setFilteredValue([]);
+                                setActivePage(1); // 重置页码为第一页
+                              }}
+                              className="mx-auto"
                           >
                             {t('重置筛选条件')}
                           </Button>
-                      </div>
-                    }
-                    scroll={{ x: '100%' }}
-                    rowClassName={(record, index) =>
-                      'bg-gray-50 hover:bg-primary-light-default hover:bg-opacity-20 transition-colors'
-                    }
-                    headerClassName="bg-gray-50 text-gray-400 font-normal sticky top-0 z-10"
-                    wrapperClassName="border-collapse w-full"
-                    onRow={(record, index) => ({
-                      onClick: () => {}, // 需要一个空函数，否则在某些情况下可能会报错
-                    })}
-                    onHeaderRow={() => ({
-                      className: 'semi-table-header-row',
-                    })}
-                />
+                        </div>
+                      }
+                      scroll={{ x: '100%' }}
+                      rowClassName={(record, index) =>
+                          'bg-gray-50 hover:bg-primary-light-default hover:bg-opacity-20 transition-colors'
+                      }
+                      headerClassName="bg-gray-50 text-gray-400 font-normal sticky top-0 z-10"
+                      wrapperClassName="border-collapse w-full"
+                      onRow={(record, index) => ({
+                        onClick: () => {}, // 需要一个空函数，否则在某些情况下可能会报错
+                      })}
+                      onHeaderRow={() => ({
+                        className: 'semi-table-header-row',
+                      })}
+                  />
+                </div>
+
+                {/* 滚动阴影指示器 - 桌面端 */}
+                <div className="hidden lg:hidden md:block absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-transparent to-transparent pointer-events-none scroll-indicator"></div>
+                <div className="hidden lg:hidden md:block absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-transparent to-transparent pointer-events-none scroll-indicator"></div>
               </div>
 
-              {/* 滚动阴影指示器 - 桌面端 */}
-              <div className="hidden lg:hidden md:block absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-transparent to-transparent pointer-events-none scroll-indicator"></div>
-              <div className="hidden lg:hidden md:block absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-transparent to-transparent pointer-events-none scroll-indicator"></div>
-            </div>
-
-            {/* 移动端卡片视图 - 替代表格 */}
-            <div className="md:hidden mt-4 space-y-4">
-              {filteredModels.length === 0 ? (
-                <div className="empty-state py-8 text-center">
-                  <p className="text-gray-500 mb-3">{t('没有找到匹配的模型')}</p>
-                  <Button
-                    type="tertiary"
-                    onClick={(e) => {
-                      e.preventDefault(); // 阻止默认行为
-                      setSelectedProvider('全部');
-                      setFilteredValue([]);
-                      setActivePage(1); // 重置页码为第一页
-                    }}
-                    className="mx-auto"
-                  >
-                    {t('重置筛选条件')}
-                  </Button>
-                </div>
-              ) : (
-                filteredModels.slice((activePage-1) * pageSize, activePage * pageSize).map((model, index) => (
-                  <div key={model.key} className="bg-transparent rounded-lg shadow-sm overflow-hidden border border-gray-100">
-                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-100">
-                      <div className="flex justify-between items-center">
-                        <div
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
-                          style={{
-                            background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
-                            color: 'var(--semi-color-primary)',
-                            borderColor: 'var(--semi-color-primary-light-active)',
-                            borderWidth: '1px',
-                            borderStyle: 'solid'
+              {/* 移动端卡片视图 - 替代表格 */}
+              <div className="md:hidden mt-4 space-y-4">
+                {filteredModels.length === 0 ? (
+                    <div className="empty-state py-8 text-center">
+                      <p className="text-gray-500 mb-3">{t('没有找到匹配的模型')}</p>
+                      <Button
+                          type="tertiary"
+                          onClick={(e) => {
+                            e.preventDefault(); // 阻止默认行为
+                            setSelectedProvider('全部');
+                            setFilteredValue([]);
+                            setActivePage(1); // 重置页码为第一页
                           }}
-                          onClick={() => copyText(model.model_name)}
-                          title={model.model_name}
-                        >
-                          <span className="truncate">{model.model_name}</span>
-                        </div>
-                        {(() => {
-                          let available = false;
-                          if (selectedGroup === 'all') {
-                            available = true;
-                          } else {
-                            const modelPrefixGroup = getModelPrefixGroup(model.model_name);
-                            available = modelPrefixGroup === selectedGroup;
-                          }
-                          return <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
-                            <IconVerify size="small" style={{ color: 'white' }} />
-                            <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
-                          </div>
-
-                          // available ? (
-                          //   <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
-                          //     <IconVerify size="small" style={{ color: 'white' }} />
-                          //     <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
-                          //   </div>
-                          // )
-                          //     : (
-                          //   <div className="flex items-center text-white bg-red-600 py-1 px-3 rounded-md border border-red-500 shadow-md">
-                          //     <IconClose size="small" style={{ color: 'white' }} />
-                          //     <span className="ml-1 text-xs font-bold">{t('当前分组不可用')}</span>
-                          //   </div>
-                          // );
-                        })()}
-                      </div>
+                          className="mx-auto"
+                      >
+                        {t('重置筛选条件')}
+                      </Button>
                     </div>
-
-                    <div className="p-4 space-y-3 bg-transparent">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{t('计费类型')}</span>
-                        <div>{renderQuotaType(parseInt(model.quota_type))}</div>
-                      </div>
-
-                      <div>
-                        <div className="text-gray-600 mb-1">{t('可用分组')}</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {model.enable_groups.map((group) => {
-                            if (usableGroup[group]) {
-                              const colorStyle = getGroupColor(group);
-
-                              if (group === selectedGroup) {
-                                return (
-                                  <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
-                                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                    {group}
-                                  </div>
-                                );
-                              } else {
-                                return (
-                                  <div
-                                    key={group}
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
-                                    onClick={() => {
-                                      setSelectedGroup(group);
-                                      setActivePage(1); // 重置页码为第一页
-                                      showInfo(t('当前查看的分组为：{{group}}', {
-                                        group: group
-                                      }));
-                                    }}
-                                  >
-                                    {group}
-                                  </div>
-                                );
-                              }
-                            }
-                            return null;
-                          })}
-                        </div>
-                      </div>
-
-                      {showRatioColumn && (
-                        <div>
-                          <div className="text-gray-600 mb-1">{t('倍率')}</div>
-                          <div className="bg-gray-50 p-2 rounded text-sm space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">{t('模型倍率')}</span>
-                              <span className="font-medium text-gray-700">{model.quota_type === 0 ? model.model_ratio : t('无')}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">{t('补全倍率')}</span>
-                              <span className="font-medium text-gray-700">{model.quota_type === 0 ? parseFloat(model.completion_ratio.toFixed(3)) : t('无')}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">{t('分组倍率')}</span>
-                              <span className="font-medium text-gray-700">1</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="text-gray-600 mb-1">{t('模型价格')}</div>
-                        <div className="bg-blue-50 bg-opacity-60 p-2 rounded text-sm">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-500">{t('币种')}</span>
-                            <div className="inline-flex items-center rounded-full p-0.5" style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
-                              <button
-                                className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-200"
-                                style={{
-                                  backgroundColor: currencyType === 'USD' ? 'var(--semi-color-bg-2)' : 'transparent',
-                                  color: currencyType === 'USD' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
-                                  boxShadow: currencyType === 'USD' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                                }}
-                                onClick={() => setCurrencyType('USD')}
-                                aria-label="Use USD"
-                              >
-                                USD
-                              </button>
-                              <button
-                                className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-200"
-                                style={{
-                                  backgroundColor: currencyType === 'CNY' ? 'var(--semi-color-bg-2)' : 'transparent',
-                                  color: currencyType === 'CNY' ? 'var(--semi-color-text-0)' : 'var(--semi-color-text-2)',
-                                  boxShadow: currencyType === 'CNY' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                                }}
-                                onClick={() => setCurrencyType('CNY')}
-                                aria-label="Use CNY"
-                              >
-                                CNY
-                              </button>
-                            </div>
-                          </div>
-                          {model.quota_type === 0 ? (
-                            <>
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-500">{t('提示')}</span>
-                                <span className="font-medium text-blue-500">
-                                  {currencyType === 'USD' ? '$' : '￥'}
-                                  {currencyType === 'CNY'
-                                    ? ((model.model_ratio * 2 * 1)).toFixed(2)
-                                    : (model.model_ratio * 2 * 1 / 7.29).toFixed(2)} / 1M tokens
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center mt-1">
-                                <span className="text-gray-500">{t('补全')}</span>
-                                <span className="font-medium text-blue-500">
-                                  {currencyType === 'USD' ? '$' : '￥'}
-                                  {currencyType === 'CNY'
-                                    ? ((model.model_ratio * model.completion_ratio * 2 * 1)).toFixed(2)
-                                    : (model.model_ratio * model.completion_ratio * 2 * 1/7.29).toFixed(2)} / 1M tokens
-                                </span>
-                              </div>
-                            </>
-                          ) : (
+                ) : (
+                    filteredModels.slice((activePage-1) * pageSize, activePage * pageSize).map((model, index) => (
+                        <div key={model.key} className="bg-transparent rounded-lg shadow-sm overflow-hidden border border-gray-100">
+                          <div className="bg-gray-50 px-4 py-3 border-b border-gray-100">
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-500">{t('模型价格')}</span>
-                              <span className="font-medium text-blue-500">
-                                {currencyType === 'USD' ? '$' : '￥'}
-                                {(parseFloat(model.model_price) * 1).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-gray-600 mb-1">{t('模型描述')}</div>
-                        <div className="text-gray-500 text-sm line-clamp-4 min-h-[5em] bg-gray-50 p-2 rounded">
-                          {model.model_description}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              
-              {/* 移动端分页器 */}
-              {filteredModels.length > 0 && (
-                <div className="flex flex-col items-center mt-6 gap-3">
-                  <div className="inline-flex items-center shadow-sm rounded-md">
-                    <button 
-                      className="px-3 py-1 bg-white border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={activePage === 1}
-                      onClick={() => setActivePage(prev => prev - 1)}
-                    >
-                      <IconChevronLeft size="small" />
-                    </button>
-                    <div className="px-4 py-1 bg-white border-t border-b border-gray-300 text-gray-700">
-                      {activePage} / {Math.ceil(filteredModels.length / pageSize)}
-                    </div>
-                    <button 
-                      className="px-3 py-1 bg-white border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={activePage === Math.ceil(filteredModels.length / pageSize)}
-                      onClick={() => setActivePage(prev => prev + 1)}
-                    >
-                      <IconChevronRight size="small" />
-                    </button>
-                  </div>
-                  
-                  {/* 每页显示条数选择 */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600">{t('每页显示')}:</span>
-                    <div className="inline-flex rounded-md shadow-sm">
-                      {[5, 10, 20, 50].map(size => (
-                        <button
-                          key={size}
-                          className={`px-2.5 py-1 border border-gray-300 text-xs font-medium ${
-                            pageSize === size
-                              ? 'bg-blue-50 text-blue-700 border-blue-300 z-10'
-                              : 'bg-white text-gray-700 hover:bg-gray-50'
-                          } ${
-                            size === 5 ? 'rounded-l-md' : ''
-                          } ${
-                            size === 50 ? 'rounded-r-md' : ''
-                          }`}
-                          onClick={() => {
-                            setPageSize(size);
-                            setActivePage(1);
-                          }}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-gray-600">{t('条')}</span>
-                  </div>
-                  
-                  <div className="text-xs text-gray-500">
-                    {t('第 {{start}} - {{end}} 条，共 {{total}} 条', {
-                      start: Math.min((activePage - 1) * pageSize + 1, filteredModels.length),
-                      end: Math.min(activePage * pageSize, filteredModels.length),
-                      total: filteredModels.length
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+                              <div
+                                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
+                                  style={{
+                                    background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
+                                    color: 'var(--semi-color-primary)',
+                                    borderColor: 'var(--semi-color-primary-light-active)',
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onClick={() => copyText(model.model_name)}
+                                  title={model.model_name}
+                              >
+                                <span className="truncate">{model.model_name}</span>
+                              </div>
+                              {(() => {
+                                let available = false;
+                                if (selectedGroup === 'all') {
+                                  available = true;
+                                } else {
+                                  const modelPrefixGroup = getModelPrefixGroup(model.model_name);
+                                  available = modelPrefixGroup === selectedGroup;
+                                }
+                                return <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
+                                  <IconVerify size="small" style={{ color: 'white' }} />
+                                  <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
+                                </div>
 
-            <ImagePreview
-                src={modalImageUrl}
-                visible={isModalOpenurl}
-                onVisibleChange={(visible) => setIsModalOpenurl(visible)}
-            />
-          </Card>
-        </div>
-      </Layout>
-    </>
+                                // available ? (
+                                //   <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
+                                //     <IconVerify size="small" style={{ color: 'white' }} />
+                                //     <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
+                                //   </div>
+                                // )
+                                //     : (
+                                //   <div className="flex items-center text-white bg-red-600 py-1 px-3 rounded-md border border-red-500 shadow-md">
+                                //     <IconClose size="small" style={{ color: 'white' }} />
+                                //     <span className="ml-1 text-xs font-bold">{t('当前分组不可用')}</span>
+                                //   </div>
+                                // );
+                              })()}
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-3 bg-transparent">
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600">{t('计费类型')}</span>
+                              <div>{renderQuotaType(parseInt(model.quota_type))}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-gray-600 mb-1">{t('可用分组')}</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {model.enable_groups.map((group) => {
+                                  if (usableGroup[group]) {
+                                    const colorStyle = getGroupColor(group);
+
+                                    if (group === selectedGroup) {
+                                      return (
+                                          <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            {group}
+                                          </div>
+                                      );
+                                    } else {
+                                      return (
+                                          <div
+                                              key={group}
+                                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
+                                              onClick={() => {
+                                                setSelectedGroup(group);
+                                                setActivePage(1); // 重置页码为第一页
+                                                showInfo(t('当前查看的分组为：{{group}}', {
+                                                  group: group
+                                                }));
+                                              }}
+                                          >
+                                            {group}
+                                          </div>
+                                      );
+                                    }
+                                  }
+                                  return null;
+                                })}
+                              </div>
+                            </div>
+
+                            {showRatioColumn && (
+                                <div>
+                                  <div className="text-gray-600 mb-1">{t('倍率')}</div>
+                                  <div className="bg-gray-50 p-2 rounded text-sm space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">{t('模型倍率')}</span>
+                                      <span className="font-medium text-gray-700">{model.quota_type === 0 ? model.model_ratio : t('无')}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">{t('补全倍率')}</span>
+                                      <span className="font-medium text-gray-700">{model.quota_type === 0 ? parseFloat(model.completion_ratio.toFixed(3)) : t('无')}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">{t('分组倍率')}</span>
+                                      <span className="font-medium text-gray-700">1</span>
+                                    </div>
+                                  </div>
+                                </div>
+                            )}
+
+                            <div>
+                              <div className="text-gray-600 mb-1">{t('模型价格')}</div>
+                              <div className="bg-blue-50 bg-opacity-60 p-2 rounded text-sm">
+                                {model.quota_type === 0 ? (
+                                    <>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-gray-500">{t('提示')}</span>
+                                        <span className="font-medium text-blue-500">
+                                  {currencyType === 'USD' ? '$' : '￥'}
+                                          {currencyType === 'CNY'
+                                              ? ((model.model_ratio * 2 * 1)).toFixed(2)
+                                              : (model.model_ratio * 2 * 1).toFixed(2)} / 1M tokens
+                                </span>
+                                      </div>
+                                      <div className="flex justify-between items-center mt-1">
+                                        <span className="text-gray-500">{t('补全')}</span>
+                                        <span className="font-medium text-blue-500">
+                                  {currencyType === 'USD' ? '$' : '￥'}
+                                          {currencyType === 'CNY'
+                                              ? ((model.model_ratio * model.completion_ratio * 2 * 1)).toFixed(2)
+                                              : (model.model_ratio * model.completion_ratio * 2 * 1/7.29).toFixed(2)} / 1M tokens
+                                </span>
+                                      </div>
+                                    </>
+                                ) : (
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-gray-500">{t('模型价格')}</span>
+                                      <span className="font-medium text-blue-500">
+                                {currencyType === 'USD' ? '$' : '￥'}
+                                        {(parseFloat(model.model_price) * 1).toFixed(2)}
+                              </span>
+                                    </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-gray-600 mb-1">{t('模型描述')}</div>
+                              <div className="text-gray-500 text-sm line-clamp-4 min-h-[5em] bg-gray-50 p-2 rounded">
+                                {model.model_description}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    ))
+                )}
+
+                {/* 移动端分页器 */}
+                {filteredModels.length > 0 && (
+                    <div className="flex flex-col items-center mt-6 gap-3">
+                      <div className="inline-flex items-center shadow-sm rounded-md">
+                        <button
+                            className="px-3 py-1 bg-white border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={activePage === 1}
+                            onClick={() => setActivePage(prev => prev - 1)}
+                        >
+                          <IconChevronLeft size="small" />
+                        </button>
+                        <div className="px-4 py-1 bg-white border-t border-b border-gray-300 text-gray-700">
+                          {activePage} / {Math.ceil(filteredModels.length / pageSize)}
+                        </div>
+                        <button
+                            className="px-3 py-1 bg-white border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={activePage === Math.ceil(filteredModels.length / pageSize)}
+                            onClick={() => setActivePage(prev => prev + 1)}
+                        >
+                          <IconChevronRight size="small" />
+                        </button>
+                      </div>
+
+                      {/* 每页显示条数选择 */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">{t('每页显示')}:</span>
+                        <div className="inline-flex rounded-md shadow-sm">
+                          {[5, 10, 20, 50].map(size => (
+                              <button
+                                  key={size}
+                                  className={`px-2.5 py-1 border border-gray-300 text-xs font-medium ${
+                                      pageSize === size
+                                          ? 'bg-blue-50 text-blue-700 border-blue-300 z-10'
+                                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                                  } ${
+                                      size === 5 ? 'rounded-l-md' : ''
+                                  } ${
+                                      size === 50 ? 'rounded-r-md' : ''
+                                  }`}
+                                  onClick={() => {
+                                    setPageSize(size);
+                                    setActivePage(1);
+                                  }}
+                              >
+                                {size}
+                              </button>
+                          ))}
+                        </div>
+                        <span className="text-gray-600">{t('条')}</span>
+                      </div>
+
+                      <div className="text-xs text-gray-500">
+                        {t('第 {{start}} - {{end}} 条，共 {{total}} 条', {
+                          start: Math.min((activePage - 1) * pageSize + 1, filteredModels.length),
+                          end: Math.min(activePage * pageSize, filteredModels.length),
+                          total: filteredModels.length
+                        })}
+                      </div>
+                    </div>
+                )}
+              </div>
+
+              <ImagePreview
+                  src={modalImageUrl}
+                  visible={isModalOpenurl}
+                  onVisibleChange={(visible) => setIsModalOpenurl(visible)}
+              />
+            </Card>
+          </div>
+        </Layout>
+      </>
   );
 };
 

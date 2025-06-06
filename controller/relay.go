@@ -37,7 +37,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		rawBody, _ := common.GetRequestBody(c)
 		if err := json.Unmarshal(rawBody, &requestBody); err == nil {
 			if len(requestBody.Messages) > 0 && requestBody.Messages[len(requestBody.Messages)-1].Content == "" {
@@ -47,7 +47,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 						Type:    "invalid_request_error",
 						Code:    "content_empty",
 					},
-					StatusCode:  http.StatusBadRequest,
+					StatusCode: http.StatusBadRequest,
 					LocalError: true,
 				}
 			}
@@ -92,7 +92,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 
 		// 如果是自定义渠道，使用统一的友好错误信息
 		if channelType == common.ChannelTypeCustom && !err.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", originalMessage))
+			//common.LogError(c, fmt.Sprintf("custom channel original error: %s", originalMessage))
 			err.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			err.Error.Type = "service_unavailable"
 			err.Error.Code = "service_error"
@@ -134,7 +134,7 @@ func Relay(c *gin.Context) {
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
 			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -189,11 +189,11 @@ func Relay(c *gin.Context) {
 
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
+			//common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
+			//common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
 
@@ -265,7 +265,7 @@ func WssRelay(c *gin.Context) {
 
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom && !openaiErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
+			//common.LogError(c, fmt.Sprintf("custom channel original error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			openaiErr.Error.Type = "service_unavailable"
 		} else if openaiErr.StatusCode == http.StatusTooManyRequests {
@@ -302,7 +302,7 @@ func RelayClaude(c *gin.Context) {
 		}
 
 		openaiErr := service.ClaudeErrorToOpenAIError(claudeErr)
-		
+
 		// 同步处理渠道错误，确保及时更新渠道状态
 		processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
@@ -318,14 +318,14 @@ func RelayClaude(c *gin.Context) {
 
 	if claudeErr != nil {
 		channelType := c.GetInt("channel_type")
-		
+
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom {
-			common.LogError(c, fmt.Sprintf("custom channel original error: %s", claudeErr.Error.Message))
+			//common.LogError(c, fmt.Sprintf("custom channel original error: %s", claudeErr.Error.Message))
 			claudeErr.Error.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			claudeErr.Error.Type = "service_unavailable"
 		}
-		
+
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
 			"type":  "error",
@@ -348,7 +348,7 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.Op
 			} `json:"messages"`
 			Stream bool `json:"stream"`
 		}
-		
+
 		if err := json.Unmarshal(requestBody, &chatRequest); err == nil {
 			if len(chatRequest.Messages) > 0 && chatRequest.Messages[len(chatRequest.Messages)-1].Content == "" {
 				return &dto.OpenAIErrorWithStatusCode{
@@ -357,7 +357,7 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.Op
 						Type:    "invalid_request_error",
 						Code:    "content_empty",
 					},
-					StatusCode:  http.StatusBadRequest,
+					StatusCode: http.StatusBadRequest,
 					LocalError: true,
 				}
 			}
@@ -519,25 +519,25 @@ func RelayNotFound(c *gin.Context) {
 func RelayTask(c *gin.Context) {
 	// 使用新的重试配置，支持更多重试次数和循环重试
 	retryTimes := common.GetEffectiveMaxRetryTimes()
-	
+
 	channelId := c.GetInt("channel_id")
 	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
-	
+
 	c.Set("use_channel", []string{fmt.Sprintf("%d", channelId)})
 	taskErr := taskRelayHandler(c, relayMode)
 	if taskErr == nil {
 		return // 成功处理请求，直接返回
 	}
-	
+
 	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
 		channel, err := model.CacheGetRandomSatisfiedChannel(group, originalModel, i+1)
 		if err != nil {
 			common.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", err.Error()))
 			break
 		}
-		
+
 		channelId = channel.Id
 		useChannel := c.GetStringSlice("use_channel")
 		useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
@@ -548,7 +548,7 @@ func RelayTask(c *gin.Context) {
 		requestBody, err := common.GetRequestBody(c)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 		taskErr = taskRelayHandler(c, relayMode)
-		
+
 		if taskErr == nil {
 			return // 成功处理请求，直接返回
 		}
@@ -560,22 +560,22 @@ func RelayTask(c *gin.Context) {
 	}
 	if taskErr != nil {
 		channelType := c.GetInt("channel_type")
-		
+
 		// 记录原始错误信息
-		originalMessage := taskErr.Message
-		originalCode := taskErr.Code
-		
+		//originalMessage := taskErr.Message
+		//originalCode := taskErr.Code
+
 		// 自定义渠道统一返回友好错误，避免泄露上游错误信息
 		if channelType == common.ChannelTypeCustom && !taskErr.LocalError {
-			common.LogError(c, fmt.Sprintf("custom channel original task error (code: %s): %s", 
-				originalCode, originalMessage))
+			//common.LogError(c, fmt.Sprintf("custom channel original task error (code: %s): %s",
+			//	originalCode, originalMessage))
 			taskErr.Message = "当前渠道由于负载较大，暂不可用，请稍后重试"
 			taskErr.Code = "service_error"
 		} else if taskErr.StatusCode == http.StatusTooManyRequests {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", taskErr.Message))
 			taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
 		}
-		
+
 		c.JSON(taskErr.StatusCode, taskErr)
 	}
 }
@@ -609,9 +609,9 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 	}
 	if taskErr.StatusCode/100 == 5 {
 		// 超时不重试
-		if taskErr.StatusCode == 504 || taskErr.StatusCode == 524 {
-			return false
-		}
+		//if taskErr.StatusCode == 504 || taskErr.StatusCode == 524 {
+		//	return false
+		//}
 		return true
 	}
 	if taskErr.StatusCode == http.StatusBadRequest {
