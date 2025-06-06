@@ -149,6 +149,21 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 	contentUpstream string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
 
+	// 从context中获取token信息
+	promptTokens := 0
+	if value, exists := c.Get("prompt_tokens"); exists {
+		if tokens, ok := value.(int); ok {
+			promptTokens = tokens
+		}
+	}
+	
+	completionTokens := 0
+	if value, exists := c.Get("completion_tokens"); exists {
+		if tokens, ok := value.(int); ok {
+			completionTokens = tokens
+		}
+	}
+
 	// 判断contentUpstream是否不为空
 	if contentUpstream != "" {
 		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
@@ -160,9 +175,9 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			Username:         c.GetString("username") + "_root显示 ",
 			CreatedAt:        common.GetTimestamp(),
 			Type:             LogTypeError,
-			Content:          contentUpstream + "， 重试 " + c.GetString("retry_times") + " 次",
-			PromptTokens:     0,
-			CompletionTokens: 0,
+			Content:          contentUpstream + formatRetryInfo(c),
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
 			TokenName:        tokenName,
 			ModelName:        modelName,
 			Quota:            0,
@@ -190,8 +205,8 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			CreatedAt:        common.GetTimestamp(),
 			Type:             LogTypeError,
 			Content:          content,
-			PromptTokens:     0,
-			CompletionTokens: 0,
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
 			TokenName:        tokenName,
 			ModelName:        modelName,
 			Quota:            0,
@@ -514,4 +529,12 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 	}
 
 	return totalDeleted, nil
+}
+
+func formatRetryInfo(c *gin.Context) string {
+	retryTimes := c.GetString("retry_times")
+	if retryTimes == "" {
+		return ""
+	}
+	return fmt.Sprintf("， 重试 %s 次", retryTimes)
 }

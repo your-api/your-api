@@ -104,19 +104,27 @@ func Relay(c *gin.Context) {
 	originalModel := c.GetString("original_model")
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
-
+	// 使用新的重试配置
+	maxRetries := common.GetEffectiveMaxRetryTimes()
+	
+	for i := 0; i <= maxRetries; i++ {
 		c.Set("retry_times", i) // 设置重试次数到上下文中
-		if i == common.RetryTimes {
-			c.Set("is_last", true) // 最后一次重试时设置 is_list 为 true
+		if i == maxRetries {
+			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
 		} else {
-			c.Set("is_last", false) // 其他重试次数设置 is_list 为 false
+			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
+		
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
 			openaiErr = service.OpenAIErrorWrapperLocal(err, "get_channel_failed", http.StatusInternalServerError)
 			break
+		}
+
+		// 记录重试信息
+		if i > 0 {
+			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		openaiErr = relayRequest(c, relayMode, channel)
@@ -127,10 +135,11 @@ func Relay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetries-i) {
 			break
 		}
 	}
+	
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -176,12 +185,20 @@ func WssRelay(c *gin.Context) {
 	originalModel := c.GetString("original_model")
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
+	// 使用新的重试配置
+	maxRetries := common.GetEffectiveMaxRetryTimes()
+	
+	for i := 0; i <= maxRetries; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
 			openaiErr = service.OpenAIErrorWrapperLocal(err, "get_channel_failed", http.StatusInternalServerError)
 			break
+		}
+
+		// 记录重试信息
+		if i > 0 {
+			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		openaiErr = wssRequest(c, ws, relayMode, channel)
@@ -192,10 +209,11 @@ func WssRelay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetries-i) {
 			break
 		}
 	}
+	
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -212,18 +230,30 @@ func WssRelay(c *gin.Context) {
 }
 
 func RelayClaude(c *gin.Context) {
-	//relayMode := constant.Path2RelayMode(c.Request.URL.Path)
 	requestId := c.GetString(common.RequestIdKey)
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
 	var claudeErr *dto.ClaudeErrorWithStatusCode
 
-	for i := 0; i <= common.RetryTimes; i++ {
+	// 使用新的重试配置
+	maxRetries := common.GetEffectiveMaxRetryTimes()
+	
+	for i := 0; i <= maxRetries; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
-			claudeErr = service.ClaudeErrorWrapperLocal(err, "get_channel_failed", http.StatusInternalServerError)
+			claudeErr = &dto.ClaudeErrorWithStatusCode{
+				Error: dto.ClaudeError{
+					Message: fmt.Sprintf("获取渠道失败: %s", err.Error()),
+				},
+				StatusCode: http.StatusInternalServerError,
+			}
 			break
+		}
+
+		// 记录重试信息
+		if i > 0 {
+			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		claudeErr = claudeRequest(c, channel)
@@ -232,14 +262,22 @@ func RelayClaude(c *gin.Context) {
 			return // 成功处理请求，直接返回
 		}
 
-		openaiErr := service.ClaudeErrorToOpenAIError(claudeErr)
+		// 转换为OpenAIError进行处理
+		openaiErr := &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: claudeErr.Error.Message,
+				Type:    "claude_error",
+			},
+			StatusCode: claudeErr.StatusCode,
+		}
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, common.RetryTimes-i) {
+		if !shouldRetry(c, openaiErr, maxRetries-i) {
 			break
 		}
 	}
+	
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -247,9 +285,11 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if claudeErr != nil {
+		if claudeErr.StatusCode == http.StatusTooManyRequests {
+			claudeErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+		}
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
-			"type":  "error",
 			"error": claudeErr.Error,
 		})
 	}
@@ -308,15 +348,35 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 	if openaiErr == nil {
 		return false
 	}
-	if openaiErr.LocalError {
-		return false
-	}
 	if retryTimes <= 0 {
 		return false
 	}
 	if _, ok := c.Get("specific_channel_id"); ok {
 		return false
 	}
+	
+	// 特殊处理：如果是配额相关的本地错误，检查是否是可重试的情况
+	if openaiErr.LocalError {
+		// 检查是否是可重试的配额错误
+		errorMessage := openaiErr.Error.Message
+		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") {
+			// 如果是token配额不足，可以尝试其他渠道
+			if strings.Contains(errorMessage, "token quota is not enough") || 
+			   strings.Contains(errorMessage, "pre_consume_token_quota_failed") {
+				common.LogInfo(c, "token quota insufficient, will try other channels")
+				return true
+			}
+			// 如果是用户配额不足，不重试（用户真的没钱了）
+			if strings.Contains(errorMessage, "user quota is not enough") ||
+			   strings.Contains(errorMessage, "insufficient_user_quota") {
+				common.LogInfo(c, "user quota insufficient, will not retry")
+				return false
+			}
+		}
+		// 其他本地错误不重试
+		return false
+	}
+	
 	if openaiErr.StatusCode == http.StatusTooManyRequests {
 		return true
 	}
@@ -411,7 +471,7 @@ func RelayNotFound(c *gin.Context) {
 }
 
 func RelayTask(c *gin.Context) {
-	retryTimes := common.RetryTimes
+	maxRetries := common.GetEffectiveMaxRetryTimes()
 	channelId := c.GetInt("channel_id")
 	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")
@@ -419,9 +479,9 @@ func RelayTask(c *gin.Context) {
 	c.Set("use_channel", []string{fmt.Sprintf("%d", channelId)})
 	taskErr := taskRelayHandler(c, relayMode)
 	if taskErr == nil {
-		retryTimes = 0
+		maxRetries = 0
 	}
-	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
+	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, maxRetries) && i < maxRetries; i++ {
 		channel, err := model.CacheGetRandomSatisfiedChannel(group, originalModel, i)
 		if err != nil {
 			common.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", err.Error()))
@@ -431,7 +491,7 @@ func RelayTask(c *gin.Context) {
 		useChannel := c.GetStringSlice("use_channel")
 		useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
 		c.Set("use_channel", useChannel)
-		common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, i))
+		common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		middleware.SetupContextForSelectedChannel(c, channel, originalModel)
 
 		requestBody, err := common.GetRequestBody(c)

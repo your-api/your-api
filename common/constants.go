@@ -103,7 +103,7 @@ var AutomaticEnableChannelEnabled = false
 var QuotaRemindThreshold = 1000
 var PreConsumedQuota = 500
 
-var RetryTimes = 0
+var RetryTimes = 3
 
 // 新增优化重试配置
 var MaxRetryTimes = 10          // 最大重试次数，可以配置

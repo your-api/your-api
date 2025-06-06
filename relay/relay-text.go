@@ -126,6 +126,7 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 			return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
 		}
 		c.Set("prompt_tokens", promptTokens)
+		relayInfo.PromptTokens = promptTokens
 	}
 
 	priceData, err := helper.ModelPriceHelper(c, relayInfo, promptTokens, int(math.Max(float64(textRequest.MaxTokens), float64(textRequest.MaxCompletionTokens))))
