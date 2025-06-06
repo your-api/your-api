@@ -117,9 +117,10 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 	isStream bool, group string, other map[string]interface{}) {
 	common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
 		userId, channelId, modelName, tokenName, content))
-	username := c.GetString("username") + " root显示 "
+	username := c.GetString("username")
+	//username := c.GetString("username") + " root显示 "
 	//username := "root"
-	userId = 1 // 默认记录 root 用户的错误日志
+	//userId = 1 // 默认记录 root 用户的错误日志
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
