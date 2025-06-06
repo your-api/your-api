@@ -29,7 +29,7 @@ export default function BubbleText({
                 svg
             )}
           <span className="flex items-center">
-            {t(bubbleText)}
+            {bubbleText}
           </span>
         </div>
     );

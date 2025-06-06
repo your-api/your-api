@@ -42,7 +42,7 @@ type DiscountTier struct {
 // 默认配置
 var generalSetting = GeneralSetting{
 	DocsLink:            "https://openai.apifox.cn",
-	PingIntervalEnabled: false,
+	PingIntervalEnabled: true,
 	PingIntervalSeconds: 60,
 }
 

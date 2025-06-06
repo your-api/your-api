@@ -19,14 +19,14 @@ func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
 	}
-	
+
 	// 添加defer函数捕获panic，避免系统崩溃
 	defer func() {
 		if r := recover(); r != nil {
 			common.SysError(fmt.Sprintf("InitChannelCache panic recovered: %v", r))
 		}
 	}()
-	
+
 	newChannelId2channel := make(map[int]*Channel)
 	var channels []*Channel
 	DB.Where("status = ?", common.ChannelStatusEnabled).Find(&channels)
@@ -41,12 +41,12 @@ func InitChannelCache() {
 	}
 	newGroup2model2channels := make(map[string]map[string][]*Channel)
 	newChannelsIDM := make(map[int]*Channel)
-	
+
 	// 预先初始化所有group的map
 	for group := range groups {
 		newGroup2model2channels[group] = make(map[string][]*Channel)
 	}
-	
+
 	for _, channel := range channels {
 		newChannelsIDM[channel.Id] = channel
 		groups := strings.Split(channel.Group, ",")
@@ -55,7 +55,7 @@ func InitChannelCache() {
 			if _, exists := newGroup2model2channels[group]; !exists {
 				newGroup2model2channels[group] = make(map[string][]*Channel)
 			}
-			
+
 			models := strings.Split(channel.Models, ",")
 			for _, model := range models {
 				if _, ok := newGroup2model2channels[group][model]; !ok {
@@ -113,14 +113,13 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	}
 
 	// 获取所有唯一优先级并按从高到低排序
-	uniquePriorities := make(map[int]bool)
+	// uniquePriorities2 int数组
+	sortedUniquePriorities := []int{}
+
 	for _, channel := range channels {
-		uniquePriorities[int(channel.GetPriority())] = true
+		sortedUniquePriorities = append(sortedUniquePriorities, int(channel.GetPriority()))
 	}
-	var sortedUniquePriorities []int
-	for priority := range uniquePriorities {
-		sortedUniquePriorities = append(sortedUniquePriorities, priority)
-	}
+
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
 	// 如果重试次数超过优先级数量，使用模运算实现循环
@@ -128,7 +127,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	if len(sortedUniquePriorities) == 0 {
 		return nil, errors.New("no available priorities")
 	}
-	
+
 	// 使用新的重试配置计算优先级索引
 	priorityIndex := common.CalculateRetryIndex(retry, len(sortedUniquePriorities))
 	targetPriority := int64(sortedUniquePriorities[priorityIndex])
@@ -146,7 +145,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	}
 
 	// 对同优先级的渠道进行随机排序，实现负载均衡
-	common.ShuffleChannels(targetChannels)
+	//common.ShuffleChannels(targetChannels)
 
 	// 平滑系数
 	smoothingFactor := 10

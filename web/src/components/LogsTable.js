@@ -198,17 +198,13 @@ const LogsTable = () => {
   }
 
   function renderModelName(record) {
-    let other = getLogOther(record.other);
-    let modelMapped =
-      other?.is_model_mapped &&
-      other?.upstream_model_name &&
-      other?.upstream_model_name !== '';
     return (
         <div
             onClick={(event) => {
               copyText(event, record.model_name).then((r) => {});
             }}
         >
+          {/*{record.model_name}*/}
           <BubbleText bubbleText={record.model_name}/>
         </div>
     );
@@ -962,16 +958,10 @@ const LogsTable = () => {
           other?.is_model_mapped &&
           other?.upstream_model_name &&
           other?.upstream_model_name !== '';
-        if (modelMapped) {
-          expandDataLocal.push({
-            key: t('请求并计费模型'),
-            value: logs[i].model_name,
-          });
-          expandDataLocal.push({
-            key: t('实际模型'),
-            value: other.upstream_model_name,
-          });
-        }
+        expandDataLocal.push({
+          key: t('请求并计费模型'),
+          value: logs[i].model_name,
+        });
         let content = '';
         if (other?.ws || other?.audio) {
           content = renderAudioModelPrice(

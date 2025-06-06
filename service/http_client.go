@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"one-api/common"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -16,13 +15,18 @@ var httpClient *http.Client
 var impatientHTTPClient *http.Client
 
 func init() {
-	if common.RelayTimeout == 0 {
-		httpClient = &http.Client{}
-	} else {
-		httpClient = &http.Client{
-			Timeout: time.Duration(common.RelayTimeout) * time.Second,
-		}
+
+	httpClient = &http.Client{
+		Timeout: time.Duration(3000) * time.Second,
 	}
+
+	//if common.RelayTimeout == 0 {
+	//	httpClient = &http.Client{}
+	//} else {
+	//	httpClient = &http.Client{
+	//		Timeout: time.Duration(common.RelayTimeout) * time.Second,
+	//	}
+	//}
 
 	impatientHTTPClient = &http.Client{
 		Timeout: 5 * time.Second,
