@@ -91,7 +91,7 @@ func relayHandler(c *gin.Context, relayMode int) *dto.OpenAIErrorWithStatusCode 
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
 
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.Error.Message, tokenId, 0, false, userGroup, other)
+		model.RecordErrorLogDouble(c, userId, channelId, modelName, tokenName, err.Error.Message, err.UpstreamErrorInfo.Message, tokenId, 0, false, userGroup, other)
 	}
 
 	return err
@@ -105,6 +105,13 @@ func Relay(c *gin.Context) {
 	var openaiErr *dto.OpenAIErrorWithStatusCode
 
 	for i := 0; i <= common.RetryTimes; i++ {
+
+		c.Set("retry_times", i) // 设置重试次数到上下文中
+		if i == common.RetryTimes {
+			c.Set("is_last", true) // 最后一次重试时设置 is_list 为 true
+		} else {
+			c.Set("is_last", false) // 其他重试次数设置 is_list 为 false
+		}
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())

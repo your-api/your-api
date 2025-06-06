@@ -8,9 +8,11 @@ type OpenAIError struct {
 }
 
 type OpenAIErrorWithStatusCode struct {
-	Error      OpenAIError `json:"error"`
-	StatusCode int         `json:"status_code"`
-	LocalError bool
+	Error             OpenAIError `json:"error"`
+	UpstreamError     bool        `json:"-"`
+	UpstreamErrorInfo OpenAIError `json:"-"`
+	StatusCode        int         `json:"status_code"`
+	LocalError        bool
 }
 
 type GeneralErrorResponse struct {

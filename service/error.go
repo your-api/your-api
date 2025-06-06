@@ -100,14 +100,17 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 		}
 		return
 	}
+
+	errWithStatusCode.UpstreamError = true
+	errWithStatusCode.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 	if errResponse.Error.Message != "" {
 		// OpenAI format error, so we override the default one
-		errWithStatusCode.Error = errResponse.Error
+		errWithStatusCode.UpstreamErrorInfo = errResponse.Error
 	} else {
-		errWithStatusCode.Error.Message = errResponse.ToMessage()
+		errWithStatusCode.UpstreamErrorInfo.Message = errResponse.ToMessage()
 	}
-	if errWithStatusCode.Error.Message == "" {
-		errWithStatusCode.Error.Message = fmt.Sprintf("bad response status code %d", resp.StatusCode)
+	if errWithStatusCode.UpstreamErrorInfo.Message == "" {
+		errWithStatusCode.UpstreamErrorInfo.Message = fmt.Sprintf("bad response status code %d", resp.StatusCode)
 	}
 	return
 }

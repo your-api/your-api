@@ -145,6 +145,71 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 	}
 }
 
+func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string,
+	contentUpstream string, tokenId int, useTimeSeconds int,
+	isStream bool, group string, other map[string]interface{}) {
+
+	// 判断contentUpstream是否不为空
+	if contentUpstream != "" {
+		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+			userId, channelId, modelName, tokenName, content))
+		//username := "root"
+		//userId = 1 // 默认记录 root 用户的错误日志
+		log := &Log{
+			UserId:           1,
+			Username:         c.GetString("username") + "_root显示 ",
+			CreatedAt:        common.GetTimestamp(),
+			Type:             LogTypeError,
+			Content:          contentUpstream + "， 重试 " + c.GetString("retry_times") + " 次",
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TokenName:        tokenName,
+			ModelName:        modelName,
+			Quota:            0,
+			ChannelId:        channelId,
+			TokenId:          tokenId,
+			UseTime:          useTimeSeconds,
+			IsStream:         isStream,
+			Group:            group,
+			Other:            common.MapToJsonStr(other),
+		}
+		table := getLogTableByUser(1)
+		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
+			common.LogError(c, "failed to record log: "+err.Error())
+		}
+	}
+
+	if isLast, exists := c.Get("is_last"); exists && isLast == true {
+
+		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+			userId, channelId, modelName, tokenName, content))
+		username := c.GetString("username")
+		log := &Log{
+			UserId:           userId,
+			Username:         username,
+			CreatedAt:        common.GetTimestamp(),
+			Type:             LogTypeError,
+			Content:          content,
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TokenName:        tokenName,
+			ModelName:        modelName,
+			Quota:            0,
+			ChannelId:        channelId,
+			TokenId:          tokenId,
+			UseTime:          useTimeSeconds,
+			IsStream:         isStream,
+			Group:            group,
+			Other:            common.MapToJsonStr(other),
+		}
+		table := getLogTableByUser(userId)
+		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
+			common.LogError(c, "failed to record log: "+err.Error())
+		}
+	}
+
+}
+
 func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens int, completionTokens int,
 	modelName string, tokenName string, quota int, content string, tokenId int, userQuota int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
