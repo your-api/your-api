@@ -269,7 +269,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		}, nil
 	}
 
-	// 检测空回复：如果没有choices或者所有choices的content都为空
+	// 检测空回复：如果没有choices
 	if len(simpleResponse.Choices) == 0 {
 		c.Set("completion_tokens", 0)
 		common.LogWarn(c, "非流式请求返回空choices，应该重试其他渠道")
@@ -287,10 +287,9 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	// 检查是否所有choices都没有内容
 	hasContent := false
 	for _, choice := range simpleResponse.Choices {
-		if choice.Message != nil && 
-		   (choice.Message.StringContent() != "" || 
-		    choice.Message.ReasoningContent != "" || 
-		    choice.Message.Reasoning != "") {
+		if choice.Message.StringContent() != "" || 
+		   choice.Message.ReasoningContent != "" || 
+		   choice.Message.Reasoning != "" {
 			hasContent = true
 			break
 		}
