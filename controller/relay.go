@@ -137,8 +137,8 @@ func Relay(c *gin.Context) {
 		}
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		c.JSON(openaiErr.StatusCode, gin.H{
-			//"error": openaiErr.Error,
-			"error": "当前分组上游负载已饱和，请稍后再试",
+			"error": openaiErr.Error,
+			//"error": "当前分组上游负载已饱和，请稍后再试",
 		})
 	}
 }
