@@ -182,7 +182,19 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	})
 
 	if isEmptyResp {
-		return service.OpenAIErrorWrapper(fmt.Errorf("empty response"), "empty_response", http.StatusInternalServerError), nil
+		// 设置completion_tokens为0以便错误日志记录
+		c.Set("completion_tokens", 0)
+		common.LogWarn(c, "流式请求返回空回复，应该重试其他渠道")
+		// 返回可重试的错误，不标记为LocalError
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "stream response is empty, should retry other channels",
+				Type:    "empty_stream_response",
+				Code:    "empty_response",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
 	}
 
 	shouldSendLastResp := true
@@ -227,6 +239,9 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			}
 		}
 	}
+	
+	// 设置token信息到context中，以便错误日志记录
+	c.Set("completion_tokens", usage.CompletionTokens)
 
 	handleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
@@ -254,11 +269,48 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		}, nil
 	}
 
-	forceFormat := false
-	if forceFmt, ok := info.ChannelSetting[constant.ForceFormat].(bool); ok {
-		forceFormat = forceFmt
+	// 检测空回复：如果没有choices或者所有choices的content都为空
+	if len(simpleResponse.Choices) == 0 {
+		c.Set("completion_tokens", 0)
+		common.LogWarn(c, "非流式请求返回空choices，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "non-stream response has empty choices, should retry other channels",
+				Type:    "empty_response",
+				Code:    "empty_choices",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
 	}
 
+	// 检查是否所有choices都没有内容
+	hasContent := false
+	for _, choice := range simpleResponse.Choices {
+		if choice.Message != nil && 
+		   (choice.Message.StringContent() != "" || 
+		    choice.Message.ReasoningContent != "" || 
+		    choice.Message.Reasoning != "") {
+			hasContent = true
+			break
+		}
+	}
+
+	if !hasContent {
+		c.Set("completion_tokens", 0)
+		common.LogWarn(c, "非流式请求返回空内容，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "non-stream response has empty content, should retry other channels",
+				Type:    "empty_response",
+				Code:    "empty_content",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	// 计算token usage
 	if simpleResponse.Usage.TotalTokens == 0 || (simpleResponse.Usage.PromptTokens == 0 && simpleResponse.Usage.CompletionTokens == 0) {
 		completionTokens := 0
 		for _, choice := range simpleResponse.Choices {
@@ -270,6 +322,28 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 			CompletionTokens: completionTokens,
 			TotalTokens:      info.PromptTokens + completionTokens,
 		}
+	}
+
+	// 设置token信息到context中，以便错误日志记录
+	c.Set("completion_tokens", simpleResponse.Usage.CompletionTokens)
+
+	// 二次检查：如果计算出的completion tokens为0，也应该重试
+	if simpleResponse.Usage.CompletionTokens == 0 {
+		common.LogWarn(c, "非流式请求计算出的completion tokens为0，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "non-stream response has zero completion tokens, should retry other channels",
+				Type:    "empty_response",
+				Code:    "zero_completion_tokens",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	forceFormat := false
+	if forceFmt, ok := info.ChannelSetting[constant.ForceFormat].(bool); ok {
+		forceFormat = forceFmt
 	}
 
 	switch info.RelayFormat {
@@ -291,6 +365,7 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		responseBody = claudeRespStr
 	}
 
+	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
 	// Reset response body
 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
 	// We shouldn't set the header before we parse the response body, because the parse part may fail.

@@ -355,6 +355,28 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 		return false
 	}
 	
+	// 🚀 新增优化：非流式请求只要有错误就重试
+	// 检查是否为非流式请求
+	if isStream, exists := c.Get("is_stream"); exists {
+		if !isStream.(bool) {
+			// 非流式请求，只要有错误就重试（但排除一些明确不应重试的错误）
+			errorMessage := openaiErr.Error.Message
+			
+			// 用户配额不足时不重试（用户真的没钱了）
+			if strings.Contains(errorMessage, "user quota is not enough") ||
+			   strings.Contains(errorMessage, "insufficient_user_quota") {
+				common.LogInfo(c, "non-stream request: user quota insufficient, will not retry")
+				return false
+			}
+			
+			// 其他所有错误都重试
+			common.LogInfo(c, "non-stream request: error detected, will try other channels")
+			return true
+		}
+	}
+	
+	// 流式请求或无法确定stream类型时，使用原有逻辑
+	
 	// 特殊处理：如果是配额相关的本地错误，检查是否是可重试的情况
 	if openaiErr.LocalError {
 		// 检查是否是可重试的配额错误
@@ -362,7 +384,8 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") {
 			// 如果是token配额不足，可以尝试其他渠道
 			if strings.Contains(errorMessage, "token quota is not enough") || 
-			   strings.Contains(errorMessage, "pre_consume_token_quota_failed") {
+			   strings.Contains(errorMessage, "pre_consume_token_quota_failed") ||
+			   strings.Contains(errorMessage, "token remain quota") {
 				common.LogInfo(c, "token quota insufficient, will try other channels")
 				return true
 			}
@@ -375,6 +398,18 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 		}
 		// 其他本地错误不重试
 		return false
+	}
+	
+	// 特殊处理：检查是否是空回复错误（流式和非流式）
+	errorMessage := openaiErr.Error.Message
+	if strings.Contains(errorMessage, "empty response") || 
+	   strings.Contains(errorMessage, "empty_response") ||
+	   strings.Contains(errorMessage, "stream response is empty") ||
+	   strings.Contains(errorMessage, "zero completion tokens") ||
+	   openaiErr.Error.Type == "empty_stream_response" ||
+	   openaiErr.Error.Type == "empty_response" {
+		common.LogInfo(c, "empty response detected, will try other channels")
+		return true
 	}
 	
 	if openaiErr.StatusCode == http.StatusTooManyRequests {

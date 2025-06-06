@@ -103,12 +103,12 @@ var AutomaticEnableChannelEnabled = false
 var QuotaRemindThreshold = 1000
 var PreConsumedQuota = 500
 
-var RetryTimes = 3
+var RetryTimes = 4
 
 // 新增优化重试配置
-var MaxRetryTimes = 10          // 最大重试次数，可以配置
-var EnableCyclicRetry = true    // 是否启用循环重试（当重试次数超过优先级数量时循环使用优先级）
-var RetryAllPriorities = true   // 是否尝试所有优先级的渠道
+var MaxRetryTimes = 10        // 最大重试次数，可以配置
+var EnableCyclicRetry = true  // 是否启用循环重试（当重试次数超过优先级数量时循环使用优先级）
+var RetryAllPriorities = true // 是否尝试所有优先级的渠道
 
 //var RootUserEmail = ""
 

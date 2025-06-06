@@ -81,6 +81,10 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 		}
 	}
 	relayInfo.IsStream = textRequest.Stream
+	
+	// 设置stream信息到context，以便shouldRetry函数使用
+	c.Set("is_stream", textRequest.Stream)
+	
 	return textRequest, nil
 }
 
