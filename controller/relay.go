@@ -106,7 +106,7 @@ func Relay(c *gin.Context) {
 
 	// 使用新的重试配置
 	maxRetries := common.GetEffectiveMaxRetryTimes()
-	
+
 	for i := 0; i <= maxRetries; i++ {
 		c.Set("retry_times", i) // 设置重试次数到上下文中
 		if i == maxRetries {
@@ -114,7 +114,7 @@ func Relay(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
-		
+
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -139,7 +139,7 @@ func Relay(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -153,8 +153,8 @@ func Relay(c *gin.Context) {
 		}
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		c.JSON(openaiErr.StatusCode, gin.H{
-			"error": openaiErr.Error,
-			//"error": "当前分组上游负载已饱和，请稍后再试",
+			//"error": openaiErr.Error,
+			"error": "当前分组上游负载已饱和，请稍后再试",
 		})
 	}
 }
@@ -187,7 +187,7 @@ func WssRelay(c *gin.Context) {
 
 	// 使用新的重试配置
 	maxRetries := common.GetEffectiveMaxRetryTimes()
-	
+
 	for i := 0; i <= maxRetries; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
@@ -213,7 +213,7 @@ func WssRelay(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -237,7 +237,7 @@ func RelayClaude(c *gin.Context) {
 
 	// 使用新的重试配置
 	maxRetries := common.GetEffectiveMaxRetryTimes()
-	
+
 	for i := 0; i <= maxRetries; i++ {
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
@@ -277,7 +277,7 @@ func RelayClaude(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
@@ -354,44 +354,44 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 	if _, ok := c.Get("specific_channel_id"); ok {
 		return false
 	}
-	
+
 	// 🚀 新增优化：非流式请求只要有错误就重试
 	// 检查是否为非流式请求
 	if isStream, exists := c.Get("is_stream"); exists {
 		if !isStream.(bool) {
 			// 非流式请求，只要有错误就重试（但排除一些明确不应重试的错误）
 			errorMessage := openaiErr.Error.Message
-			
+
 			// 用户配额不足时不重试（用户真的没钱了）
 			if strings.Contains(errorMessage, "user quota is not enough") ||
-			   strings.Contains(errorMessage, "insufficient_user_quota") {
+				strings.Contains(errorMessage, "insufficient_user_quota") {
 				common.LogInfo(c, "non-stream request: user quota insufficient, will not retry")
 				return false
 			}
-			
+
 			// 其他所有错误都重试
 			common.LogInfo(c, "non-stream request: error detected, will try other channels")
 			return true
 		}
 	}
-	
+
 	// 流式请求或无法确定stream类型时，使用原有逻辑
-	
+
 	// 特殊处理：如果是配额相关的本地错误，检查是否是可重试的情况
 	if openaiErr.LocalError {
 		// 检查是否是可重试的配额错误
 		errorMessage := openaiErr.Error.Message
 		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") {
 			// 如果是token配额不足，可以尝试其他渠道
-			if strings.Contains(errorMessage, "token quota is not enough") || 
-			   strings.Contains(errorMessage, "pre_consume_token_quota_failed") ||
-			   strings.Contains(errorMessage, "token remain quota") {
+			if strings.Contains(errorMessage, "token quota is not enough") ||
+				strings.Contains(errorMessage, "pre_consume_token_quota_failed") ||
+				strings.Contains(errorMessage, "token remain quota") {
 				common.LogInfo(c, "token quota insufficient, will try other channels")
 				return true
 			}
 			// 如果是用户配额不足，不重试（用户真的没钱了）
 			if strings.Contains(errorMessage, "user quota is not enough") ||
-			   strings.Contains(errorMessage, "insufficient_user_quota") {
+				strings.Contains(errorMessage, "insufficient_user_quota") {
 				common.LogInfo(c, "user quota insufficient, will not retry")
 				return false
 			}
@@ -399,19 +399,19 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 		// 其他本地错误不重试
 		return false
 	}
-	
+
 	// 特殊处理：检查是否是空回复错误（流式和非流式）
 	errorMessage := openaiErr.Error.Message
-	if strings.Contains(errorMessage, "empty response") || 
-	   strings.Contains(errorMessage, "empty_response") ||
-	   strings.Contains(errorMessage, "stream response is empty") ||
-	   strings.Contains(errorMessage, "zero completion tokens") ||
-	   openaiErr.Error.Type == "empty_stream_response" ||
-	   openaiErr.Error.Type == "empty_response" {
+	if strings.Contains(errorMessage, "empty response") ||
+		strings.Contains(errorMessage, "empty_response") ||
+		strings.Contains(errorMessage, "stream response is empty") ||
+		strings.Contains(errorMessage, "zero completion tokens") ||
+		openaiErr.Error.Type == "empty_stream_response" ||
+		openaiErr.Error.Type == "empty_response" {
 		common.LogInfo(c, "empty response detected, will try other channels")
 		return true
 	}
-	
+
 	if openaiErr.StatusCode == http.StatusTooManyRequests {
 		return true
 	}
