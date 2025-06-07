@@ -1451,7 +1451,7 @@ const ModelPricing = ({onInitialize}) => {
                 </div>
               </div>
 
-              <div className="action-bar mb-4 flex items-center flex-wrap gap-2">
+              <div className=" mb-4 flex items-center flex-wrap gap-2">
                 <div className="search-section">
                   <Input
                       prefix={<IconHelpCircle size="small" />}
