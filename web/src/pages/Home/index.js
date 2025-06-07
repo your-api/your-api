@@ -385,7 +385,7 @@ const Home = () => {
         visible={apiDrawerVisible}
         onClose={() => setApiDrawerVisible(false)}
         baseUrl=""
-        modelId="gpt-4o"
+        modelId="azure:gpt-4o"
       />
 
       {/* 自定义通知弹窗 */}
