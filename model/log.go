@@ -13,6 +13,28 @@ import (
 	"gorm.io/gorm"
 )
 
+// getClientIP 获取客户端真实IP地址
+func getClientIP(c *gin.Context) string {
+	// 优先获取 X-Forwarded-For 头
+	xff := c.GetHeader("X-Forwarded-For")
+	if xff != "" {
+		// X-Forwarded-For 可能包含多个IP，取第一个
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+	
+	// 获取 X-Real-IP 头
+	realIP := c.GetHeader("X-Real-IP")
+	if realIP != "" {
+		return strings.TrimSpace(realIP)
+	}
+	
+	// 最后使用 ClientIP 方法
+	return c.ClientIP()
+}
+
 // getLogTableByUser 根据 userId % 100 决定写入哪张分表
 func getLogTableByUser(userId int) string {
 	return fmt.Sprintf("logs_%02d", userId%shardCount)
@@ -46,6 +68,7 @@ type Log struct {
 	TokenId          int    `json:"token_id" gorm:"default:0;index"`
 	Group            string `json:"group" gorm:"index"`
 	Other            string `json:"other"`
+	RequestIP        string `json:"request_ip" gorm:"index;default:''"`
 }
 
 const (
@@ -106,6 +129,7 @@ func RecordLog(userId int, logType int, content string) {
 		CreatedAt: common.GetTimestamp(),
 		Type:      logType,
 		Content:   content,
+		RequestIP: "", // 对于没有请求上下文的日志，IP为空
 	}
 	table := getLogTableByUser(userId)
 	if err := LOG_DB.Table(table).Create(log).Error; err != nil {
@@ -138,6 +162,7 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 		IsStream:         isStream,
 		Group:            group,
 		Other:            common.MapToJsonStr(other),
+		RequestIP:        getClientIP(c),
 	}
 	table := getLogTableByUser(userId)
 	if err := LOG_DB.Table(table).Create(log).Error; err != nil {
@@ -187,6 +212,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			IsStream:         isStream,
 			Group:            group,
 			Other:            common.MapToJsonStr(other),
+			RequestIP:        getClientIP(c),
 		}
 		table := getLogTableByUser(1)
 		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
@@ -216,6 +242,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			IsStream:         isStream,
 			Group:            group,
 			Other:            common.MapToJsonStr(other),
+			RequestIP:        getClientIP(c),
 		}
 		table := getLogTableByUser(userId)
 		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
@@ -278,6 +305,7 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 		IsStream:         isStream,
 		Group:            group,
 		Other:            common.MapToJsonStr(other),
+		RequestIP:        getClientIP(c),
 	}
 	table := getLogTableByUser(userId)
 	if err := LOG_DB.Table(table).Create(log).Error; err != nil {

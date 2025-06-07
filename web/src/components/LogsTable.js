@@ -302,6 +302,7 @@ const LogsTable = () => {
     COST: 'cost',
     RETRY: 'retry',
     DETAILS: 'details',
+    REQUEST_IP: 'request_ip',
   };
 
   // State for column visibility
@@ -343,6 +344,7 @@ const LogsTable = () => {
       [COLUMN_KEYS.COST]: true,
       [COLUMN_KEYS.RETRY]: isAdminUser,
       [COLUMN_KEYS.DETAILS]: true,
+      [COLUMN_KEYS.REQUEST_IP]: true,
     };
   };
 
@@ -656,6 +658,24 @@ const LogsTable = () => {
         );
       },
     },
+    {
+      key: COLUMN_KEYS.REQUEST_IP,
+      title: t('请求IP'),
+      dataIndex: 'request_ip',
+      render: (text, record, index) => {
+        return text ? (
+          <div
+            onClick={(event) => {
+              copyText(event, text);
+            }}
+          >
+            <BubbleText bubbleText={text} />
+          </div>
+        ) : (
+          <span style={{ color: 'var(--semi-color-text-2)' }}>-</span>
+        );
+      },
+    },
   ];
 
   // Update table when column visibility changes
@@ -893,6 +913,12 @@ const LogsTable = () => {
         expandDataLocal.push({
           key: t('渠道信息'),
           value: `${logs[i].channel} - ${logs[i].channel_name || '[未知]'}`,
+        });
+      }
+      if (logs[i].request_ip) {
+        expandDataLocal.push({
+          key: t('请求IP'),
+          value: logs[i].request_ip,
         });
       }
       if (other?.ws || other?.audio) {

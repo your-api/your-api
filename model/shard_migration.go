@@ -20,7 +20,12 @@ func MigrateShardedLogs(db *gorm.DB) error {
 	dialect := db.Dialector.Name() // "mysql" 或 "sqlite"
 	for i := 0; i < shardCount; i++ {
 		shard := fmt.Sprintf("logs_%02d", i)
+		
 		if db.Migrator().HasTable(shard) {
+			// 如果表已存在，执行AutoMigrate来更新表结构
+			if err := db.Table(shard).AutoMigrate(&Log{}); err != nil {
+				return fmt.Errorf("auto migrate existing shard %s: %w", shard, err)
+			}
 			continue
 		}
 
