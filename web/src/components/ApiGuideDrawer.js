@@ -125,7 +125,7 @@ print(resp.choices[0].message.content)`,
 
 const client = new OpenAI({
   apiKey: "<YOUR_API_KEY>",
-  baseURL: "${baseUrl}"
+  baseURL: "${urlV1}"
 });
 
 const res = await client.chat.completions.create({
