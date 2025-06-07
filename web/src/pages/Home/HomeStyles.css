@@ -1240,7 +1240,6 @@
 /* 分组选择器样式 */
 .group-selector {
   position: relative;
-  z-index: 10;
 }
 
 .group-select .semi-select-selection {

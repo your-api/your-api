@@ -1456,7 +1456,7 @@ const ModelPricing = ({onInitialize}) => {
                   <Input
                       prefix={<IconHelpCircle size="small" />}
                       placeholder={t('模糊搜索模型名称')}
-                      style={{ width: 220 }}
+                      style={{ minWidth: 220 }}
                       onCompositionStart={handleCompositionStart}
                       onCompositionEnd={handleCompositionEnd}
                       onChange={handleChange}
