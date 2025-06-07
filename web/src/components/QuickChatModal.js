@@ -150,7 +150,7 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       // 创建AbortController用于取消请求
       abortControllerRef.current = new AbortController();
       
-      const response = await fetch('/api/v1/chat/completions', {
+      const response = await fetch('/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
