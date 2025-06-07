@@ -55,8 +55,8 @@ func SetSessionCache(sessionID string, data *SessionData) error {
 		return fmt.Errorf("failed to marshal session data: %w", err)
 	}
 
-	// 设置30天过期时间，与cookie session保持一致
-	return common.RedisSet(key, string(dataBytes), 30*24*time.Hour)
+	// 设置为永不过期，保持用户登录态持久化
+	return common.RedisSet(key, string(dataBytes), 0)
 }
 
 // GetSessionCache 从Redis缓存获取session
@@ -96,13 +96,14 @@ func RefreshSessionCache(sessionID string) error {
 		return nil
 	}
 
+	// 由于session已设置为永不过期，此函数主要用于确认session仍然存在
 	// 先检查session是否存在
 	data, err := GetSessionCache(sessionID)
 	if err != nil {
 		return err
 	}
 
-	// 重新设置session，刷新过期时间
+	// 重新设置session，确保数据最新（虽然不会过期，但可以确保数据完整性）
 	return SetSessionCache(sessionID, data)
 }
 

@@ -8,6 +8,7 @@ import (
 	"one-api/model"
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 func validUserInfo(username string, role int) bool {
@@ -28,6 +29,30 @@ func authHelper(c *gin.Context, minRole int) {
 	id := session.Get("id")
 	status := session.Get("status")
 	useAccessToken := false
+	
+	// 如果内存session中没有用户信息，尝试从Redis恢复
+	if username == nil {
+		// 尝试从Redis恢复session
+		if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
+			// 成功从Redis恢复session，写入内存session
+			session.Set("id", sessionData.ID)
+			session.Set("username", sessionData.Username)
+			session.Set("role", sessionData.Role)
+			session.Set("status", sessionData.Status)
+			session.Set("group", sessionData.Group)
+			session.Save()
+			
+			// 更新局部变量
+			username = sessionData.Username
+			role = sessionData.Role
+			id = sessionData.ID
+			status = sessionData.Status
+			
+			common.SysLog(fmt.Sprintf("session recovered from Redis for user: %s", sessionData.Username))
+		}
+	}
+	
+	// 如果仍然没有用户信息，检查access token
 	if username == nil {
 		// Check access token
 		accessToken := c.Request.Header.Get("Authorization")
@@ -63,7 +88,12 @@ func authHelper(c *gin.Context, minRole int) {
 			c.Abort()
 			return
 		}
+	} else {
+		// 如果从内存或Redis找到了session，刷新Redis中的session数据
+		// 这样可以保持session数据的最新状态
+		model.RefreshSessionCacheFromContext(c)
 	}
+	
 	// get header New-Api-User
 	apiUserIdStr := c.Request.Header.Get("New-Api-User")
 	if apiUserIdStr == "" {

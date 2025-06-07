@@ -206,7 +206,7 @@ func main() {
 	store := cookie.NewStore([]byte(common.SessionSecret))
 	store.Options(sessions.Options{
 		Path:     "/",
-		MaxAge:   2592000, // 30 days
+		MaxAge:   0, // 设置为0使session永不过期
 		HttpOnly: true,
 		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
