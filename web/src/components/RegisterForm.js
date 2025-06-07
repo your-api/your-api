@@ -421,16 +421,6 @@ const RegisterForm = () => {
                       ) : (
                         <></>
                       )}
-                      {status.wechat_login ? (
-                        <Button
-                          type='primary'
-                          style={{ color: 'rgba(var(--semi-green-5), 1)' }}
-                          icon={<Icon svg={<WeChatIcon />} />}
-                          onClick={onWeChatLoginClicked}
-                        />
-                      ) : (
-                        <></>
-                      )}
                     </div>
                     {status.telegram_oauth ? (
                       <>
