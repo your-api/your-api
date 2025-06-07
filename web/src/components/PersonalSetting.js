@@ -47,6 +47,7 @@ import {
 import TelegramLoginButton from 'react-telegram-login';
 import { useTranslation } from 'react-i18next';
 import CheckInCalendar from './CheckInCalendar';
+import { QRCodeSVG } from 'qrcode.react';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -91,6 +92,13 @@ const PersonalSetting = () => {
   const [pendingWithdrawQuota, setPendingWithdrawQuota] = useState(0);
   const [withdrawHistory, setWithdrawHistory] = useState([]);
   const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
+
+  // 新增微信二维码绑定相关状态
+  const [wechatQRCode, setWechatQRCode] = useState('');
+  const [wechatTicket, setWechatTicket] = useState('');
+  const [isCheckingWechatLogin, setIsCheckingWechatLogin] = useState(false);
+  const [wechatBindStatus, setWechatBindStatus] = useState('waiting'); // waiting, success, error
+  const [wechatBindError, setWechatBindError] = useState('');
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -293,6 +301,257 @@ const PersonalSetting = () => {
     } catch (error) {
       console.error('获取提现状态失败:', error);
     }
+  };
+
+  // 获取微信扫码二维码
+  const getWeChatQRCode = async () => {
+    try {
+      console.log('开始获取微信二维码...');
+      const res = await API.get('/api/oauth/wechat/qr');
+      console.log('API响应:', res);
+      const { success, data, message } = res.data;
+      
+      if (success && data) {
+        console.log('二维码数据:', data);
+        setWechatQRCode(data.qr_url || data.url);
+        setWechatTicket(data.ticket);
+        setWechatBindStatus('waiting');
+        startCheckWeChatLogin(data.ticket);
+      } else {
+        console.error('获取二维码失败:', message);
+        showError(message || t('获取二维码失败'));
+        setWechatBindStatus('error');
+      }
+    } catch (error) {
+      console.error('API调用失败:', error);
+      showError(t('获取二维码失败') + ': ' + error.message);
+      setWechatBindStatus('error');
+    }
+  };
+
+  // 开始检查微信扫码状态
+  const startCheckWeChatLogin = (ticket) => {
+    setIsCheckingWechatLogin(true);
+    setWechatBindError(''); // 清除之前的错误信息
+    let checkCount = 0;
+    const maxChecks = 15; // 30秒 / 2秒 = 15次检查
+    let isActive = true; // 用来控制轮询是否继续
+    
+    const checkInterval = setInterval(async () => {
+      if (!isActive) {
+        clearInterval(checkInterval);
+        return;
+      }
+      
+      checkCount++;
+      
+      try {
+        const res = await API.get(`/api/oauth/wechat/qr/bind?ticket=${ticket}`);
+        console.log('微信绑定检查响应:', res.data);
+        const { success, status, message, data } = res.data;
+        
+        if (success && status === 'success') {
+          // 扫码绑定成功
+          isActive = false; // 立即停止轮询
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('success');
+          setShowWeChatBindModal(false);
+          
+          // 根据操作类型显示不同的成功消息
+          if (data && data.action === 'merged') {
+            showSuccess(
+              t('微信账号合并成功！') + '\n' +
+              t('合并账号') + ': ' + data.wechat_username + '\n' +
+              t('合并余额') + ': ' + renderQuota(data.merged_quota) + '\n' +
+              t('合并历史消耗') + ': ' + renderQuota(data.merged_used_quota) + '\n' +
+              t('合并请求次数') + ': ' + data.merged_request_count
+            );
+          } else if (data && data.action === 'already_bound') {
+            showSuccess(message || t('微信已绑定'));
+          } else {
+            showSuccess(message || t('微信绑定成功'));
+          }
+          
+          getUserData(); // 刷新用户数据
+        } else if (status === 'waiting') {
+          // 等待扫码，继续轮询，不做任何操作
+          console.log('等待用户扫码...');
+          
+          // 检查是否超时
+          if (checkCount >= maxChecks) {
+            isActive = false;
+            clearInterval(checkInterval);
+            setIsCheckingWechatLogin(false);
+            setWechatBindStatus('timeout');
+          }
+        } else if (status === 'error') {
+          // 明确的错误状态才停止轮询
+          console.error('微信绑定失败:', message);
+          isActive = false;
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('error');
+          setWechatBindError(message || t('绑定失败'));
+        } else if (success === false && message) {
+          // 如果有明确的错误消息，也停止轮询
+          console.error('微信绑定失败:', message);
+          isActive = false;
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('error');
+          setWechatBindError(message);
+        } else {
+          // 其他情况继续轮询
+          console.log('继续等待，当前状态:', { success, status, message });
+        }
+      } catch (error) {
+        console.error('检查扫码状态失败:', error);
+        isActive = false;
+        clearInterval(checkInterval);
+        setIsCheckingWechatLogin(false);
+        setWechatBindStatus('error');
+        setWechatBindError(t('网络错误，请检查网络连接'));
+      }
+    }, 2000); // 每2秒检查一次
+    
+    // 组件卸载时清理
+    return () => {
+      isActive = false;
+      clearInterval(checkInterval);
+    };
+  };
+
+  // 绑定微信账号 - 这个方法现在不需要了，因为绑定逻辑已经集成到检查中
+  const bindWeChatAccount = async (ticket) => {
+    // 这个方法保留备用，但实际绑定逻辑已经在 startCheckWeChatLogin 中处理
+    try {
+      const res = await API.get(`/api/oauth/wechat/qr/bind?ticket=${ticket}`);
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('微信账号绑定成功'));
+        setWechatBindStatus('success');
+        setShowWeChatBindModal(false);
+        getUserData(); // 刷新用户数据
+      } else {
+        showError(message || t('绑定失败'));
+        setWechatBindStatus('error');
+      }
+    } catch (error) {
+      showError(t('绑定失败'));
+      setWechatBindStatus('error');
+    }
+  };
+
+  // 处理微信绑定弹窗打开
+  const handleWeChatBindClick = () => {
+    setShowWeChatBindModal(true);
+    setWechatBindStatus('waiting');
+    setWechatQRCode('');
+    setWechatTicket('');
+    setWechatBindError(''); // 清除错误信息
+    setIsCheckingWechatLogin(false); // 重置检查状态
+    getWeChatQRCode();
+  };
+
+  // 删除账户
+  const deleteAccount = async () => {
+    if (inputs.self_account_deletion_confirmation !== userState.user.username) {
+      showError(t('请输入你的账户名以确认删除！'));
+      return;
+    }
+
+    const res = await API.delete('/api/user/self');
+    const { success, message } = res.data;
+
+    if (success) {
+      showSuccess(t('账户已删除！'));
+      await API.get('/api/user/logout');
+      userDispatch({ type: 'logout' });
+      localStorage.removeItem('user');
+      navigate('/login');
+    } else {
+      showError(message);
+    }
+  };
+
+  // 修改密码
+  const changePassword = async () => {
+    if (inputs.original_password === '') {
+      showError(t('请输入原密码！'));
+      return;
+    }
+    if (inputs.set_new_password === '') {
+      showError(t('请输入新密码！'));
+      return;
+    }
+    if (inputs.original_password === inputs.set_new_password) {
+      showError(t('新密码需要和原密码不一致！'));
+      return;
+    }
+    if (inputs.set_new_password !== inputs.set_new_password_confirmation) {
+      showError(t('两次输入的密码不一致！'));
+      return;
+    }
+    const res = await API.put(`/api/user/self`, {
+      original_password: inputs.original_password,
+      password: inputs.set_new_password,
+    });
+    const { success, message } = res.data;
+    if (success) {
+      showSuccess(t('密码修改成功！'));
+      setShowChangePasswordModal(false);
+    } else {
+      showError(message);
+    }
+  };
+
+  // 发送验证码
+  const sendVerificationCode = async () => {
+    if (inputs.email === '') {
+      showError(t('请输入邮箱！'));
+      return;
+    }
+    setDisableButton(true);
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+      return;
+    }
+    setLoading(true);
+    const res = await API.get(
+      `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
+    );
+    const { success, message } = res.data;
+    if (success) {
+      showSuccess(t('验证码发送成功，请检查邮箱！'));
+    } else {
+      showError(message);
+    }
+    setLoading(false);
+  };
+
+  // 绑定邮箱
+  const bindEmail = async () => {
+    if (inputs.email_verification_code === '') {
+      showError(t('请输入邮箱验证码！'));
+      return;
+    }
+    setLoading(true);
+    const res = await API.get(
+      `/api/oauth/email/bind?email=${inputs.email}&code=${inputs.email_verification_code}`,
+    );
+    const { success, message } = res.data;
+    if (success) {
+      showSuccess(t('邮箱账户绑定成功！'));
+      setShowEmailBindModal(false);
+      if (userState.user) {
+        userState.user.email = inputs.email;
+      }
+      getUserData(); // 刷新用户数据
+    } else {
+      showError(message);
+    }
+    setLoading(false);
   };
 
   return (
@@ -536,19 +795,139 @@ const PersonalSetting = () => {
                   )}
                 </div>
               </TabPane>
-              <TabPane tab={t('个人设置')} itemKey='settings'>
+              <TabPane tab={t('账号设置')} itemKey='settings'>
                 <div style={{ marginTop: 20 }}>
-                  <Button onClick={generateAccessToken}>
-                    {t('生成系统访问令牌')}
-                  </Button>
-                  {systemToken && (
-                    <Input
-                      readOnly
-                      value={systemToken}
-                      onClick={handleSystemTokenClick}
-                      style={{ marginTop: '10px' }}
-                    />
-                  )}
+                  {/* 账号绑定部分 */}
+                  <Typography.Title heading={5}>{t('账号绑定')}</Typography.Title>
+                  <div style={{ marginTop: 20 }}>
+                    {/* 微信绑定 */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Typography.Text strong>{t('微信')}</Typography.Text>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                        <Input
+                          value={
+                            userState.user && userState.user.wechat_id !== ''
+                              ? t('已绑定')
+                              : t('未绑定')
+                          }
+                          readOnly={true}
+                          style={{ maxWidth: 200 }}
+                        />
+                        {userState.user && userState.user.wechat_id === '' ? (
+                          <Button
+                            disabled={!status.wechat_login}
+                            onClick={handleWeChatBindClick}
+                            type='primary'
+                          >
+                            {status.wechat_login ? t('绑定微信') : t('未启用')}
+                          </Button>
+                        ) : (
+                          <Button disabled={true} type='secondary'>
+                            {t('已绑定')}
+                          </Button>
+                        )}
+                      </div>
+                      {userState.user && userState.user.wechat_id === '' && (
+                        <div style={{ marginTop: 10 }}>
+                          <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                            {t('扫码绑定微信，如果您之前通过微信登录创建了账号，系统将自动合并数据到当前账号')}
+                          </Typography.Text>
+                        </div>
+                      )}
+                      {userState.user && userState.user.wechat_id !== '' && (
+                        <div style={{ marginTop: 10 }}>
+                          <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                            {t('微信已绑定，为了账户安全，不支持解绑操作')}
+                          </Typography.Text>
+                        </div>
+                      )}
+                      {wechatBindError && (
+                        <div style={{ marginTop: 10 }}>
+                          <Typography.Text type='danger' style={{ fontSize: '12px' }}>
+                            {wechatBindError}
+                          </Typography.Text>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 邮箱绑定 */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Typography.Text strong>{t('邮箱')}</Typography.Text>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                        <Input
+                          value={
+                            userState.user && userState.user.email !== ''
+                              ? userState.user.email
+                              : t('未绑定')
+                          }
+                          readOnly={true}
+                          style={{ maxWidth: 200 }}
+                        />
+                        <Button
+                          onClick={() => setShowEmailBindModal(true)}
+                        >
+                          {userState.user && userState.user.email !== ''
+                            ? t('修改绑定')
+                            : t('绑定邮箱')}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* GitHub绑定 */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Typography.Text strong>{t('GitHub')}</Typography.Text>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                        <Input
+                          value={
+                            userState.user && userState.user.github_id !== ''
+                              ? userState.user.github_id
+                              : t('未绑定')
+                          }
+                          readOnly={true}
+                          style={{ maxWidth: 200 }}
+                        />
+                        <Button
+                          onClick={() => {
+                            onGitHubOAuthClicked(status.github_client_id);
+                          }}
+                          disabled={
+                            (userState.user && userState.user.github_id !== '') ||
+                            !status.github_oauth
+                          }
+                        >
+                          {status.github_oauth ? t('绑定') : t('未启用')}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Telegram绑定 */}
+                  </div>
+
+                  {/* 系统设置部分 */}
+                  <Typography.Title heading={5} style={{ marginTop: 30 }}>{t('系统设置')}</Typography.Title>
+                  <div style={{ marginTop: 20 }}>
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                      <Button onClick={generateAccessToken} type="primary">
+                        {t('生成系统访问令牌')}
+                      </Button>
+                      <Button
+                        onClick={() => setShowChangePasswordModal(true)}
+                      >
+                        {t('修改密码')}
+                      </Button>
+
+                    </Space>
+
+                    {systemToken && (
+                      <Input
+                        readOnly
+                        value={systemToken}
+                        onClick={handleSystemTokenClick}
+                        style={{ marginTop: '10px' }}
+                        placeholder={t('点击复制令牌')}
+                      />
+                    )}
+                  </div>
                 </div>
               </TabPane>
             </Tabs>
@@ -764,6 +1143,193 @@ const PersonalSetting = () => {
               )}
             </div>
           </Modal>
+
+          {/* 微信绑定模态框 */}
+          <Modal
+            title={t('绑定微信')}
+            visible={showWeChatBindModal}
+            onCancel={() => {
+              setShowWeChatBindModal(false);
+              setIsCheckingWechatLogin(false);
+            }}
+            footer={null}
+            width={400}
+            centered={true}
+          >
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              {wechatQRCode ? (
+                <>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    marginBottom: 20,
+                    padding: 20,
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: 8,
+                    border: '1px solid #e9ecef'
+                  }}>
+                    <QRCodeSVG 
+                      value={wechatQRCode} 
+                      size={200}
+                      level="H"
+                      includeMargin={true}
+                      style={{
+                        backgroundColor: 'white',
+                        padding: 8,
+                        borderRadius: 4
+                      }}
+                    />
+                  </div>
+                  <div style={{ marginTop: 20 }}>
+                    {wechatBindStatus === 'waiting' && (
+                      <div>
+                        <Typography.Text type='secondary'>
+                          {t('请使用微信扫描上方二维码进行绑定')}
+                        </Typography.Text>
+                        {isCheckingWechatLogin && (
+                          <div style={{ marginTop: 10 }}>
+                            <Typography.Text type='secondary'>
+                              {t('正在检查扫码状态...')}
+                            </Typography.Text>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {wechatBindStatus === 'success' && (
+                      <Typography.Text type='success'>
+                        {t('绑定成功！')}
+                      </Typography.Text>
+                    )}
+                    {wechatBindStatus === 'error' && (
+                      <Typography.Text type='danger'>
+                        {wechatBindError}
+                      </Typography.Text>
+                    )}
+                    {wechatBindStatus === 'timeout' && (
+                      <div>
+                        <Typography.Text type='warning'>
+                          {t('二维码已过期，请重新获取')}
+                        </Typography.Text>
+                        <Button 
+                          type='primary' 
+                          style={{ marginTop: 10 }}
+                          onClick={getWeChatQRCode}
+                        >
+                          {t('重新获取二维码')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <Typography.Text>{t('正在获取二维码...')}</Typography.Text>
+                </div>
+              )}
+            </div>
+          </Modal>
+
+          {/* 邮箱绑定模态框 */}
+          <Modal
+            title={t('绑定邮箱地址')}
+            visible={showEmailBindModal}
+            onOk={bindEmail}
+            onCancel={() => setShowEmailBindModal(false)}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Input
+                  placeholder={t('输入邮箱地址')}
+                  onChange={(value) => handleInputChange('email', value)}
+                  name='email'
+                  type='email'
+                  style={{ flex: 1, marginRight: 10 }}
+                />
+                <Button
+                  onClick={sendVerificationCode}
+                  disabled={disableButton || loading}
+                >
+                  {disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}
+                </Button>
+              </div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Input
+                placeholder={t('验证码')}
+                name='email_verification_code'
+                value={inputs.email_verification_code}
+                onChange={(value) =>
+                  handleInputChange('email_verification_code', value)
+                }
+              />
+            </div>
+            {turnstileEnabled && (
+              <Turnstile
+                sitekey={turnstileSiteKey}
+                onVerify={(token) => {
+                  setTurnstileToken(token);
+                }}
+              />
+            )}
+          </Modal>
+
+          {/* 修改密码模态框 */}
+          <Modal
+            title={t('修改密码')}
+            visible={showChangePasswordModal}
+            onOk={changePassword}
+            onCancel={() => setShowChangePasswordModal(false)}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+          >
+            <div style={{ marginTop: 20 }}>
+              <Input
+                name='original_password'
+                placeholder={t('原密码')}
+                type='password'
+                value={inputs.original_password}
+                onChange={(value) =>
+                  handleInputChange('original_password', value)
+                }
+                style={{ marginBottom: 20 }}
+              />
+              <Input
+                name='set_new_password'
+                placeholder={t('新密码')}
+                type='password'
+                value={inputs.set_new_password}
+                onChange={(value) =>
+                  handleInputChange('set_new_password', value)
+                }
+                style={{ marginBottom: 20 }}
+              />
+              <Input
+                name='set_new_password_confirmation'
+                placeholder={t('确认新密码')}
+                type='password'
+                value={inputs.set_new_password_confirmation}
+                onChange={(value) =>
+                  handleInputChange('set_new_password_confirmation', value)
+                }
+              />
+              {turnstileEnabled && (
+                <Turnstile
+                  sitekey={turnstileSiteKey}
+                  onVerify={(token) => {
+                    setTurnstileToken(token);
+                  }}
+                />
+              )}
+            </div>
+          </Modal>
+
+          {/* 删除账户模态框 */}
+
         </Layout.Content>
       </Layout>
     </div>

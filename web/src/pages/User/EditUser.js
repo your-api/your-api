@@ -237,7 +237,7 @@ const EditUser = (props) => {
             value={github_id}
             autoComplete='new-password'
             placeholder={t(
-              '此项只读，需要用户通过个人设置页面的相关绑定按钮进行绑定，不可直接修改',
+              '此项只读，需要用户通过账号设置页面的相关绑定按钮进行绑定，不可直接修改',
             )}
             readonly
           />
@@ -248,7 +248,7 @@ const EditUser = (props) => {
             name='oidc_id'
             value={oidc_id}
             placeholder={t(
-              '此项只读，需要用户通过个人设置页面的相关绑定按钮进行绑定，不可直接修改',
+              '此项只读，需要用户通过账号设置页面的相关绑定按钮进行绑定，不可直接修改',
             )}
             readonly
           />
@@ -260,7 +260,7 @@ const EditUser = (props) => {
             value={wechat_id}
             autoComplete='new-password'
             placeholder={t(
-              '此项只读，需要用户通过个人设置页面的相关绑定按钮进行绑定，不可直接修改',
+              '此项只读，需要用户通过账号设置页面的相关绑定按钮进行绑定，不可直接修改',
             )}
             readonly
           />
@@ -272,7 +272,7 @@ const EditUser = (props) => {
             value={email}
             autoComplete='new-password'
             placeholder={t(
-              '此项只读，需要用户通过个人设置页面的相关绑定按钮进行绑定，不可直接修改',
+              '此项只读，需要用户通过账号设置页面的相关绑定按钮进行绑定，不可直接修改',
             )}
             readonly
           />
@@ -284,7 +284,7 @@ const EditUser = (props) => {
             value={telegram_id}
             autoComplete='new-password'
             placeholder={t(
-              '此项只读，需要用户通过个人设置页面的相关绑定按钮进行绑定，不可直接修改',
+              '此项只读，需要用户通过账号设置页面的相关绑定按钮进行绑定，不可直接修改',
             )}
             readonly
           />

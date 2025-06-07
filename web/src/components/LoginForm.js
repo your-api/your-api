@@ -144,7 +144,7 @@ const LoginForm = () => {
     
     qrCheckTimerRef.current = setInterval(async () => {
       try {
-        const res = await API.get(`/api/oauth/wechat/qr/check?ticket=${ticket}`);
+        const res = await API.get(`/api/oauth/wechat/qr/login?ticket=${ticket}`);
         console.log('扫码检查响应:', res.data); // 添加调试日志
         console.log('响应类型:', typeof res.data);
         console.log('响应字符串:', JSON.stringify(res.data));
@@ -197,17 +197,29 @@ const LoginForm = () => {
             console.log('准备跳转到/token页面');
             navigate('/token');
           }, 1500);
-        } else if (responseData.status === 'error') {
-          // 登录错误
+        } else if (responseData.success === false && responseData.status === 'error') {
+          // 明确的错误状态
           clearInterval(qrCheckTimerRef.current);
           setQrStatus('error');
           setQrMessage(responseData.message || t('登录失败'));
-        } else {
-          // 等待状态，继续轮询
+          console.log('扫码登录错误:', responseData.message);
+        } else if (responseData.status === 'waiting') {
+          // 等待扫码状态，继续轮询
           console.log('继续等待扫码...');
+        } else if (responseData.success === false && responseData.message && responseData.status !== 'waiting') {
+          // 只有在非waiting状态下且有错误消息时才停止轮询
+          clearInterval(qrCheckTimerRef.current);
+          setQrStatus('error');
+          setQrMessage(responseData.message);
+          console.log('扫码登录失败:', responseData.message);
+        } else {
+          // 其他状态，继续轮询
+          console.log('未知状态，继续等待:', responseData);
         }
       } catch (error) {
         console.error('检查登录状态失败:', error);
+        setQrStatus('error');
+        setQrMessage(t('网络错误，请检查网络连接'));
       }
     }, 2000); // 每2秒检查一次
   };
@@ -606,16 +618,16 @@ const LoginForm = () => {
                       ) : (
                         <></>
                       )}
-                      {status.wechat_login ? (
-                        <Button
-                          type='primary'
-                          style={{ color: 'rgba(var(--semi-green-5), 1)' }}
-                          icon={<Icon svg={<WeChatIcon />} />}
-                          onClick={onWeChatLoginClicked}
-                        />
-                      ) : (
-                        <></>
-                      )}
+                      {/*{status.wechat_login ? (*/}
+                      {/*  <Button*/}
+                      {/*    type='primary'*/}
+                      {/*    style={{ color: 'rgba(var(--semi-green-5), 1)' }}*/}
+                      {/*    icon={<Icon svg={<WeChatIcon />} />}*/}
+                      {/*    onClick={onWeChatLoginClicked}*/}
+                      {/*  />*/}
+                      {/*) : (*/}
+                      {/*  <></>*/}
+                      {/*)}*/}
                     </div>
                     {status.telegram_oauth ? (
                       <>

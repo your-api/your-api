@@ -42,7 +42,10 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/oauth/wechat", middleware.CriticalRateLimit(), controller.WeChatAuth)
 		apiRouter.GET("/oauth/wechat/bind", middleware.CriticalRateLimit(), controller.WeChatBind)
 		apiRouter.GET("/oauth/wechat/qr", middleware.CriticalRateLimit(), controller.GetWeChatQRCode)
-		apiRouter.GET("/oauth/wechat/qr/check", middleware.CriticalRateLimit(), controller.CheckWeChatQRLogin)
+		apiRouter.GET("/oauth/wechat/qr/login", middleware.CriticalRateLimit(), controller.CheckWeChatQRLogin)
+		apiRouter.GET("/oauth/wechat/qr/bind", middleware.CriticalRateLimit(), controller.CheckWeChatQRBind)
+		// 为了防止刷额度，暂时禁用手动合并API
+		// apiRouter.POST("/oauth/wechat/merge", middleware.CriticalRateLimit(), controller.MergeWeChatAccount)
 		apiRouter.GET("/oauth/email/bind", middleware.CriticalRateLimit(), controller.EmailBind)
 		apiRouter.GET("/oauth/telegram/login", middleware.CriticalRateLimit(), controller.TelegramLogin)
 		apiRouter.GET("/oauth/telegram/bind", middleware.CriticalRateLimit(), controller.TelegramBind)
