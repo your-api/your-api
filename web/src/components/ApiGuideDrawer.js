@@ -118,7 +118,7 @@ client = OpenAI(
 
 resp = client.chat.completions.create(
   model="${modelId}",
-  messages=[{ role: "user", content: "Hello!" }]
+  messages=[{ "role": "user", "content": "Hello!" }]
 )
 print(resp.choices[0].message.content)`,
     javascript: `import OpenAI from 'openai';
