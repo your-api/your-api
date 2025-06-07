@@ -75,7 +75,12 @@
 
 .qr-code-wrapper {
   position: relative;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .qr-code-container {
@@ -89,6 +94,9 @@
     0 10px 10px -5px rgba(0, 0, 0, 0.04),
     0 0 0 1px rgba(9, 187, 7, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .qr-code-container:hover {
@@ -97,6 +105,11 @@
     0 25px 50px -12px rgba(0, 0, 0, 0.15), 
     0 20px 20px -5px rgba(0, 0, 0, 0.04),
     0 0 0 1px rgba(9, 187, 7, 0.1);
+}
+
+.qr-code-container svg {
+  display: block;
+  margin: 0 auto;
 }
 
 .qr-code-loading {
@@ -143,21 +156,6 @@
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-.qr-countdown {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9));
-  color: white;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-  font-weight: 600;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
 .qr-message {
   margin-top: 1rem;
   text-align: center;
@@ -187,32 +185,78 @@
   height: 1.25rem;
 }
 
-/* 响应式设计 */
+/* 响应式设计 - 移动端优化 */
 @media (max-width: 640px) {
   .wechat-qr-container {
-    padding: 1.5rem 1rem;
-    margin: 0.5rem 0;
+    padding: 1rem 0.75rem;
+    margin: 0.25rem 0;
   }
   
   .qr-code-container,
   .qr-code-loading,
   .qr-code-success,
   .qr-code-error {
-    width: 14rem;
-    height: 14rem;
+    width: 12rem;
+    height: 12rem;
+    min-width: 12rem;
+    min-height: 12rem;
+    margin: 0 auto;
   }
   
+  .qr-code-container svg,
   .qr-code-container canvas {
-    width: 200px !important;
-    height: 200px !important;
+    width: 160px !important;
+    height: 160px !important;
+    max-width: 160px !important;
+    max-height: 160px !important;
+    display: block !important;
+    margin: 0 auto !important;
   }
   
   .wechat-qr-title h3 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
   
   .qr-message {
-    max-width: 18rem;
+    font-size: 0.85rem;
+    max-width: 20rem;
+  }
+  
+  .qr-security-notice {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 480px) {
+  .wechat-qr-container {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .qr-code-container,
+  .qr-code-loading,
+  .qr-code-success,
+  .qr-code-error {
+    width: 10rem;
+    height: 10rem;
+    min-width: 10rem;
+    min-height: 10rem;
+    margin: 0 auto;
+  }
+  
+  .qr-code-container svg,
+  .qr-code-container canvas {
+    width: 120px !important;
+    height: 120px !important;
+    max-width: 120px !important;
+    max-height: 120px !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+  
+  .wechat-qr-title h3 {
+    font-size: 1.1rem;
   }
 }
 
@@ -276,13 +320,6 @@
   box-shadow: 
     0 10px 15px -3px rgba(0, 0, 0, 0.3), 
     0 4px 6px -2px rgba(0, 0, 0, 0.2);
-}
-
-[theme-mode="dark"] .qr-countdown {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.95));
-  color: white;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 [theme-mode="dark"] .qr-message {

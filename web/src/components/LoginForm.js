@@ -64,9 +64,7 @@ const LoginForm = () => {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrStatus, setQrStatus] = useState('waiting'); // waiting, success, error, expired
   const [qrMessage, setQrMessage] = useState('');
-  const [qrCountdown, setQrCountdown] = useState(0);
   const [loginProcessed, setLoginProcessed] = useState(false); // 防止重复处理登录
-  const qrTimerRef = useRef(null);
   const qrCheckTimerRef = useRef(null);
 
   const logo = getLogo();
@@ -103,24 +101,6 @@ const LoginForm = () => {
         setQrCodeData(data);
         setQrStatus('waiting');
         setQrMessage(t('请使用微信扫码登录'));
-        setQrCountdown(120); // 2分钟倒计时
-        
-        // 开始倒计时
-        if (qrTimerRef.current) clearInterval(qrTimerRef.current);
-        qrTimerRef.current = setInterval(() => {
-          setQrCountdown(prev => {
-            if (prev <= 1) {
-              clearInterval(qrTimerRef.current);
-              setQrStatus('expired');
-              setQrMessage(t('二维码已过期，请点击刷新'));
-              if (qrCheckTimerRef.current) {
-                clearInterval(qrCheckTimerRef.current);
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
         
         // 开始轮询检查登录状态
         startQRLoginCheck(data.ticket);
@@ -175,10 +155,6 @@ const LoginForm = () => {
             clearInterval(qrCheckTimerRef.current);
             qrCheckTimerRef.current = null;
           }
-          if (qrTimerRef.current) {
-            clearInterval(qrTimerRef.current);
-            qrTimerRef.current = null;
-          }
           
           setQrStatus('success');
           setQrMessage(t('登录成功！'));
@@ -226,26 +202,14 @@ const LoginForm = () => {
 
   // 新增：刷新二维码
   const refreshQRCode = () => {
-    if (qrTimerRef.current) clearInterval(qrTimerRef.current);
     if (qrCheckTimerRef.current) clearInterval(qrCheckTimerRef.current);
     setLoginProcessed(false); // 重置登录处理标志
     getWeChatQRCode();
   };
 
-  // 新增：格式化倒计时显示
-  const formatCountdown = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   // 组件卸载时清理定时器
   useEffect(() => {
     return () => {
-      if (qrTimerRef.current) {
-        clearInterval(qrTimerRef.current);
-        qrTimerRef.current = null;
-      }
       if (qrCheckTimerRef.current) {
         clearInterval(qrCheckTimerRef.current);
         qrCheckTimerRef.current = null;
@@ -376,22 +340,19 @@ const LoginForm = () => {
             <Spin size="large" />
           </div>
         ) : qrCodeData && qrStatus === 'waiting' ? (
-          <div style={{ position: 'relative' }}>
-            <div className="qr-code-container waiting">
-              <QRCodeSVG
-                value={qrCodeData.qr_url}
-                size={200}
-                level="H"
-                includeMargin={true}
-                style={{
-                  background: 'white',
-                  borderRadius: '8px',
-                }}
-              />
-            </div>
-            <div className="qr-countdown">
-              {formatCountdown(qrCountdown)}
-            </div>
+          <div className="qr-code-container waiting">
+            <QRCodeSVG
+              value={qrCodeData.qr_url}
+              size={200}
+              level="H"
+              includeMargin={true}
+              style={{
+                background: 'white',
+                borderRadius: '8px',
+                display: 'block',
+                margin: '0 auto',
+              }}
+            />
           </div>
         ) : qrStatus === 'success' ? (
           <div className="qr-code-success">
