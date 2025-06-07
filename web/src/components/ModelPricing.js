@@ -183,6 +183,7 @@ import {
   IconFilter,
   IconChevronLeft,
   IconChevronRight,
+  IconPlay,
 } from '@douyinfe/semi-icons';
 import { UserContext } from '../context/User/index.js';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -190,6 +191,7 @@ import '../pages/Home/HomeStyles.css';
 import {useDispatch, useSelector} from "react-redux";
 import {fetchModelDiscriptions, fetchProviders} from "../store/setting/providers.js";
 import ApiGuideDrawer from "./ApiGuideDrawer.js";
+import QuickChatModal from "./QuickChatModal.js";
 
 // 定义一些实用类
 const styles = {
@@ -265,6 +267,8 @@ const ModelPricing = ({onInitialize}) => {
   const [isMobile, setIsMobile] = useState(false);
   const [apiDrawerVisible, setApiDrawerVisible] = useState(false);
   const [currencyType, setCurrencyType] = useState('CNY'); // 新增货币类型状态
+  const [chatVisible, setChatVisible] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('');
 
   // 检测是否为移动设备
   useEffect(() => {
@@ -886,6 +890,7 @@ const ModelPricing = ({onInitialize}) => {
           dataIndex: 'model_description',
           render: (text, record, index) => {
             return (
+              <div className="flex flex-col gap-2">
                 <Tooltip content={text} position="top">
                   <div className="inline-flex items-start px-2.5 py-1.5 leading-5 max-w-full" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
                     <div className="line-clamp-4 min-h-[5em]">
@@ -893,6 +898,22 @@ const ModelPricing = ({onInitialize}) => {
                     </div>
                   </div>
                 </Tooltip>
+                <Button
+                  theme="light"
+                  type="primary"
+                  size="small"
+                  icon={<IconPlay />}
+                  onClick={() => handleQuickTest(record.model_name)}
+                  style={{
+                    alignSelf: 'flex-start',
+                    fontSize: '12px',
+                    padding: '4px 8px',
+                    height: '28px'
+                  }}
+                >
+                  {t('立即体验')}
+                </Button>
+              </div>
             );
           },
           className: 'min-w-[200px]',
@@ -1184,6 +1205,33 @@ const ModelPricing = ({onInitialize}) => {
     refresh();
   }, [refresh]);
 
+  // 处理立即体验按钮点击
+  const handleQuickTest = useCallback(async (modelName) => {
+    try {
+      // 检查用户是否有token
+      const res = await API.get('/api/token');
+      const { success, data } = res.data;
+      
+      if (!success || !data || data.length === 0) {
+        Modal.warning({
+          title: t('需要创建Token'),
+          content: t('您还没有创建API Token，请先创建一个Token才能体验模型'),
+          okText: t('去创建Token'),
+          onOk: () => {
+            window.location.href = '/token';
+          }
+        });
+        return;
+      }
+      
+      // 设置选中的模型并打开聊天窗口
+      setSelectedModel(modelName);
+      setChatVisible(true);
+    } catch (error) {
+      showError(t('检查Token失败，请稍后重试'));
+    }
+  }, [t]);
+
   return (
       <>
 
@@ -1193,6 +1241,13 @@ const ModelPricing = ({onInitialize}) => {
             onClose={() => setApiDrawerVisible(false)}
             baseUrl=""
             modelId="gpt-4o"
+        />
+
+        {/* 快速聊天模态框 */}
+        <QuickChatModal
+          visible={chatVisible}
+          onClose={() => setChatVisible(false)}
+          modelName={selectedModel}
         />
 
         <Layout>
@@ -1844,6 +1899,21 @@ const ModelPricing = ({onInitialize}) => {
                               <div className="text-gray-500 text-sm line-clamp-4 min-h-[5em] bg-gray-50 p-2 rounded">
                                 {model.model_description}
                               </div>
+                              <Button
+                                theme="light"
+                                type="primary"
+                                size="small"
+                                icon={<IconPlay />}
+                                onClick={() => handleQuickTest(model.model_name)}
+                                style={{
+                                  marginTop: '8px',
+                                  fontSize: '12px',
+                                  padding: '4px 8px',
+                                  height: '28px'
+                                }}
+                              >
+                                {t('立即体验')}
+                              </Button>
                             </div>
                           </div>
                         </div>
