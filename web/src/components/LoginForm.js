@@ -502,19 +502,16 @@ const LoginForm = () => {
                   <Title 
                     heading={2} 
                     style={{ 
-                      background: 'linear-gradient(135deg, #09BB07, #07d51b)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
                       marginBottom: 4,
                       fontSize: '1.75rem',
                       fontWeight: 700,
                       marginTop: 0,
                     }}
+                    className="login-main-title"
                   >
                     {t('用户登录')}
                   </Title>
-                  <Text type="secondary" style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+                  <Text type="secondary" style={{ fontSize: '0.9rem', opacity: 0.8 }} className="login-subtitle">
                     {t('欢迎回来，选择您喜欢的登录方式')}
                   </Text>
                 </div>

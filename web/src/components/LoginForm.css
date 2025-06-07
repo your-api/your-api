@@ -1,3 +1,27 @@
+/* 登录页面主标题样式 */
+.login-main-title {
+  background: linear-gradient(135deg, #000000, #333333) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.login-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+/* 暗色主题下的标题适配 */
+[theme-mode="dark"] .login-main-title {
+  background: linear-gradient(#fff, #ffffff,  #ffffff) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+[theme-mode="dark"] .login-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
 /* 微信扫码登录样式 - 优化版 */
 .wechat-qr-container {
   display: flex;
@@ -192,18 +216,120 @@
   }
 }
 
-/* 暗黑模式适配 */
-.semi-always-dark .wechat-qr-container {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+/* 暗黑模式适配 - 使用项目标准方式 */
+[theme-mode="dark"] .wechat-qr-container {
+  background: linear-gradient(135deg, var(--semi-color-bg-1) 0%, var(--semi-color-bg-2) 100%);
+  border: 1px solid var(--semi-color-border);
 }
 
-.semi-always-dark .qr-code-container {
-  background: linear-gradient(#2d2d2d, #2d2d2d) padding-box,
+[theme-mode="dark"] .wechat-qr-container::before {
+  background: linear-gradient(135deg, rgba(9, 187, 7, 0.15) 0%, rgba(9, 187, 7, 0.08) 100%);
+}
+
+[theme-mode="dark"] .wechat-qr-title h3 {
+  color: #09BB07 !important;
+  -webkit-text-fill-color: #09BB07 !important;
+  background: #09BB07 !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+[theme-mode="dark"] .wechat-qr-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+[theme-mode="dark"] .qr-code-container {
+  background: linear-gradient(var(--semi-color-bg-0), var(--semi-color-bg-0)) padding-box,
               linear-gradient(135deg, #09BB07, #07d51b) border-box;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.3), 
+    0 10px 10px -5px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(9, 187, 7, 0.1);
 }
 
-.semi-always-dark .qr-code-success {
-  background: linear-gradient(135deg, #0f2419 0%, #1a3d2e 100%);
+[theme-mode="dark"] .qr-code-container:hover {
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.4), 
+    0 20px 20px -5px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(9, 187, 7, 0.2);
+}
+
+[theme-mode="dark"] .qr-code-loading {
+  background: var(--semi-color-bg-1);
+  border-color: var(--semi-color-border);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.3), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+[theme-mode="dark"] .qr-code-success {
+  background: linear-gradient(135deg, rgba(9, 187, 7, 0.1) 0%, rgba(9, 187, 7, 0.05) 100%);
+  border-color: #09BB07;
+  box-shadow: 
+    0 20px 25px -5px rgba(9, 187, 7, 0.2), 
+    0 10px 10px -5px rgba(9, 187, 7, 0.1);
+}
+
+[theme-mode="dark"] .qr-code-error {
+  background: var(--semi-color-bg-1);
+  border-color: var(--semi-color-border);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.3), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+[theme-mode="dark"] .qr-countdown {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.95));
+  color: white;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+[theme-mode="dark"] .qr-message {
+  color: var(--semi-color-text-0) !important;
+}
+
+[theme-mode="dark"] .qr-security-notice {
+  color: var(--semi-color-text-1) !important;
+  background: rgba(9, 187, 7, 0.1);
+  border-color: rgba(9, 187, 7, 0.2);
+}
+
+/* Tab标签暗色主题适配 */
+[theme-mode="dark"] .login-tabs .semi-tabs-tab:hover {
+  background: rgba(9, 187, 7, 0.1) !important;
+}
+
+[theme-mode="dark"] .login-tabs .semi-tabs-tab-active {
+  background: linear-gradient(135deg, rgba(9, 187, 7, 0.15), rgba(9, 187, 7, 0.08)) !important;
+  color: var(--semi-color-text-0) !important;
+}
+
+/* 卡片暗色主题适配 */
+[theme-mode="dark"] .semi-card {
+  background-color: var(--semi-color-bg-1) !important;
+  border-color: var(--semi-color-border) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* 呼吸动画暗色适配 */
+[theme-mode="dark"] .qr-code-container.waiting {
+  animation: breathe-dark 3s ease-in-out infinite;
+}
+
+@keyframes breathe-dark {
+  0%, 100% {
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.3), 
+      0 10px 10px -5px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(9, 187, 7, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 25px 50px -12px rgba(9, 187, 7, 0.2), 
+      0 20px 20px -5px rgba(9, 187, 7, 0.1),
+      0 0 0 1px rgba(9, 187, 7, 0.2);
+  }
 }
 
 /* 成功状态动画 */
