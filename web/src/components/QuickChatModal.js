@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Modal, Button, Input, Card, Avatar, Spin, Toast, TextArea, Upload, Image } from '@douyinfe/semi-ui';
-import { IconSend, IconUser, IconSetting, IconClose, IconImage, IconDeleteStroked } from '@douyinfe/semi-icons';
+import { Modal, Button, Input, Card, Avatar, Spin, Toast, TextArea, Upload, Image, SideSheet, List, Typography } from '@douyinfe/semi-ui';
+import { IconSend, IconUser, IconSetting, IconClose, IconImage, IconDeleteStroked, IconList, IconCopy } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
-import { API } from '../helpers';
+import { API, copy } from '../helpers';
 
 const QuickChatModal = ({ visible, onClose, modelName }) => {
   const { t } = useTranslation();
@@ -11,6 +11,8 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamContent, setCurrentStreamContent] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -30,6 +32,95 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
   // 暂时让所有模型都支持图片上传（用于测试）
   const showImageUpload = true; // 可以改为 isVisionModel() 来只对视觉模型显示
 
+  // 生成聊天会话ID
+  const generateChatId = useCallback(() => {
+    return `chat_${modelName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, [modelName]);
+
+  // 保存聊天记录到localStorage
+  const saveChatToHistory = useCallback((chatMessages, chatId) => {
+    const chatData = {
+      id: chatId,
+      modelName: modelName,
+      timestamp: Date.now(),
+      messages: chatMessages,
+      messageCount: chatMessages.length
+    };
+
+    try {
+      const existingHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
+      const updatedHistory = [chatData, ...existingHistory.slice(0, 49)]; // 保留最近50条记录
+      localStorage.setItem('chat_history', JSON.stringify(updatedHistory));
+      setChatHistory(updatedHistory);
+    } catch (error) {
+      console.error('Failed to save chat history:', error);
+    }
+  }, [modelName]);
+
+  // 加载聊天历史
+  const loadChatHistory = useCallback(() => {
+    try {
+      const history = JSON.parse(localStorage.getItem('chat_history') || '[]');
+      setChatHistory(history);
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+      setChatHistory([]);
+    }
+  }, []);
+
+  // 复制聊天记录
+  const copyChatHistory = useCallback(async (chat) => {
+    let chatText = `模型: ${chat.modelName}\n时间: ${new Date(chat.timestamp).toLocaleString()}\n\n`;
+    
+    chat.messages.forEach((message, index) => {
+      if (message.role === 'user') {
+        chatText += `用户: `;
+        if (typeof message.content === 'string') {
+          chatText += message.content;
+        } else if (Array.isArray(message.content)) {
+          const textParts = message.content.filter(item => item.type === 'text');
+          const imageParts = message.content.filter(item => item.type === 'image_url');
+          if (textParts.length > 0) {
+            chatText += textParts.map(item => item.text).join(' ');
+          }
+          if (imageParts.length > 0) {
+            chatText += ` [包含${imageParts.length}张图片]`;
+          }
+        }
+      } else {
+        chatText += `AI: ${message.content}`;
+      }
+      chatText += '\n\n';
+    });
+
+    if (await copy(chatText)) {
+      Toast.success(t('聊天记录已复制到剪贴板'));
+    } else {
+      Toast.error(t('复制失败'));
+    }
+  }, [t]);
+
+  // 删除聊天记录
+  const deleteChatHistory = useCallback((chatId) => {
+    try {
+      const existingHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
+      const updatedHistory = existingHistory.filter(chat => chat.id !== chatId);
+      localStorage.setItem('chat_history', JSON.stringify(updatedHistory));
+      setChatHistory(updatedHistory);
+      Toast.success(t('聊天记录已删除'));
+    } catch (error) {
+      console.error('Failed to delete chat history:', error);
+      Toast.error(t('删除失败'));
+    }
+  }, [t]);
+
+  // 加载指定的聊天记录
+  const loadChat = useCallback((chat) => {
+    setMessages(chat.messages);
+    setHistoryDrawerVisible(false);
+    Toast.success(t('聊天记录已加载'));
+  }, [t]);
+
   // 滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,6 +129,13 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentStreamContent]);
+
+  // 组件初始化时加载聊天历史
+  useEffect(() => {
+    if (visible) {
+      loadChatHistory();
+    }
+  }, [visible, loadChatHistory]);
 
   // 将文件转换为base64
   const fileToBase64 = useCallback((file) => {
@@ -100,6 +198,43 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
     });
   }, []);
 
+  // 解析错误响应
+  const parseErrorResponse = useCallback(async (response) => {
+    try {
+      const errorText = await response.text();
+      let errorData;
+      
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        return errorText || `HTTP ${response.status} 错误`;
+      }
+
+      // 处理不同的错误格式
+      if (errorData.error) {
+        if (typeof errorData.error === 'string') {
+          return errorData.error;
+        } else if (errorData.error.message) {
+          return errorData.error.message;
+        } else if (errorData.error.code) {
+          return `错误代码: ${errorData.error.code}`;
+        }
+      }
+
+      if (errorData.message) {
+        return errorData.message;
+      }
+
+      if (errorData.detail) {
+        return errorData.detail;
+      }
+
+      return errorText || `HTTP ${response.status} 错误`;
+    } catch {
+      return `HTTP ${response.status} 错误`;
+    }
+  }, []);
+
   // 发送消息
   const sendMessage = useCallback(async () => {
     if ((!inputValue.trim() && selectedImages.length === 0) || isStreaming) return;
@@ -139,6 +274,8 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
     setIsStreaming(true);
     setCurrentStreamContent('');
 
+    const chatId = generateChatId();
+
     try {
       // 获取用户的第一个token
       const tokenRes = await API.get('/api/token');
@@ -167,8 +304,8 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        const errorMessage = await parseErrorResponse(response);
+        throw new Error(errorMessage);
       }
 
       const reader = response.body.getReader();
@@ -213,7 +350,11 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       // 流式传输完成，添加到消息列表
       if (assistantContent.trim()) {
         const assistantMessage = { role: 'assistant', content: assistantContent };
-        setMessages(prev => [...prev, assistantMessage]);
+        const finalMessages = [...newMessages, assistantMessage];
+        setMessages(finalMessages);
+        
+        // 保存到聊天历史
+        saveChatToHistory(finalMessages, chatId);
       }
       setCurrentStreamContent('');
       
@@ -222,18 +363,10 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
         Toast.warning(t('请求已取消'));
       } else {
         console.error('Stream error:', error);
-        let errorMessage = t('发送消息失败，请重试');
         
-        // 提供更详细的错误信息
-        if (error.message.includes('401')) {
-          errorMessage = t('Token认证失败，请检查Token是否有效');
-        } else if (error.message.includes('429')) {
-          errorMessage = t('请求频率过高，请稍后重试');
-        } else if (error.message.includes('404')) {
-          errorMessage = t('模型不存在或不可用');
-        }
+        // 显示具体的错误信息
+        Toast.error(error.message || t('发送消息失败，请重试'));
         
-        Toast.error(errorMessage);
         // 将失败的消息从列表中移除
         setMessages(prev => prev.slice(0, -1));
       }
@@ -241,7 +374,7 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [inputValue, messages, modelName, isStreaming, selectedImages, t]);
+  }, [inputValue, messages, modelName, isStreaming, selectedImages, t, generateChatId, saveChatToHistory, parseErrorResponse]);
 
   // 停止流式传输
   const stopStreaming = useCallback(() => {
@@ -321,285 +454,365 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
   }, []);
 
   return (
-    <Modal
-      visible={visible}
-      onCancel={handleClose}
-      footer={null}
-      width="90vw"
-      style={{ maxWidth: '800px' }}
-      bodyStyle={{ padding: 0, height: '80vh', maxHeight: '600px' }}
-      className="quick-chat-modal"
-      closeIcon={<IconClose />}
-      title={
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-2">
-            <IconSetting className="text-blue-500" />
-            <span className="font-medium">{t('模型体验')}</span>
-            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              {modelName}
-            </span>
-            {showImageUpload && (
-              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">
-                {t('支持图片')}
+    <>
+      <Modal
+        visible={visible}
+        onCancel={handleClose}
+        footer={null}
+        width="90vw"
+        style={{ maxWidth: '800px' }}
+        bodyStyle={{ padding: 0, height: '80vh', maxHeight: '600px' }}
+        className="quick-chat-modal"
+        closeIcon={<IconClose />}
+        title={
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <IconSetting className="text-blue-500" />
+              <span className="font-medium">{t('模型体验')}</span>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {modelName}
               </span>
-            )}
-          </div>
-          <Button
-            theme="borderless"
-            type="tertiary"
-            size="small"
-            onClick={clearMessages}
-            disabled={messages.length === 0 && !isStreaming}
-          >
-            {t('清空对话')}
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col h-full">
-        {/* 消息区域 */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-          <div className="max-w-4xl mx-auto space-y-4">
-            {messages.length === 0 && !currentStreamContent && (
-              <div className="text-center py-8">
-                <div className="text-gray-400 mb-4">
-                  <IconSetting size="large" />
-                </div>
-                <p className="text-gray-500 mb-2">{t('开始与 {{model}} 对话', { model: modelName })}</p>
-                <p className="text-sm text-gray-400">{t('输入消息并按回车发送')}</p>
-                {showImageUpload && (
-                  <p className="text-sm text-green-600 mt-2">{t('此模型支持图片识别，可以上传图片进行对话')}</p>
-                )}
-              </div>
-            )}
-
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              {showImageUpload && (
+                <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">
+                  {t('支持图片')}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                theme="borderless"
+                type="tertiary"
+                size="small"
+                icon={<IconList />}
+                onClick={() => setHistoryDrawerVisible(true)}
               >
-                {message.role === 'assistant' && (
+                {t('聊天记录')}
+              </Button>
+              <Button
+                theme="borderless"
+                type="tertiary"
+                size="small"
+                onClick={clearMessages}
+                disabled={messages.length === 0 && !isStreaming}
+              >
+                {t('清空对话')}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex flex-col h-full">
+          {/* 消息区域 */}
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+            <div className="max-w-4xl mx-auto space-y-4">
+              {messages.length === 0 && !currentStreamContent && (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 mb-4">
+                    <IconSetting size="large" />
+                  </div>
+                  <p className="text-gray-500 mb-2">{t('开始与 {{model}} 对话', { model: modelName })}</p>
+                  <p className="text-sm text-gray-400">{t('输入消息并按回车发送')}</p>
+                  {showImageUpload && (
+                    <p className="text-sm text-green-600 mt-2">{t('此模型支持图片识别，可以上传图片进行对话')}</p>
+                  )}
+                </div>
+              )}
+
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {message.role === 'assistant' && (
+                    <Avatar
+                      size="small"
+                      style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
+                    >
+                      AI
+                    </Avatar>
+                  )}
+                  
+                  <Card
+                    className={`max-w-[70%] ${
+                      message.role === 'user'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white border border-gray-200'
+                    }`}
+                    bodyStyle={{ padding: '12px 16px' }}
+                  >
+                    {renderMessageContent(message.content)}
+                  </Card>
+
+                  {message.role === 'user' && (
+                    <Avatar
+                      size="small"
+                      icon={<IconUser />}
+                      style={{ backgroundColor: '#52c41a', flexShrink: 0 }}
+                    />
+                  )}
+                </div>
+              ))}
+
+              {/* 流式内容显示 */}
+              {currentStreamContent && (
+                <div className="flex gap-3 justify-start">
                   <Avatar
                     size="small"
                     style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
                   >
                     AI
                   </Avatar>
-                )}
-                
-                <Card
-                  className={`max-w-[70%] ${
-                    message.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white border border-gray-200'
-                  }`}
-                  bodyStyle={{ padding: '12px 16px' }}
-                >
-                  {renderMessageContent(message.content)}
-                </Card>
+                  <Card
+                    className="max-w-[70%] bg-white border border-gray-200"
+                    bodyStyle={{ padding: '12px 16px' }}
+                  >
+                    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                      {currentStreamContent}
+                      <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse" />
+                    </div>
+                  </Card>
+                </div>
+              )}
 
-                {message.role === 'user' && (
+              {isStreaming && !currentStreamContent && (
+                <div className="flex gap-3 justify-start">
                   <Avatar
                     size="small"
-                    icon={<IconUser />}
-                    style={{ backgroundColor: '#52c41a', flexShrink: 0 }}
-                  />
-                )}
-              </div>
-            ))}
+                    style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
+                  >
+                    AI
+                  </Avatar>
+                  <Card
+                    className="max-w-[70%] bg-white border border-gray-200"
+                    bodyStyle={{ padding: '12px 16px' }}
+                  >
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Spin size="small" />
+                      {t('AI 正在思考...')}
+                    </div>
+                  </Card>
+                </div>
+              )}
 
-            {/* 流式内容显示 */}
-            {currentStreamContent && (
-              <div className="flex gap-3 justify-start">
-                <Avatar
-                  size="small"
-                  style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
-                >
-                  AI
-                </Avatar>
-                <Card
-                  className="max-w-[70%] bg-white border border-gray-200"
-                  bodyStyle={{ padding: '12px 16px' }}
-                >
-                  <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                    {currentStreamContent}
-                    <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse" />
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {isStreaming && !currentStreamContent && (
-              <div className="flex gap-3 justify-start">
-                <Avatar
-                  size="small"
-                  style={{ backgroundColor: '#1890ff', flexShrink: 0 }}
-                >
-                  AI
-                </Avatar>
-                <Card
-                  className="max-w-[70%] bg-white border border-gray-200"
-                  bodyStyle={{ padding: '12px 16px' }}
-                >
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Spin size="small" />
-                    {t('AI 正在思考...')}
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
 
-        {/* 输入区域 */}
-        <div className="border-t border-gray-200 p-4 bg-white">
-          <div className="max-w-4xl mx-auto">
-            {/* 图片预览区域 */}
-            {selectedImages.length > 0 && (
-              <div className="mb-3 p-2 bg-gray-50 rounded-lg">
-                <div className="flex flex-wrap gap-2">
-                  {selectedImages.map((image) => (
-                    <div key={image.id} className="relative">
-                      <Image
-                        src={image.url}
-                        alt={image.name}
-                        style={{ width: '60px', height: '60px', objectFit: 'cover' }}
-                        className="rounded border"
-                        preview={{
-                          src: image.url
-                        }}
+          {/* 输入区域 */}
+          <div className="border-t border-gray-200 p-4 bg-white">
+            <div className="max-w-4xl mx-auto">
+              {/* 图片预览区域 */}
+              {selectedImages.length > 0 && (
+                <div className="mb-3 p-2 bg-gray-50 rounded-lg">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedImages.map((image) => (
+                      <div key={image.id} className="relative">
+                        <Image
+                          src={image.url}
+                          alt={image.name}
+                          style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                          className="rounded border"
+                          preview={{
+                            src: image.url
+                          }}
+                        />
+                        <Button
+                          theme="borderless"
+                          type="danger"
+                          size="small"
+                          icon={<IconDeleteStroked />}
+                          onClick={() => removeImage(image.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            padding: 0,
+                            minWidth: '20px'
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <TextArea
+                    placeholder={t('输入消息...（按 Enter 发送，Shift+Enter 换行）')}
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onKeyDown={handleKeyPress}
+                    disabled={isStreaming}
+                    autosize={{ minRows: 1, maxRows: 4 }}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {/* 图片上传按钮 */}
+                  {showImageUpload && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleImageSelect(e.target.files)}
                       />
                       <Button
                         theme="borderless"
-                        type="danger"
-                        size="small"
-                        icon={<IconDeleteStroked />}
-                        onClick={() => removeImage(image.id)}
-                        style={{
-                          position: 'absolute',
-                          top: '-6px',
-                          right: '-6px',
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          padding: 0,
-                          minWidth: '20px'
-                        }}
+                        type="tertiary"
+                        icon={<IconImage />}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isStreaming}
+                        size="large"
                       />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <TextArea
-                  placeholder={t('输入消息...（按 Enter 发送，Shift+Enter 换行）')}
-                  value={inputValue}
-                  onChange={setInputValue}
-                  onKeyDown={handleKeyPress}
-                  disabled={isStreaming}
-                  autosize={{ minRows: 1, maxRows: 4 }}
-                  style={{ resize: 'none' }}
-                />
-              </div>
-              <div className="flex gap-2">
-                {/* 图片上传按钮 */}
-                {showImageUpload && (
-                  <>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => handleImageSelect(e.target.files)}
-                    />
+                    </>
+                  )}
+                  
+                  {isStreaming && (
                     <Button
                       theme="borderless"
                       type="tertiary"
-                      icon={<IconImage />}
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isStreaming}
+                      onClick={stopStreaming}
                       size="large"
-                    />
-                  </>
-                )}
-                
-                {isStreaming && (
+                    >
+                      {t('停止')}
+                    </Button>
+                  )}
                   <Button
-                    theme="borderless"
-                    type="tertiary"
-                    onClick={stopStreaming}
+                    theme="solid"
+                    type="primary"
+                    icon={<IconSend />}
+                    onClick={sendMessage}
+                    disabled={(!inputValue.trim() && selectedImages.length === 0) || isStreaming}
                     size="large"
                   >
-                    {t('停止')}
+                    {t('发送')}
                   </Button>
-                )}
-                <Button
-                  theme="solid"
-                  type="primary"
-                  icon={<IconSend />}
-                  onClick={sendMessage}
-                  disabled={(!inputValue.trim() && selectedImages.length === 0) || isStreaming}
-                  size="large"
-                >
-                  {t('发送')}
-                </Button>
+                </div>
               </div>
-            </div>
-            
-            {/* 提示信息 */}
-            <div className="mt-2 text-xs text-gray-400 text-center">
-              {t('当前模型：{{model}}', { model: modelName })} • 
-              {t('消息数：{{count}}', { count: messages.length })}
-              {showImageUpload && t(' • 支持图片上传')}
+              
+              {/* 提示信息 */}
+              <div className="mt-2 text-xs text-gray-400 text-center">
+                {t('当前模型：{{model}}', { model: modelName })} • 
+                {t('消息数：{{count}}', { count: messages.length })}
+                {showImageUpload && t(' • 支持图片上传')}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        .quick-chat-modal .semi-modal-content {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
-        
-        /* 滚动条美化 */
-        .quick-chat-modal ::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .quick-chat-modal ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        .quick-chat-modal ::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, 0.2);
-          border-radius: 3px;
-        }
-        
-        .quick-chat-modal ::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(0, 0, 0, 0.3);
-        }
-
-        /* 移动端适配 */
-        @media (max-width: 768px) {
-          .quick-chat-modal .semi-modal {
-            width: 95vw !important;
-            height: 90vh !important;
-            margin: 5vh auto !important;
-          }
-          
+        <style jsx>{`
           .quick-chat-modal .semi-modal-content {
+            display: flex;
+            flex-direction: column;
             height: 100%;
           }
-        }
-      `}</style>
-    </Modal>
+          
+          /* 滚动条美化 */
+          .quick-chat-modal ::-webkit-scrollbar {
+            width: 6px;
+          }
+          
+          .quick-chat-modal ::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          
+          .quick-chat-modal ::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+          }
+          
+          .quick-chat-modal ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.3);
+          }
+
+          /* 移动端适配 */
+          @media (max-width: 768px) {
+            .quick-chat-modal .semi-modal {
+              width: 95vw !important;
+              height: 90vh !important;
+              margin: 5vh auto !important;
+            }
+            
+            .quick-chat-modal .semi-modal-content {
+              height: 100%;
+            }
+          }
+        `}</style>
+      </Modal>
+
+      {/* 聊天记录抽屉 */}
+      <SideSheet
+        title={t('聊天记录')}
+        visible={historyDrawerVisible}
+        onCancel={() => setHistoryDrawerVisible(false)}
+        width={400}
+        bodyStyle={{ padding: 0 }}
+      >
+        <div className="p-4">
+          {chatHistory.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <IconList size="large" className="mb-4" />
+              <p>{t('暂无聊天记录')}</p>
+            </div>
+          ) : (
+            <List
+              dataSource={chatHistory}
+              renderItem={(chat) => (
+                <List.Item
+                  main={
+                    <div className="w-full">
+                      <div className="flex justify-between items-start mb-2">
+                        <Typography.Text strong className="text-sm">
+                          {chat.modelName}
+                        </Typography.Text>
+                        <Typography.Text type="tertiary" className="text-xs">
+                          {new Date(chat.timestamp).toLocaleString()}
+                        </Typography.Text>
+                      </div>
+                      <Typography.Text type="secondary" className="text-xs block mb-2">
+                        {t('{{count}} 条消息', { count: chat.messageCount })}
+                      </Typography.Text>
+                      <div className="flex gap-2">
+                        <Button
+                          size="small"
+                          theme="light"
+                          onClick={() => loadChat(chat)}
+                        >
+                          {t('加载')}
+                        </Button>
+                        <Button
+                          size="small"
+                          theme="light"
+                          icon={<IconCopy />}
+                          onClick={() => copyChatHistory(chat)}
+                        >
+                          {t('复制')}
+                        </Button>
+                        <Button
+                          size="small"
+                          theme="light"
+                          type="danger"
+                          icon={<IconDeleteStroked />}
+                          onClick={() => deleteChatHistory(chat.id)}
+                        >
+                          {t('删除')}
+                        </Button>
+                      </div>
+                    </div>
+                  }
+                />
+              )}
+            />
+          )}
+        </div>
+      </SideSheet>
+    </>
   );
 };
 
