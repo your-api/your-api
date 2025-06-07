@@ -80,6 +80,10 @@ func setupLogin(user *model.User, c *gin.Context) {
 		})
 		return
 	}
+	
+	// 同步session到Redis缓存，实现永不过期的登录态
+	model.SyncSessionToRedis(c, user.Id, user.Username, user.Role, user.Status, user.Group)
+	
 	cleanUser := model.User{
 		Id:          user.Id,
 		Username:    user.Username,
@@ -96,6 +100,9 @@ func setupLogin(user *model.User, c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
+	// 先删除Redis缓存中的session
+	model.DeleteSessionCacheFromContext(c)
+	
 	session := sessions.Default(c)
 	session.Clear()
 	err := session.Save()

@@ -113,7 +113,7 @@ export default function ApiGuideDrawer({
 
 client = OpenAI(
   api_key="<YOUR_API_KEY>",
-  base_url="${baseUrl}"
+  base_url="${urlV1}"
 )
 
 resp = client.chat.completions.create(
@@ -130,7 +130,7 @@ const client = new OpenAI({
 
 const res = await client.chat.completions.create({
   model: "${modelId}",
-  messages: [{ role: "user", content: "Hello!" }]
+  messages: [{ "role": "user", "content": "Hello!" }]
 });
 console.log(res.choices[0].message.content);`,
     go: `package main
