@@ -16,6 +16,7 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   // 检查模型是否支持视觉功能
   const isVisionModel = useCallback(() => {
@@ -120,6 +121,44 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
     setHistoryDrawerVisible(false);
     Toast.success(t('聊天记录已加载'));
   }, [t]);
+
+  // 复制文本函数
+  const copyText = useCallback(async (text) => {
+    if (await copy(text)) {
+      Toast.success(t('已复制：{{text}}', { text }));
+    } else {
+      Toast.error(t('复制失败'));
+    }
+  }, [t]);
+
+  // 移动端键盘处理
+  useEffect(() => {
+    if (!visible) return;
+
+    const handleVisualViewportChange = () => {
+      if (window.visualViewport && inputRef.current) {
+        const viewport = window.visualViewport;
+        const isKeyboardOpen = viewport.height < window.innerHeight * 0.75;
+        
+        if (isKeyboardOpen) {
+          // 键盘打开时，调整模态框位置
+          setTimeout(() => {
+            inputRef.current?.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' 
+            });
+          }, 100);
+        }
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+      return () => {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
+      };
+    }
+  }, [visible]);
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -401,6 +440,22 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
     }
   }, [sendMessage]);
 
+  // 输入框焦点处理
+  const handleInputFocus = useCallback(() => {
+    // 移动端键盘弹出时的处理
+    if (window.innerWidth <= 768) {
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+        }
+      }, 300); // 等待键盘动画完成
+    }
+  }, []);
+
   // 关闭模态框时清理状态
   const handleClose = useCallback(() => {
     if (isStreaming) {
@@ -469,9 +524,24 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
             <div className="flex items-center gap-2">
               <IconSetting className="text-blue-500" />
               <span className="font-medium">{t('模型体验')}</span>
-              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                {modelName}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  {modelName}
+                </span>
+                <Button
+                  theme="borderless"
+                  type="tertiary"
+                  size="small"
+                  icon={<IconCopy />}
+                  onClick={() => copyText(modelName)}
+                  style={{
+                    padding: '4px',
+                    minWidth: '24px',
+                    height: '24px'
+                  }}
+                  title={t('复制模型名称')}
+                />
+              </div>
               {showImageUpload && (
                 <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">
                   {t('支持图片')}
@@ -646,9 +716,11 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
                     value={inputValue}
                     onChange={setInputValue}
                     onKeyDown={handleKeyPress}
+                    onFocus={handleInputFocus}
                     disabled={isStreaming}
                     autosize={{ minRows: 1, maxRows: 4 }}
                     style={{ resize: 'none' }}
+                    ref={inputRef}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -734,13 +806,54 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
           /* 移动端适配 */
           @media (max-width: 768px) {
             .quick-chat-modal .semi-modal {
-              width: 95vw !important;
-              height: 90vh !important;
-              margin: 5vh auto !important;
+              width: 100vw !important;
+              height: 100vh !important;
+              margin: 0 !important;
+              max-width: 100vw !important;
+              max-height: 100vh !important;
             }
             
             .quick-chat-modal .semi-modal-content {
-              height: 100%;
+              height: 100vh !important;
+              border-radius: 0 !important;
+            }
+
+            .quick-chat-modal .semi-modal-body {
+              height: calc(100vh - 60px) !important;
+              padding: 0 !important;
+            }
+
+            /* 确保输入框在键盘弹出时可见 */
+            @supports (height: 100dvh) {
+              .quick-chat-modal .semi-modal {
+                height: 100dvh !important;
+              }
+              
+              .quick-chat-modal .semi-modal-content {
+                height: 100dvh !important;
+              }
+
+              .quick-chat-modal .semi-modal-body {
+                height: calc(100dvh - 60px) !important;
+              }
+            }
+
+            /* 键盘适配 */
+            @supports (height: env(keyboard-inset-height)) {
+              .quick-chat-modal .semi-modal-body {
+                height: calc(100vh - 60px - env(keyboard-inset-height)) !important;
+              }
+            }
+          }
+
+          /* 修复iOS Safari键盘问题 */
+          @media (max-width: 768px) and (-webkit-min-device-pixel-ratio: 1) {
+            .quick-chat-modal .semi-modal {
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
             }
           }
         `}</style>

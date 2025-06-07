@@ -184,6 +184,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconPlay,
+  IconCopy,
 } from '@douyinfe/semi-icons';
 import { UserContext } from '../context/User/index.js';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -649,19 +650,34 @@ const ModelPricing = ({onInitialize}) => {
         render: (text, record, index) => {
           return (
               <>
-                <div
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
-                    style={{
-                      background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
-                      color: 'var(--semi-color-primary)',
-                      borderColor: 'var(--semi-color-primary-light-active)',
-                      borderWidth: '1px',
-                      borderStyle: 'solid'
-                    }}
+                <div className="flex items-center gap-2">
+                  <div
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
+                      style={{
+                        background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
+                        color: 'var(--semi-color-primary)',
+                        borderColor: 'var(--semi-color-primary-light-active)',
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
+                      onClick={() => copyText(text)}
+                      title={text}
+                  >
+                    <span className="truncate">{text}</span>
+                  </div>
+                  <Button
+                    theme="borderless"
+                    type="tertiary"
+                    size="small"
+                    icon={<IconCopy />}
                     onClick={() => copyText(text)}
-                    title={text}
-                >
-                  <span className="truncate">{text}</span>
+                    style={{
+                      padding: '4px',
+                      minWidth: '24px',
+                      height: '24px'
+                    }}
+                    title={t('复制模型名称')}
+                  />
                 </div>
               </>
           );
@@ -1208,6 +1224,19 @@ const ModelPricing = ({onInitialize}) => {
   // 处理立即体验按钮点击
   const handleQuickTest = useCallback(async (modelName) => {
     try {
+      // 首先检查用户是否已经登录
+      if (!localStorage.getItem('user')) {
+        Modal.warning({
+          title: t('需要登录'),
+          content: t('请先登录账户才能体验模型'),
+          okText: t('去登录'),
+          onOk: () => {
+            window.location.href = '/login';
+          }
+        });
+        return;
+      }
+
       // 检查用户是否有token
       const res = await API.get('/api/token');
       const { success, data } = res.data;
@@ -1228,7 +1257,7 @@ const ModelPricing = ({onInitialize}) => {
       setSelectedModel(modelName);
       setChatVisible(true);
     } catch (error) {
-      showError(t('检查Token失败，请稍后重试'));
+      showError(t('检查用户状态失败，请稍后重试'));
     }
   }, [t]);
 
@@ -1750,19 +1779,34 @@ const ModelPricing = ({onInitialize}) => {
                         <div key={model.key} className="bg-transparent rounded-lg shadow-sm overflow-hidden border border-gray-100">
                           <div className="bg-gray-50 px-4 py-3 border-b border-gray-100">
                             <div className="flex justify-between items-center">
-                              <div
-                                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
-                                  style={{
-                                    background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
-                                    color: 'var(--semi-color-primary)',
-                                    borderColor: 'var(--semi-color-primary-light-active)',
-                                    borderWidth: '1px',
-                                    borderStyle: 'solid'
-                                  }}
+                              <div className="flex items-center gap-2 flex-1">
+                                <div
+                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
+                                    style={{
+                                      background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
+                                      color: 'var(--semi-color-primary)',
+                                      borderColor: 'var(--semi-color-primary-light-active)',
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid'
+                                    }}
+                                    onClick={() => copyText(model.model_name)}
+                                    title={model.model_name}
+                                >
+                                  <span className="truncate">{model.model_name}</span>
+                                </div>
+                                <Button
+                                  theme="borderless"
+                                  type="tertiary"
+                                  size="small"
+                                  icon={<IconCopy />}
                                   onClick={() => copyText(model.model_name)}
-                                  title={model.model_name}
-                              >
-                                <span className="truncate">{model.model_name}</span>
+                                  style={{
+                                    padding: '4px',
+                                    minWidth: '24px',
+                                    height: '24px'
+                                  }}
+                                  title={t('复制模型名称')}
+                                />
                               </div>
                               {(() => {
                                 let available = false;
