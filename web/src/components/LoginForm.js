@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../context/User';
 import {
@@ -23,6 +23,9 @@ import {
   Icon,
   Layout,
   Modal,
+  TabPane,
+  Tabs,
+  Spin,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -34,6 +37,8 @@ import WeChatIcon from './WeChatIcon';
 import { setUserData } from '../helpers/data.js';
 import LinuxDoIcon from './LinuxDoIcon.js';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG } from 'qrcode.react';
+import './LoginForm.css';
 
 const LoginForm = () => {
   const [inputs, setInputs] = useState({
@@ -52,6 +57,17 @@ const LoginForm = () => {
   const [status, setStatus] = useState({});
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
   const { t } = useTranslation();
+
+  // 新增：微信扫码登录相关状态
+  const [activeTabKey, setActiveTabKey] = useState('qr'); // 默认显示扫码登录
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrStatus, setQrStatus] = useState('waiting'); // waiting, success, error, expired
+  const [qrMessage, setQrMessage] = useState('');
+  const [qrCountdown, setQrCountdown] = useState(0);
+  const [loginProcessed, setLoginProcessed] = useState(false); // 防止重复处理登录
+  const qrTimerRef = useRef(null);
+  const qrCheckTimerRef = useRef(null);
 
   const logo = getLogo();
 
@@ -74,6 +90,163 @@ const LoginForm = () => {
       }
     }
   }, []);
+
+  // 新增：获取微信扫码二维码
+  const getWeChatQRCode = async () => {
+    setQrLoading(true);
+    setLoginProcessed(false); // 重置登录处理标志
+    try {
+      const res = await API.get('/api/oauth/wechat/qr');
+      const { success, data, message } = res.data;
+      
+      if (success && data) {
+        setQrCodeData(data);
+        setQrStatus('waiting');
+        setQrMessage(t('请使用微信扫码登录'));
+        setQrCountdown(120); // 2分钟倒计时
+        
+        // 开始倒计时
+        if (qrTimerRef.current) clearInterval(qrTimerRef.current);
+        qrTimerRef.current = setInterval(() => {
+          setQrCountdown(prev => {
+            if (prev <= 1) {
+              clearInterval(qrTimerRef.current);
+              setQrStatus('expired');
+              setQrMessage(t('二维码已过期，请点击刷新'));
+              if (qrCheckTimerRef.current) {
+                clearInterval(qrCheckTimerRef.current);
+              }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        // 开始轮询检查登录状态
+        startQRLoginCheck(data.ticket);
+      } else {
+        setQrStatus('error');
+        setQrMessage(message || t('获取二维码失败'));
+      }
+    } catch (error) {
+      setQrStatus('error');
+      setQrMessage(t('网络错误，请稍后重试'));
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // 新增：开始轮询检查扫码状态
+  const startQRLoginCheck = (ticket) => {
+    if (qrCheckTimerRef.current) {
+      clearInterval(qrCheckTimerRef.current);
+    }
+    
+    qrCheckTimerRef.current = setInterval(async () => {
+      try {
+        const res = await API.get(`/api/oauth/wechat/qr/check?ticket=${ticket}`);
+        console.log('扫码检查响应:', res.data); // 添加调试日志
+        console.log('响应类型:', typeof res.data);
+        console.log('响应字符串:', JSON.stringify(res.data));
+        
+        // 根据实际返回的数据结构调整解析
+        const responseData = res.data;
+        
+        // 增强判断逻辑，处理可能的响应格式
+        const isSuccess = responseData.success && (
+          responseData.status === 'success' || 
+          responseData.message === '登录成功' ||
+          (responseData.data && responseData.data.id && responseData.data.username)
+        );
+        
+        if (isSuccess) {
+          // 防止重复处理登录成功
+          if (loginProcessed) {
+            console.log('登录已处理，跳过重复处理');
+            return;
+          }
+          
+          // 登录成功
+          console.log('检测到登录成功，清理定时器');
+          setLoginProcessed(true); // 标记为已处理
+          
+          // 立即清理定时器，防止重复触发
+          if (qrCheckTimerRef.current) {
+            clearInterval(qrCheckTimerRef.current);
+            qrCheckTimerRef.current = null;
+          }
+          if (qrTimerRef.current) {
+            clearInterval(qrTimerRef.current);
+            qrTimerRef.current = null;
+          }
+          
+          setQrStatus('success');
+          setQrMessage(t('登录成功！'));
+          
+          // 设置用户数据
+          console.log('设置用户数据:', responseData.data);
+          userDispatch({ type: 'login', payload: responseData.data });
+          setUserData(responseData.data);
+          updateAPI();
+          
+          // 只显示一次成功提示
+          showSuccess(t('登录成功！'));
+          
+          // 延迟1.5秒后跳转，让用户看到成功状态
+          setTimeout(() => {
+            console.log('准备跳转到/token页面');
+            navigate('/token');
+          }, 1500);
+        } else if (responseData.status === 'error') {
+          // 登录错误
+          clearInterval(qrCheckTimerRef.current);
+          setQrStatus('error');
+          setQrMessage(responseData.message || t('登录失败'));
+        } else {
+          // 等待状态，继续轮询
+          console.log('继续等待扫码...');
+        }
+      } catch (error) {
+        console.error('检查登录状态失败:', error);
+      }
+    }, 2000); // 每2秒检查一次
+  };
+
+  // 新增：刷新二维码
+  const refreshQRCode = () => {
+    if (qrTimerRef.current) clearInterval(qrTimerRef.current);
+    if (qrCheckTimerRef.current) clearInterval(qrCheckTimerRef.current);
+    setLoginProcessed(false); // 重置登录处理标志
+    getWeChatQRCode();
+  };
+
+  // 新增：格式化倒计时显示
+  const formatCountdown = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (qrTimerRef.current) {
+        clearInterval(qrTimerRef.current);
+        qrTimerRef.current = null;
+      }
+      if (qrCheckTimerRef.current) {
+        clearInterval(qrCheckTimerRef.current);
+        qrCheckTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 当切换到扫码登录tab时，自动获取二维码
+  useEffect(() => {
+    if (activeTabKey === 'qr' && !qrCodeData) {
+      getWeChatQRCode();
+    }
+  }, [activeTabKey]);
 
   const onWeChatLoginClicked = () => {
     setShowWeChatLoginModal(true);
@@ -173,6 +346,135 @@ const LoginForm = () => {
     }
   };
 
+  // 新增：渲染扫码登录界面
+  const renderQRLogin = () => (
+    <div className="wechat-qr-container">
+      <div className="wechat-qr-title">
+        <Title level={3} style={{ color: '#09BB07', marginBottom: 8 }}>
+          {t('微信扫码登录')}
+        </Title>
+        <Text type="secondary" className="wechat-qr-subtitle">
+          {t('使用微信扫一扫，快速安全登录')}
+        </Text>
+      </div>
+
+      <div className="qr-code-wrapper">
+        {qrLoading ? (
+          <div className="qr-code-loading qr-loading-pulse">
+            <Spin size="large" />
+          </div>
+        ) : qrCodeData && qrStatus === 'waiting' ? (
+          <div style={{ position: 'relative' }}>
+            <div className="qr-code-container waiting">
+              <QRCodeSVG
+                value={qrCodeData.qr_url}
+                size={200}
+                level="H"
+                includeMargin={true}
+                style={{
+                  background: 'white',
+                  borderRadius: '8px',
+                }}
+              />
+            </div>
+            <div className="qr-countdown">
+              {formatCountdown(qrCountdown)}
+            </div>
+          </div>
+        ) : qrStatus === 'success' ? (
+          <div className="qr-code-success">
+            <div className="qr-success-icon" style={{ fontSize: '4rem', color: '#09BB07', marginBottom: '1rem' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '4rem', height: '4rem' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <Text strong style={{ color: '#09BB07' }}>
+              {t('登录成功！')}
+            </Text>
+          </div>
+        ) : (
+          <div className="qr-code-error">
+            <div style={{ fontSize: '4rem', color: 'var(--semi-color-text-2)', marginBottom: '1rem' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '4rem', height: '4rem' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </div>
+            <Button
+              type="primary"
+              theme="solid"
+              onClick={refreshQRCode}
+              className="wechat-refresh-btn"
+            >
+              {t('重新获取二维码')}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="qr-message">
+        <Text type="secondary" size="small">
+          {qrMessage}
+        </Text>
+      </div>
+
+      <div className="qr-security-notice">
+        <svg style={{ width: '1rem', height: '1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span>{t('安全快捷，无需输入密码')}</span>
+      </div>
+    </div>
+  );
+
+  // 新增：渲染密码登录界面
+  const renderPasswordLogin = () => (
+    <div className="py-4">
+      <Form>
+        <Form.Input
+          field={'username'}
+          label={t('用户名/邮箱')}
+          placeholder={t('用户名/邮箱')}
+          name='username'
+          onChange={(value) => handleChange('username', value)}
+        />
+        <Form.Input
+          field={'password'}
+          label={t('密码')}
+          placeholder={t('密码')}
+          name='password'
+          type='password'
+          onChange={(value) => handleChange('password', value)}
+        />
+
+        <Button
+          theme='solid'
+          style={{ width: '100%' }}
+          type={'primary'}
+          size='large'
+          htmlType={'submit'}
+          onClick={handleSubmit}
+        >
+          {t('登录')}
+        </Button>
+      </Form>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 20,
+        }}
+      >
+        <Text>
+          {t('没有账户？')}{' '}
+          <Link to='/register'>{t('点击注册')}</Link>
+        </Text>
+        <Text>
+          {t('忘记密码？')} <Link to='/reset'>{t('点击重置')}</Link>
+        </Text>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <Layout>
@@ -182,57 +484,78 @@ const LoginForm = () => {
             style={{
               justifyContent: 'center',
               display: 'flex',
-              marginTop: 120,
+              marginTop: 5,
+              minHeight: 'calc(100vh - 80px)',
+              alignItems: 'flex-start',
+              paddingTop: '0.5rem',
             }}
           >
-            <div style={{ width: 500 }}>
-              <Card>
-                <Title heading={2} style={{ textAlign: 'center' }}>
-                  {t('用户登录')}
-                </Title>
-                <Form>
-                  <Form.Input
-                    field={'username'}
-                    label={t('用户名/邮箱')}
-                    placeholder={t('用户名/邮箱')}
-                    name='username'
-                    onChange={(value) => handleChange('username', value)}
-                  />
-                  <Form.Input
-                    field={'password'}
-                    label={t('密码')}
-                    placeholder={t('密码')}
-                    name='password'
-                    type='password'
-                    onChange={(value) => handleChange('password', value)}
-                  />
-
-                  <Button
-                    theme='solid'
-                    style={{ width: '100%' }}
-                    type={'primary'}
-                    size='large'
-                    htmlType={'submit'}
-                    onClick={handleSubmit}
+            <div style={{ width: 500, maxWidth: '90vw' }}>
+              <Card 
+                style={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: 16, marginTop: 0 }}>
+                  <Title 
+                    heading={2} 
+                    style={{ 
+                      background: 'linear-gradient(135deg, #09BB07, #07d51b)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      marginBottom: 4,
+                      fontSize: '1.75rem',
+                      fontWeight: 700,
+                      marginTop: 0,
+                    }}
                   >
-                    {t('登录')}
-                  </Button>
-                </Form>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginTop: 20,
-                  }}
-                >
-                  <Text>
-                    {t('没有账户？')}{' '}
-                    <Link to='/register'>{t('点击注册')}</Link>
-                  </Text>
-                  <Text>
-                    {t('忘记密码？')} <Link to='/reset'>{t('点击重置')}</Link>
+                    {t('用户登录')}
+                  </Title>
+                  <Text type="secondary" style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+                    {t('欢迎回来，选择您喜欢的登录方式')}
                   </Text>
                 </div>
+                
+                {/* Tab切换 */}
+                <Tabs 
+                  activeKey={activeTabKey} 
+                  onChange={setActiveTabKey}
+                  centered
+                  className="login-tabs"
+                  style={{ marginBottom: 8 }}
+                >
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg className="login-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM8 8h8v2H8V8zm0 3h8v2H8v-2zm0 3h5v2H8v-2z"/>
+                        </svg>
+                        <span>{t('扫码登录')}</span>
+                      </div>
+                    } 
+                    itemKey="qr"
+                  >
+                    {renderQRLogin()}
+                  </TabPane>
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg className="login-tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                        <span>{t('密码登录')}</span>
+                      </div>
+                    } 
+                    itemKey="password"
+                  >
+                    {renderPasswordLogin()}
+                  </TabPane>
+                </Tabs>
+
+                {/* 第三方登录保持不变 */}
                 {status.github_oauth ||
                 status.oidc_enabled ||
                 status.wechat_login ||
@@ -247,6 +570,8 @@ const LoginForm = () => {
                         display: 'flex',
                         justifyContent: 'center',
                         marginTop: 20,
+                        gap: '0.5rem',
+                        flexWrap: 'wrap',
                       }}
                     >
                       {status.github_oauth ? (
@@ -317,6 +642,8 @@ const LoginForm = () => {
                 ) : (
                   <></>
                 )}
+                
+                {/* 微信验证码登录模态框保持不变 */}
                 <Modal
                   title={t('微信扫码登录')}
                   visible={showWeChatLoginModal}

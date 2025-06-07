@@ -1,0 +1,316 @@
+/* 微信扫码登录样式 - 优化版 */
+.wechat-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 1rem;
+  margin: 0.5rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.wechat-qr-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(9, 187, 7, 0.1) 0%, rgba(9, 187, 7, 0.05) 100%);
+  border-radius: 1rem;
+}
+
+.wechat-qr-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wechat-qr-title {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.wechat-qr-title h3 {
+  background: linear-gradient(135deg, #09BB07, #07d51b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.wechat-qr-subtitle {
+  color: var(--semi-color-text-1);
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.qr-code-wrapper {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.qr-code-container {
+  padding: 1rem;
+  border: 3px solid transparent;
+  background: linear-gradient(white, white) padding-box,
+              linear-gradient(135deg, #09BB07, #07d51b) border-box;
+  border-radius: 1rem;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(9, 187, 7, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.qr-code-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.15), 
+    0 20px 20px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(9, 187, 7, 0.1);
+}
+
+.qr-code-loading {
+  width: 16rem;
+  height: 16rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--semi-color-border);
+  border-radius: 1rem;
+  background: var(--semi-color-fill-0);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.qr-code-success {
+  width: 16rem;
+  height: 16rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #09BB07;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  box-shadow: 
+    0 20px 25px -5px rgba(9, 187, 7, 0.1), 
+    0 10px 10px -5px rgba(9, 187, 7, 0.04);
+}
+
+.qr-code-error {
+  width: 16rem;
+  height: 16rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--semi-color-border);
+  border-radius: 1rem;
+  background: var(--semi-color-fill-0);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.qr-countdown {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9));
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.qr-message {
+  margin-top: 1rem;
+  text-align: center;
+  max-width: 24rem;
+  color: var(--semi-color-text-1);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.qr-security-notice {
+  margin-top: 1rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--semi-color-text-2);
+  padding: 0.5rem 1rem;
+  background: rgba(9, 187, 7, 0.05);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(9, 187, 7, 0.1);
+}
+
+.login-tab-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .wechat-qr-container {
+    padding: 1.5rem 1rem;
+    margin: 0.5rem 0;
+  }
+  
+  .qr-code-container,
+  .qr-code-loading,
+  .qr-code-success,
+  .qr-code-error {
+    width: 14rem;
+    height: 14rem;
+  }
+  
+  .qr-code-container canvas {
+    width: 200px !important;
+    height: 200px !important;
+  }
+  
+  .wechat-qr-title h3 {
+    font-size: 1.5rem;
+  }
+  
+  .qr-message {
+    max-width: 18rem;
+  }
+}
+
+/* 暗黑模式适配 */
+.semi-always-dark .wechat-qr-container {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+}
+
+.semi-always-dark .qr-code-container {
+  background: linear-gradient(#2d2d2d, #2d2d2d) padding-box,
+              linear-gradient(135deg, #09BB07, #07d51b) border-box;
+}
+
+.semi-always-dark .qr-code-success {
+  background: linear-gradient(135deg, #0f2419 0%, #1a3d2e 100%);
+}
+
+/* 成功状态动画 */
+@keyframes checkmark {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+.qr-success-icon {
+  animation: checkmark 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Tab标签样式优化 */
+.login-tabs {
+  margin-bottom: 1rem !important;
+}
+
+.login-tabs .semi-tabs-tab {
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 500;
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  transition: all 0.3s ease;
+}
+
+.login-tabs .semi-tabs-tab:hover {
+  background: rgba(9, 187, 7, 0.05);
+}
+
+.login-tabs .semi-tabs-tab-active {
+  font-weight: 600;
+  background: linear-gradient(135deg, rgba(9, 187, 7, 0.1), rgba(9, 187, 7, 0.05));
+}
+
+/* 自定义按钮样式 */
+.wechat-refresh-btn {
+  background: linear-gradient(135deg, #09BB07, #07d51b) !important;
+  border: none !important;
+  padding: 0.75rem 2rem !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  box-shadow: 0 4px 14px 0 rgba(9, 187, 7, 0.2);
+}
+
+.wechat-refresh-btn:hover {
+  background: linear-gradient(135deg, #08a005, #06c018) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px 0 rgba(9, 187, 7, 0.3) !important;
+}
+
+.wechat-refresh-btn:active {
+  transform: translateY(0) !important;
+}
+
+/* 加载动画优化 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.qr-loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 二维码容器呼吸动画 */
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+      0 10px 10px -5px rgba(0, 0, 0, 0.04),
+      0 0 0 1px rgba(9, 187, 7, 0.05);
+  }
+  50% {
+    box-shadow: 
+      0 25px 50px -12px rgba(9, 187, 7, 0.15), 
+      0 20px 20px -5px rgba(9, 187, 7, 0.04),
+      0 0 0 1px rgba(9, 187, 7, 0.1);
+  }
+}
+
+.qr-code-container.waiting {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* 卡片整体样式优化 */
+.semi-card {
+  border-radius: 1.5rem !important;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+    0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(8px);
+} 
