@@ -168,12 +168,28 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	var err error
 	if info.Proxy != "" {
 		// Proxy 非空，使用代理
-		client, err = service.NewProxyHttpClient(info.Proxy)
+		if info.IsStream {
+			// 流式请求使用默认超时的代理客户端
+			client, err = service.NewProxyHttpClient(info.Proxy)
+		} else {
+			// 非流式请求使用长超时的代理客户端
+			longTimeout := time.Duration(15) * time.Minute // 默认15分钟
+			if common2.RelayTimeout > 0 && time.Duration(common2.RelayTimeout)*time.Second > longTimeout {
+				longTimeout = time.Duration(common2.RelayTimeout) * time.Second
+			}
+			client, err = service.NewProxyHttpClientWithTimeout(info.Proxy, longTimeout)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("new proxy http client failed: %w", err)
 		}
 	} else {
-		client = service.GetHttpClient()
+		// 根据是否为流式请求选择不同的HTTP客户端
+		if info.IsStream {
+			client = service.GetHttpClient()
+		} else {
+			// 非流式请求使用长超时客户端，适合大模型的长时间处理
+			client = service.GetLongTimeoutHttpClient()
+		}
 	}
 
 	if info.IsStream {

@@ -29,10 +29,30 @@ func MidjourneyErrorWithStatusCodeWrapper(code int, desc string, statusCode int)
 func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIErrorWithStatusCode {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
+	
+	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
-		common.SysLog(fmt.Sprintf("error: %s", text))
-		text = "请求上游地址失败"
+		common.SysLog(fmt.Sprintf("network error: %s", text))
+		
+		// 根据错误类型提供更具体的错误信息
+		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+			text = "请求上游服务超时，请稍后重试"
+		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
+			text = "无法连接到上游服务，请检查网络连接"
+		} else if strings.Contains(lowerText, "tls") || strings.Contains(lowerText, "certificate") {
+			text = "SSL/TLS连接失败，请检查证书配置"
+		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
+			text = "域名解析失败，请检查网络配置"
+		} else {
+			text = "请求上游地址失败"
+		}
+		
+		// 在debug模式下保留原始错误信息
+		if common.DebugEnabled {
+			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
+		}
 	}
+	
 	openAIError := dto.OpenAIError{
 		Message: text,
 		Type:    "new_api_error",
@@ -53,10 +73,30 @@ func OpenAIErrorWrapperLocal(err error, code string, statusCode int) *dto.OpenAI
 func ClaudeErrorWrapper(err error, code string, statusCode int) *dto.ClaudeErrorWithStatusCode {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
+	
+	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
-		common.SysLog(fmt.Sprintf("error: %s", text))
-		text = "请求上游地址失败"
+		common.SysLog(fmt.Sprintf("network error: %s", text))
+		
+		// 根据错误类型提供更具体的错误信息
+		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+			text = "请求上游服务超时，请稍后重试"
+		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
+			text = "无法连接到上游服务，请检查网络连接"
+		} else if strings.Contains(lowerText, "tls") || strings.Contains(lowerText, "certificate") {
+			text = "SSL/TLS连接失败，请检查证书配置"
+		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
+			text = "域名解析失败，请检查网络配置"
+		} else {
+			text = "请求上游地址失败"
+		}
+		
+		// 在debug模式下保留原始错误信息
+		if common.DebugEnabled {
+			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
+		}
 	}
+	
 	claudeError := dto.ClaudeError{
 		Message: text,
 		Type:    "new_api_error",
@@ -143,10 +183,30 @@ func TaskErrorWrapperLocal(err error, code string, statusCode int) *dto.TaskErro
 func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
+	
+	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
-		common.SysLog(fmt.Sprintf("error: %s", text))
-		text = "请求上游地址失败"
+		common.SysLog(fmt.Sprintf("network error: %s", text))
+		
+		// 根据错误类型提供更具体的错误信息
+		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+			text = "请求上游服务超时，请稍后重试"
+		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
+			text = "无法连接到上游服务，请检查网络连接"
+		} else if strings.Contains(lowerText, "tls") || strings.Contains(lowerText, "certificate") {
+			text = "SSL/TLS连接失败，请检查证书配置"
+		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
+			text = "域名解析失败，请检查网络配置"
+		} else {
+			text = "请求上游地址失败"
+		}
+		
+		// 在debug模式下保留原始错误信息
+		if common.DebugEnabled {
+			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
+		}
 	}
+	
 	//避免暴露内部错误
 	taskError := &dto.TaskError{
 		Code:       code,
