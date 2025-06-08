@@ -143,7 +143,7 @@ import (
 
 func main() {
   cfg := openai.DefaultConfig("<YOUR_API_KEY>")
-  cfg.BaseURL = "${baseUrl}"
+  cfg.BaseURL = "${urlV1}"
   client := openai.NewClientWithConfig(cfg)
 
   resp, err := client.CreateChatCompletion(
