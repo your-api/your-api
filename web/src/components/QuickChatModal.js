@@ -312,6 +312,18 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
     }
   }, []);
 
+  // 检查是否为思考模型
+  const isThinkingModel = useCallback(() => {
+    // 统一处理所有模型
+    return true;
+  }, []);
+
+  // 获取等待提示文本
+  const getWaitingText = useCallback(() => {
+    // 统一提示文本
+    return t('AI 正在思考中，请耐心等待...');
+  }, [t]);
+
   // 发送消息
   const sendMessage = useCallback(async () => {
     if ((!inputValue.trim() && selectedImages.length === 0) || isStreaming) return;
@@ -353,6 +365,9 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
 
     const chatId = generateChatId();
 
+    // 统一设置30分钟超时时间
+    const requestTimeout = 30 * 60 * 1000; // 30分钟
+
     try {
       // 获取用户的第一个token
       const tokenRes = await API.get('/api/token');
@@ -363,6 +378,13 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
 
       // 创建AbortController用于取消请求
       abortControllerRef.current = new AbortController();
+      
+      // 设置超时计时器
+      const timeoutId = setTimeout(() => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      }, requestTimeout);
       
       const response = await fetch('/v1/chat/completions', {
         method: 'POST',
@@ -380,6 +402,9 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
         signal: abortControllerRef.current.signal
       });
 
+      // 清除超时计时器
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         const errorMessage = await parseErrorResponse(response);
         throw new Error(errorMessage);
@@ -388,6 +413,7 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
+      let hasFirstResponse = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -407,6 +433,11 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
               const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) {
+                if (!hasFirstResponse) {
+                  hasFirstResponse = true;
+                  // 第一次收到响应时的处理
+                  console.log('First response received from model');
+                }
                 assistantContent += content;
                 setCurrentStreamContent(assistantContent);
               }
@@ -437,7 +468,13 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
       
     } catch (error) {
       if (error.name === 'AbortError') {
-        Toast.warning(t('请求已取消'));
+        // 判断是超时还是用户主动取消
+        const isTimeout = !abortControllerRef.current?.signal.reason;
+        if (isTimeout) {
+          Toast.error(t('请求超时，AI模型可能需要更长的思考时间，请稍后重试'));
+        } else {
+          Toast.warning(t('请求已取消'));
+        }
       } else {
         console.error('Stream error:', error);
         
@@ -696,7 +733,7 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
                   >
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Spin size="small" />
-                      {t('AI 正在思考...')}
+                      {getWaitingText()}
                     </div>
                   </Card>
                 </div>
