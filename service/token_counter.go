@@ -216,6 +216,11 @@ func getImageTokenOptimized(info *relaycommon.RelayInfo, imageUrl *dto.MessageIm
 		return 0, "", err
 	}
 
+	// 如果返回 -1，表示图片处理失败，不缓存结果，直接返回
+	if tokens == -1 {
+		return -1, "", nil
+	}
+
 	// 缓存结果
 	imageTokenCache.Store(cacheKey, imageTokenCacheItem{
 		tokens:     tokens,
@@ -235,9 +240,15 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 		return 1047, "", nil
 	}
 	if imageUrl.Detail == "low" {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("图片质量为 low，跳过下载，模型: %s", model))
+		}
 		return baseTokens, "", nil
 	}
 	if !constant.GetMediaTokenNotStream && !stream {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("非流式模式且未启用媒体token，跳过下载，模型: %s", model))
+		}
 		return 3 * baseTokens, "", nil
 	}
 
@@ -253,30 +264,58 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	}
 	// 是否统计图片token
 	if !constant.GetMediaToken {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("未启用媒体token统计，跳过下载，模型: %s", model))
+		}
 		return 3 * baseTokens, "", nil
 	}
 	if info.ChannelType == common.ChannelTypeGemini || info.ChannelType == common.ChannelTypeVertexAi || info.ChannelType == common.ChannelTypeAnthropic {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("渠道类型不支持图片下载，渠道类型: %d，模型: %s", info.ChannelType, model))
+		}
 		return 3 * baseTokens, "", nil
 	}
+	
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("开始处理图片，模型: %s，渠道类型: %d，图片URL: %s", model, info.ChannelType, imageUrl.Url))
+	}
+	
 	var config image.Config
 	var err error
 	var format string
 	var base64Data string
 	if strings.HasPrefix(imageUrl.Url, "http") {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("检测到 HTTP 图片URL，开始下载，模型: %s", model))
+		}
 		config, format, base64Data, err = DecodeUrlImageData(imageUrl.Url)
 		// 存储获取到的base64数据（已包含 data:image/xxx;base64, 前缀）
 		if err == nil && base64Data != "" {
 			imageUrl.Url = base64Data
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("图片下载成功并转换为base64，模型: %s，格式: %s", model, format))
+			}
+		} else {
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("图片下载失败，删除该图片内容，模型: %s，错误: %v", model, err))
+			}
+			// 返回 -1 表示应该删除这个图片
+			return -1, "", nil
 		}
 	} else {
 		if common.DebugEnabled {
 			common.SysDebug("decoding image")
 		}
 		config, format, _, err = DecodeBase64ImageData(imageUrl.Url)
+		if err != nil {
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("base64图片解码失败，删除该图片内容，模型: %s，错误: %v", model, err))
+			}
+			// 返回 -1 表示应该删除这个图片
+			return -1, "", nil
+		}
 	}
-	if err != nil {
-		return 0, "", err
-	}
+	
 	imageUrl.MimeType = format
 
 	if config.Width == 0 || config.Height == 0 {
@@ -285,7 +324,11 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 			// file type
 			return 3 * baseTokens, "", nil
 		}
-		return 0, "", errors.New(fmt.Sprintf("fail to decode image config: %s", imageUrl.Url))
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("图片配置解析失败，删除该图片内容，模型: %s", model))
+		}
+		// 返回 -1 表示应该删除这个图片
+		return -1, "", nil
 	}
 
 	shortSide := config.Width
@@ -915,18 +958,50 @@ func processMessageContent(info *relaycommon.RelayInfo, arrayContent []dto.Media
 		newContent = make([]dto.MediaContent, 0, len(arrayContent))
 	}
 
-	for _, m := range arrayContent {
+	failedImageCount := 0  // 记录失败的图片数量
+	totalImageCount := 0   // 记录总图片数量
+	
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("开始处理消息内容，原始内容数量: %d", len(arrayContent)))
+	}
+
+	for i, m := range arrayContent {
 		newM := m // 复制
 
 		switch m.Type {
 		case dto.ContentTypeImageURL:
+			totalImageCount++
 			imageUrl := m.GetImageMedia()
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("处理第 %d 个图片，URL: %s", i+1, imageUrl.Url))
+			}
+			
 			// 使用优化的图片token计算
 			imageTokenNum, base64Data, err := getImageTokenOptimized(info, imageUrl, model, stream)
 			if err != nil {
 				return 0, false, nil, err
 			}
 
+			// 关键处理：如果返回 -1，表示图片处理失败，需要从消息中删除图片内容
+			if imageTokenNum == -1 {
+				failedImageCount++
+				if common.DebugEnabled {
+					common.SysDebug(fmt.Sprintf("⚠️  第 %d 个图片处理失败，从消息中删除该图片", i+1))
+					common.SysDebug(fmt.Sprintf("删除的图片URL: %s", imageUrl.Url))
+					common.SysDebug(fmt.Sprintf("原始内容数组长度: %d，当前新内容数组长度: %d", len(arrayContent), len(newContent)))
+				}
+				contentModified = true // 标记内容已修改（删除了图片）
+				
+				// 关键：使用 continue 跳过这个图片，不添加到 newContent 中
+				// 这样就实现了从最终消息中删除失败的图片
+				continue
+			}
+
+			// 图片处理成功的情况
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("✅ 第 %d 个图片处理成功，token数: %d", i+1, imageTokenNum))
+			}
+			
 			// 判断base64Data是否为空
 			if base64Data != "" {
 				// 创建新的 MessageImageUrl 并更新到副本中
@@ -937,28 +1012,62 @@ func processMessageContent(info *relaycommon.RelayInfo, arrayContent []dto.Media
 				}
 				newM.ImageUrl = newImageUrl
 				contentModified = true
+				if common.DebugEnabled {
+					common.SysDebug(fmt.Sprintf("图片已转换为base64格式"))
+				}
 			}
 			tokens += imageTokenNum
 
-			if common.DebugEnabled {
-				common.SysDebug(fmt.Sprintf("image token num: %d", imageTokenNum))
-			}
-
 		case dto.ContentTypeInputAudio:
-			// TODO: 音频token数量计算
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("处理音频内容，索引: %d", i))
+			}
 			tokens += 100
 
 		case dto.ContentTypeFile:
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("处理文件内容，索引: %d", i))
+			}
 			tokens += 5000
 
 		case dto.ContentTypeVideoUrl:
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("处理视频内容，索引: %d", i))
+			}
 			tokens += 5000
 
 		default:
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("处理文本内容，索引: %d，文本长度: %d", i, len(m.Text)))
+			}
 			tokens += getTokenNum(tokenEncoder, m.Text)
 		}
 
+		// 将处理成功的内容添加到新内容数组中
 		newContent = append(newContent, newM)
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("内容已添加到新数组，当前新数组长度: %d", len(newContent)))
+		}
+	}
+
+	// 处理结果总结
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("消息内容处理完成 - 原始内容: %d，最终内容: %d，失败图片: %d，总图片: %d", 
+			len(arrayContent), len(newContent), failedImageCount, totalImageCount))
+	}
+
+	// 如果所有内容都是图片且都失败了，添加一个默认文本内容避免空消息
+	if len(newContent) == 0 && len(arrayContent) > 0 {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("⚠️  所有图片处理失败，添加默认文本内容，失败图片数: %d", failedImageCount))
+		}
+		defaultContent := dto.MediaContent{
+			Type: dto.ContentTypeText,
+			Text: "[图片加载失败，已转为文本消息]",
+		}
+		tokens += getTokenNum(tokenEncoder, defaultContent.Text)
+		newContent = append(newContent, defaultContent)
+		contentModified = true
 	}
 
 	return tokens, contentModified, newContent, nil

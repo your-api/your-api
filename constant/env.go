@@ -17,6 +17,16 @@ var NotifyLimitCount int
 var NotificationLimitDurationMinute int
 var GenerateDefaultToken bool
 var ErrorLogEnabled bool
+var DataExportInterval string
+var DataExportDefaultTime string
+var DrawingEnabled bool
+var IndexEnabled bool
+var OcrEnabled bool
+var ImageReadProxyEnabled bool
+var ProxyType string
+var UploadPath string
+var TextAuditEnabled bool
+var TopUpRatio float64
 
 //var GeminiModelMap = map[string]string{
 //	"gemini-1.0-pro": "v1",
@@ -39,6 +49,21 @@ func InitEnv() {
 	GenerateDefaultToken = common.GetEnvOrDefaultBool("GENERATE_DEFAULT_TOKEN", false)
 	// 是否启用错误日志
 	ErrorLogEnabled = common.GetEnvOrDefaultBool("ERROR_LOG_ENABLED", false)
+	DataExportInterval = common.GetEnvOrDefaultString("DATA_EXPORT_INTERVAL", "5m")
+	DataExportDefaultTime = common.GetEnvOrDefaultString("DATA_EXPORT_DEFAULT_TIME", "")
+	DrawingEnabled = common.GetEnvOrDefaultBool("DRAWING_ENABLED", true)
+	IndexEnabled = common.GetEnvOrDefaultBool("INDEX_ENABLED", true)
+	OcrEnabled = common.GetEnvOrDefaultBool("OCR_ENABLED", true)
+	ImageReadProxyEnabled = common.GetEnvOrDefaultBool("IMAGE_READ_PROXY_ENABLED", true)
+	ProxyType = common.GetEnvOrDefaultString("PROXY_TYPE", "http")
+	UploadPath = common.GetEnvOrDefaultString("UPLOAD_PATH", "")
+	TextAuditEnabled = common.GetEnvOrDefaultBool("TEXT_AUDIT_ENABLED", false)
+	TopUpRatio = common.GetEnvOrDefaultFloat64("TOP_UP_RATIO", 1.0)
+
+	// 添加调试信息，确保配置正确
+	if common.DebugEnabled {
+		common.SysDebug("媒体token配置已加载")
+	}
 
 	//modelVersionMapStr := strings.TrimSpace(os.Getenv("GEMINI_MODEL_MAP"))
 	//if modelVersionMapStr == "" {

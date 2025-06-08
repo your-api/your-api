@@ -111,6 +111,10 @@ func GetImageFromUrl(url string) (mimeType string, data string, err error) {
 }
 
 func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("开始下载图片: %s", imageUrl))
+	}
+	
 	response, err := DoDownloadRequest(imageUrl)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("fail to get image from url: %s", err.Error()))
@@ -120,10 +124,14 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 
 	if response.StatusCode != 200 {
 		err = errors.New(fmt.Sprintf("fail to get image from url: %s", response.Status))
+		common.SysLog(fmt.Sprintf("图片下载HTTP状态错误: %d, URL: %s", response.StatusCode, imageUrl))
 		return image.Config{}, "", "", err
 	}
 
 	mimeType := response.Header.Get("Content-Type")
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("图片下载成功，Content-Type: %s", mimeType))
+	}
 
 	if mimeType != "application/octet-stream" && !strings.HasPrefix(mimeType, "image/") {
 		return image.Config{}, "", "", fmt.Errorf("invalid content type: %s, required image/*", mimeType)
@@ -137,11 +145,18 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 		return image.Config{}, "", "", fmt.Errorf("failed to read image data: %w", err)
 	}
 
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("图片数据读取完成，大小: %d bytes", len(imageData)))
+	}
+
 	// 标准化MIME类型，如果是octet-stream，根据图片格式推断
 	format := ""
 	configReader := bytes.NewReader(imageData)
 	config, detectedFormat, err := getImageConfig(configReader)
 	if err != nil {
+		if common.DebugEnabled {
+			common.SysDebug(fmt.Sprintf("图片配置解析失败: %v", err))
+		}
 		return image.Config{}, "", "", err
 	}
 
@@ -156,6 +171,10 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 	// 对图片数据进行base64编码，并添加正确的前缀
 	base64Data := base64.StdEncoding.EncodeToString(imageData)
 	base64WithPrefix := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
+
+	if common.DebugEnabled {
+		common.SysDebug(fmt.Sprintf("图片base64转换完成，格式: %s，base64长度: %d", format, len(base64WithPrefix)))
+	}
 
 	return config, format, base64WithPrefix, nil
 }

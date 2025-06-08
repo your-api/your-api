@@ -95,7 +95,12 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 			URL: originUrl,
 			Key: setting.WorkerValidKey,
 		}
-		return DoWorkerRequest(req)
+		workerResp, workerErr := DoWorkerRequest(req)
+		if workerErr != nil {
+			common.SysLog(fmt.Sprintf("worker download failed: %v, fallback to direct request", workerErr))
+			return http.Get(originUrl)
+		}
+		return workerResp, nil
 	}
 
 	if imagReadProxy != "" {
@@ -105,6 +110,7 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 		client, err := getProxyClient(imagReadProxy)
 		if err != nil {
 			common.SysLog(fmt.Sprintf("proxy client creation failed: %v, fallback to direct request", err))
+			common.SysLog(fmt.Sprintf("downloading from origin (proxy client failed): %s", originUrl))
 			return http.Get(originUrl)
 		}
 
@@ -112,11 +118,38 @@ func DoDownloadRequest(originUrl string) (resp *http.Response, err error) {
 		resp, err := client.Get(originUrl)
 		if err != nil {
 			common.SysLog(fmt.Sprintf("proxy request failed: %v, fallback to direct request", err))
-			return http.Get(originUrl)
+			common.SysLog(fmt.Sprintf("downloading from origin (proxy request failed): %s", originUrl))
+			directResp, directErr := http.Get(originUrl)
+			if directErr != nil {
+				common.SysLog(fmt.Sprintf("direct request also failed: %v", directErr))
+				return nil, fmt.Errorf("both proxy and direct request failed - proxy error: %v, direct error: %v", err, directErr)
+			}
+			common.SysLog(fmt.Sprintf("direct request succeeded after proxy failure"))
+			return directResp, nil
 		}
+		
+		// 检查代理响应状态
+		if resp.StatusCode >= 400 {
+			common.SysLog(fmt.Sprintf("proxy request returned error status %d, fallback to direct request", resp.StatusCode))
+			resp.Body.Close() // 关闭代理响应
+			common.SysLog(fmt.Sprintf("downloading from origin (proxy status error): %s", originUrl))
+			directResp, directErr := http.Get(originUrl)
+			if directErr != nil {
+				common.SysLog(fmt.Sprintf("direct request also failed: %v", directErr))
+				return nil, fmt.Errorf("both proxy (status %d) and direct request failed - direct error: %v", resp.StatusCode, directErr)
+			}
+			if directResp.StatusCode >= 400 {
+				directResp.Body.Close()
+				return nil, fmt.Errorf("both proxy (status %d) and direct request (status %d) returned error status", resp.StatusCode, directResp.StatusCode)
+			}
+			common.SysLog(fmt.Sprintf("direct request succeeded after proxy status error"))
+			return directResp, nil
+		}
+		
+		common.SysLog(fmt.Sprintf("proxy download succeeded"))
 		return resp, nil
 	} else {
-		common.SysLog(fmt.Sprintf("downloading from origin: %s", originUrl))
+		common.SysLog(fmt.Sprintf("downloading from origin (no proxy configured): %s", originUrl))
 		return http.Get(originUrl)
 	}
 }
