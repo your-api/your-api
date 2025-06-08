@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"one-api/common"
 	"one-api/dto"
 	"one-api/relay/channel"
 	"one-api/relay/channel/openai"
@@ -60,6 +61,40 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
+	
+	// 🔒 安全检查：确保不泄露HTTP图片链接，防止暴露源站IP
+	for msgIndex := range request.Messages {
+		message := &request.Messages[msgIndex]
+		if len(message.Content) > 0 {
+			arrayContent := message.ParseContent()
+			hasModification := false
+			newContent := make([]dto.MediaContent, 0, len(arrayContent))
+			
+			for _, content := range arrayContent {
+				if content.Type == dto.ContentTypeImageURL {
+					imageUrl := content.GetImageMedia()
+					if imageUrl != nil && strings.HasPrefix(imageUrl.Url, "http") {
+						if common.DebugEnabled {
+							common.SysDebug(fmt.Sprintf("⚠️ DeepSeek适配器发现HTTP图片链接未转换，为防止暴露源站IP，删除该图片: %s", imageUrl.Url))
+						}
+						hasModification = true
+						// 跳过HTTP图片链接，不添加到新内容中
+						continue
+					}
+				}
+				newContent = append(newContent, content)
+			}
+			
+			// 如果有修改，更新消息内容
+			if hasModification {
+				message.SetMediaContent(newContent)
+				if common.DebugEnabled {
+					common.SysDebug(fmt.Sprintf("DeepSeek适配器已更新消息内容，原始内容数: %d，最终内容数: %d", len(arrayContent), len(newContent)))
+				}
+			}
+		}
+	}
+	
 	return request, nil
 }
 

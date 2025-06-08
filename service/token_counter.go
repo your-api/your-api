@@ -202,6 +202,9 @@ func getImageTokenOptimized(info *relaycommon.RelayInfo, imageUrl *dto.MessageIm
 		return 0, "", fmt.Errorf("image_url_is_nil")
 	}
 
+	// 临时禁用缓存，强制每次都重新处理图片，防止缓存失败的HTTP链接
+	// TODO: 优化缓存机制，只缓存成功转换的结果
+	/*
 	// 快速路径：检查缓存
 	cacheKey := fmt.Sprintf("%s:%s:%s:%t", imageUrl.Url, model, imageUrl.Detail, stream)
 	if cached, ok := imageTokenCache.Load(cacheKey); ok {
@@ -209,6 +212,7 @@ func getImageTokenOptimized(info *relaycommon.RelayInfo, imageUrl *dto.MessageIm
 			return item.tokens, item.base64Data, nil
 		}
 	}
+	*/
 
 	// 调用原有逻辑
 	tokens, base64Data, err := getImageToken(info, imageUrl, model, stream)
@@ -221,12 +225,15 @@ func getImageTokenOptimized(info *relaycommon.RelayInfo, imageUrl *dto.MessageIm
 		return -1, "", nil
 	}
 
-	// 缓存结果
-	imageTokenCache.Store(cacheKey, imageTokenCacheItem{
-		tokens:     tokens,
-		base64Data: base64Data,
-		timestamp:  time.Now().Unix(),
-	})
+	// 只缓存成功的结果
+	if tokens > 0 {
+		cacheKey := fmt.Sprintf("%s:%s:%s:%t", imageUrl.Url, model, imageUrl.Detail, stream)
+		imageTokenCache.Store(cacheKey, imageTokenCacheItem{
+			tokens:     tokens,
+			base64Data: base64Data,
+			timestamp:  time.Now().Unix(),
+		})
+	}
 
 	return tokens, base64Data, nil
 }
