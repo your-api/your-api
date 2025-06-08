@@ -142,7 +142,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 	}
 
 	errWithStatusCode.UpstreamError = true
-	errWithStatusCode.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+	errWithStatusCode.Error.Message = "上游服务异常，请稍后重试"
 	if errResponse.Error.Message != "" {
 		// OpenAI format error, so we override the default one
 		errWithStatusCode.UpstreamErrorInfo = errResponse.Error

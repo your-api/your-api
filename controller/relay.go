@@ -150,11 +150,16 @@ func Relay(c *gin.Context) {
 		if openaiErr.StatusCode == http.StatusTooManyRequests {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+		} else if !openaiErr.LocalError {
+			// 上游错误，不返回具体错误信息，避免信息泄露
+			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
+			openaiErr.Error.Message = "上游服务异常，请稍后重试"
 		}
+		// 本地错误（LocalError为true）直接返回原始错误信息
+		
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		c.JSON(openaiErr.StatusCode, gin.H{
-			//"error": openaiErr.Error,
-			"error": "当前分组上游负载已饱和，请稍后再试",
+			"error": openaiErr.Error,
 		})
 	}
 }
@@ -223,7 +228,13 @@ func WssRelay(c *gin.Context) {
 	if openaiErr != nil {
 		if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+		} else if !openaiErr.LocalError {
+			// 上游错误，不返回具体错误信息，避免信息泄露
+			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
+			openaiErr.Error.Message = "上游服务异常，请稍后重试"
 		}
+		// 本地错误（LocalError为true）直接返回原始错误信息
+		
 		openaiErr.Error.Message = common.MessageWithRequestId(openaiErr.Error.Message, requestId)
 		helper.WssError(c, ws, openaiErr.Error)
 	}
@@ -287,7 +298,12 @@ func RelayClaude(c *gin.Context) {
 	if claudeErr != nil {
 		if claudeErr.StatusCode == http.StatusTooManyRequests {
 			claudeErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+		} else {
+			// Claude错误通常都是上游错误，不返回具体错误信息，避免信息泄露
+			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeErr.StatusCode, claudeErr.Error.Message))
+			claudeErr.Error.Message = "上游服务异常，请稍后重试"
 		}
+		
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
 			"error": claudeErr.Error,
