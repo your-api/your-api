@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Modal, Button, Input, Card, Avatar, Spin, Toast, TextArea, Upload, Image, SideSheet, List, Typography } from '@douyinfe/semi-ui';
-import { IconSend, IconUser, IconSetting, IconClose, IconImage, IconDeleteStroked, IconList, IconCopy } from '@douyinfe/semi-icons';
+import { IconSend, IconUser, IconSetting, IconClose, IconImage, IconDeleteStroked, IconList, IconCopy, IconEdit, IconDelete } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, copy } from '../helpers';
 
@@ -40,21 +40,59 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
 
   // 保存聊天记录到localStorage
   const saveChatToHistory = useCallback((chatMessages, chatId) => {
+    // 只有在对话真正完成时才保存（即包含用户消息和AI回复）
+    if (chatMessages.length < 2) return;
+    
+    // 检查最后一条消息是否为AI回复
+    const lastMessage = chatMessages[chatMessages.length - 1];
+    if (lastMessage.role !== 'assistant' || !lastMessage.content.trim()) return;
+
     const chatData = {
       id: chatId,
       modelName: modelName,
       timestamp: Date.now(),
       messages: chatMessages,
-      messageCount: chatMessages.length
+      messageCount: chatMessages.length,
+      // 添加对话摘要（取用户第一条消息的前50个字符作为标题）
+      title: (() => {
+        const firstUserMessage = chatMessages.find(msg => msg.role === 'user');
+        if (!firstUserMessage) return '新对话';
+        
+        let content = '';
+        if (typeof firstUserMessage.content === 'string') {
+          content = firstUserMessage.content;
+        } else if (Array.isArray(firstUserMessage.content)) {
+          const textPart = firstUserMessage.content.find(item => item.type === 'text');
+          content = textPart ? textPart.text : '包含图片的对话';
+        }
+        
+        return content.length > 50 ? content.substring(0, 50) + '...' : content;
+      })()
     };
 
     try {
       const existingHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
-      const updatedHistory = [chatData, ...existingHistory.slice(0, 49)]; // 保留最近50条记录
+      
+      // 检查是否已存在相同ID的记录，如果存在则更新，否则新增
+      const existingIndex = existingHistory.findIndex(chat => chat.id === chatId);
+      let updatedHistory;
+      
+      if (existingIndex >= 0) {
+        // 更新现有记录
+        updatedHistory = [...existingHistory];
+        updatedHistory[existingIndex] = chatData;
+      } else {
+        // 新增记录，保留最近100条记录（增加容量）
+        updatedHistory = [chatData, ...existingHistory.slice(0, 99)];
+      }
+      
       localStorage.setItem('chat_history', JSON.stringify(updatedHistory));
       setChatHistory(updatedHistory);
+      
+      console.log(`Chat history saved: ${chatData.title} (${chatMessages.length} messages)`);
     } catch (error) {
       console.error('Failed to save chat history:', error);
+      // 不显示错误提示，避免干扰用户体验
     }
   }, [modelName]);
 
@@ -882,40 +920,51 @@ const QuickChatModal = ({ visible, onClose, modelName }) => {
                     <div className="w-full">
                       <div className="flex justify-between items-start mb-2">
                         <Typography.Text strong className="text-sm">
-                          {chat.modelName}
+                          {chat.title || `${chat.modelName} 对话`}
                         </Typography.Text>
                         <Typography.Text type="tertiary" className="text-xs">
                           {new Date(chat.timestamp).toLocaleString()}
                         </Typography.Text>
                       </div>
-                      <Typography.Text type="secondary" className="text-xs block mb-2">
-                        {t('{{count}} 条消息', { count: chat.messageCount })}
-                      </Typography.Text>
-                      <div className="flex gap-2">
-                        <Button
-                          size="small"
-                          theme="light"
-                          onClick={() => loadChat(chat)}
-                        >
-                          {t('加载')}
-                        </Button>
-                        <Button
-                          size="small"
-                          theme="light"
-                          icon={<IconCopy />}
-                          onClick={() => copyChatHistory(chat)}
-                        >
-                          {t('复制')}
-                        </Button>
-                        <Button
-                          size="small"
-                          theme="light"
-                          type="danger"
-                          icon={<IconDeleteStroked />}
-                          onClick={() => deleteChatHistory(chat.id)}
-                        >
-                          {t('删除')}
-                        </Button>
+                      <div className="flex justify-between items-center">
+                        <Typography.Text type="secondary" className="text-xs">
+                          {chat.modelName} • {t('{{count}} 条消息', { count: chat.messageCount })}
+                        </Typography.Text>
+                        <div className="flex gap-1">
+                          <Button
+                            size="small"
+                            theme="borderless"
+                            type="tertiary"
+                            icon={<IconEdit />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              loadChat(chat);
+                            }}
+                            title={t('加载对话')}
+                          />
+                          <Button
+                            size="small"
+                            theme="borderless"
+                            type="tertiary"
+                            icon={<IconCopy />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyChatHistory(chat);
+                            }}
+                            title={t('复制对话')}
+                          />
+                          <Button
+                            size="small"
+                            theme="borderless"
+                            type="tertiary"
+                            icon={<IconDelete />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteChatHistory(chat.id);
+                            }}
+                            title={t('删除对话')}
+                          />
+                        </div>
                       </div>
                     </div>
                   }

@@ -33,8 +33,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	defer resp.Body.Close()
 
 	streamingTimeout := time.Duration(constant.StreamingTimeout) * time.Second
-	if strings.HasPrefix(info.UpstreamModelName, "o") {
-		// twice timeout for thinking model
+	if strings.HasPrefix(info.UpstreamModelName, "o1") {
+		streamingTimeout *= 3
+	} else if strings.HasPrefix(info.UpstreamModelName, "o") {
+		streamingTimeout *= 2
+	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") || 
+			  strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
+			  strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
 		streamingTimeout *= 2
 	}
 
@@ -157,8 +162,13 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 	defer resp.Body.Close()
 
 	streamingTimeout := time.Duration(constant.StreamingTimeout) * time.Second
-	if strings.HasPrefix(info.UpstreamModelName, "o") {
-		// twice timeout for thinking model
+	if strings.HasPrefix(info.UpstreamModelName, "o1") {
+		streamingTimeout *= 3
+	} else if strings.HasPrefix(info.UpstreamModelName, "o") {
+		streamingTimeout *= 2
+	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") || 
+			  strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
+			  strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
 		streamingTimeout *= 2
 	}
 

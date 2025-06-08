@@ -295,7 +295,7 @@ Your API提供了丰富的功能，详细特性请参考[特性说明](https://d
 | `GLOBAL_WEB_RATE_LIMIT`        | 全局Web速率限制(单IP三分钟) | `60`   | `GLOBAL_WEB_RATE_LIMIT=30`        |
 | `RELAY_TIMEOUT`                | 中继请求超时时间(秒)        | -      | `RELAY_TIMEOUT=60`                |
 | `USER_CONTENT_REQUEST_TIMEOUT` | 用户内容下载超时时间(秒)    | -      | `USER_CONTENT_REQUEST_TIMEOUT=30` |
-| `STREAMING_TIMEOUT`            | 流式一次回复的超时时间(秒)  | `60`   | `STREAMING_TIMEOUT=120`           |
+| `STREAMING_TIMEOUT`            | 流式一次回复的超时时间(秒)  | `18000`   | `STREAMING_TIMEOUT=21600`           |
 | `MAX_FILE_DOWNLOAD_MB`         | 最大文件下载大小(MB)        | `20`   | `MAX_FILE_DOWNLOAD_MB=50`         |
 
 RELAY_TIMEOUT 设置警告

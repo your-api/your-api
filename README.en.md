@@ -306,7 +306,7 @@ For details on using these variables for cluster deployment, refer to the [Clust
 | `GLOBAL_WEB_RATE_LIMIT`        | Global web rate limit (per IP, 3 min) | `60`          | `GLOBAL_WEB_RATE_LIMIT=30`           |
 | `RELAY_TIMEOUT`               | Relay request timeout (seconds)      | -             | `RELAY_TIMEOUT=60`                   |
 | `USER_CONTENT_REQUEST_TIMEOUT` | User content download timeout (s)    | -             | `USER_CONTENT_REQUEST_TIMEOUT=30`    |
-| `STREAMING_TIMEOUT`           | Streaming response timeout (seconds) | `60`          | `STREAMING_TIMEOUT=120`              |
+| `STREAMING_TIMEOUT`           | Streaming response timeout (seconds) | `18000`         | `STREAMING_TIMEOUT=21600`              |
 | `MAX_FILE_DOWNLOAD_MB`        | Max file download size (MB)          | `20`          | `MAX_FILE_DOWNLOAD_MB=50`            |
 
 **RELAY_TIMEOUT Warning**
