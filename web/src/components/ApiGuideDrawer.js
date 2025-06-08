@@ -107,12 +107,12 @@ export default function ApiGuideDrawer({
   const snippets = {
     curl: `curl "${urlCompletions}" \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer <YOUR_API_KEY>" \\
+  -H "Authorization: Bearer <你自己的API KEY>" \\
   -d '{ "model":"${modelId}", "messages":[{"role":"user","content":"Hello!"}] }'`,
     python: `from openai import OpenAI
 
 client = OpenAI(
-  api_key="<YOUR_API_KEY>",
+  api_key="<你自己的API KEY>",
   base_url="${urlV1}"
 )
 
@@ -124,7 +124,7 @@ print(resp.choices[0].message.content)`,
     javascript: `import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey: "<YOUR_API_KEY>",
+  apiKey: "<你自己的API KEY>",
   baseURL: "${urlV1}"
 });
 
@@ -142,7 +142,7 @@ import (
 )
 
 func main() {
-  cfg := openai.DefaultConfig("<YOUR_API_KEY>")
+  cfg := openai.DefaultConfig("<你自己的API KEY>")
   cfg.BaseURL = "${urlV1}"
   client := openai.NewClientWithConfig(cfg)
 
@@ -167,7 +167,7 @@ import org.json.JSONObject;
 
 public class Main {
   public static void main(String[] args) throws Exception {
-    String apiKey = "<YOUR_API_KEY>";
+    String apiKey = "<你自己的API KEY>";
     String url = "${urlCompletions}";
     OkHttpClient client = new OkHttpClient();
 
@@ -198,7 +198,7 @@ int main(void) {
 
   struct curl_slist *headers = NULL;
   headers = curl_slist_append(headers, "Content-Type: application/json");
-  headers = curl_slist_append(headers, "Authorization: Bearer <YOUR_API_KEY>");
+  headers = curl_slist_append(headers, "Authorization: Bearer <你自己的API KEY>");
 
   const char *data = "{ \\"model\\": \\"${modelId}\\", \\"messages\\":[{\\"role\\":\\"user\\",\\"content\\":\\"Hello!\\"}] }";
 
@@ -483,7 +483,7 @@ int main(void) {
                 },
                 {
                   step: '3. 发送请求',
-                  desc: '使用上方示例代码，替换 <YOUR_API_KEY> 后即可快速调用。'
+                  desc: '使用上方示例代码，替换 <你自己的API KEY> 后即可快速调用。'
                 },
                 {
                   step: '4. 查看文档',
