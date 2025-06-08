@@ -284,32 +284,52 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	var err error
 	var format string
 	var base64Data string
+	
 	if strings.HasPrefix(imageUrl.Url, "http") {
 		if common.DebugEnabled {
-			common.SysDebug(fmt.Sprintf("检测到 HTTP 图片URL，开始下载，模型: %s", model))
+			common.SysDebug(fmt.Sprintf("🔄 检测到 HTTP 图片URL，必须转换为base64，模型: %s", model))
 		}
 		config, format, base64Data, err = DecodeUrlImageData(imageUrl.Url)
-		// 存储获取到的base64数据（已包含 data:image/xxx;base64, 前缀）
-		if err == nil && base64Data != "" {
+		
+		// 关键修改：HTTP图片链接必须成功转换为base64，否则删除该图片
+		if err != nil || base64Data == "" {
+			if common.DebugEnabled {
+				common.SysDebug(fmt.Sprintf("❌ HTTP图片下载/转换失败，为防止暴露源站IP，删除该图片内容"))
+				common.SysDebug(fmt.Sprintf("失败原因: %v，URL: %s", err, imageUrl.Url))
+			}
+			// 返回 -1 表示应该删除这个图片，防止暴露源站IP
+			return -1, "", nil
+		}
+		
+		// 成功转换为base64，更新URL
+		if base64Data != "" {
 			imageUrl.Url = base64Data
 			if common.DebugEnabled {
-				common.SysDebug(fmt.Sprintf("图片下载成功并转换为base64，模型: %s，格式: %s", model, format))
+				common.SysDebug(fmt.Sprintf("✅ HTTP图片成功转换为base64，模型: %s，格式: %s", model, format))
 			}
-		} else {
+		}
+	} else if strings.HasPrefix(imageUrl.Url, "data:") {
+		// 已经是base64格式，直接解码验证
+		if common.DebugEnabled {
+			common.SysDebug("检测到base64格式图片，进行验证")
+		}
+		config, format, _, err = DecodeBase64ImageData(imageUrl.Url)
+		if err != nil {
 			if common.DebugEnabled {
-				common.SysDebug(fmt.Sprintf("图片下载失败，删除该图片内容，模型: %s，错误: %v", model, err))
+				common.SysDebug(fmt.Sprintf("❌ base64图片解码失败，删除该图片内容，模型: %s，错误: %v", model, err))
 			}
 			// 返回 -1 表示应该删除这个图片
 			return -1, "", nil
 		}
 	} else {
+		// 不是HTTP链接也不是base64，可能是其他格式，尝试作为base64处理
 		if common.DebugEnabled {
-			common.SysDebug("decoding image")
+			common.SysDebug("尝试作为base64格式处理")
 		}
 		config, format, _, err = DecodeBase64ImageData(imageUrl.Url)
 		if err != nil {
 			if common.DebugEnabled {
-				common.SysDebug(fmt.Sprintf("base64图片解码失败，删除该图片内容，模型: %s，错误: %v", model, err))
+				common.SysDebug(fmt.Sprintf("❌ 图片格式无法识别，删除该图片内容，模型: %s，错误: %v", model, err))
 			}
 			// 返回 -1 表示应该删除这个图片
 			return -1, "", nil
@@ -325,7 +345,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 			return 3 * baseTokens, "", nil
 		}
 		if common.DebugEnabled {
-			common.SysDebug(fmt.Sprintf("图片配置解析失败，删除该图片内容，模型: %s", model))
+			common.SysDebug(fmt.Sprintf("❌ 图片配置解析失败，删除该图片内容，模型: %s", model))
 		}
 		// 返回 -1 表示应该删除这个图片
 		return -1, "", nil
@@ -334,7 +354,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	shortSide := config.Width
 	otherSide := config.Height
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("image format: %s, width: %d, height: %d", format, config.Width, config.Height))
+		common.SysDebug(fmt.Sprintf("✅ 图片处理成功 - 格式: %s, 宽度: %d, 高度: %d", format, config.Width, config.Height))
 	}
 	// 缩放倍数
 	scale := 1.0
@@ -351,12 +371,12 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	// 将另一边按照相同的比例缩小，向上取整
 	otherSide = int(math.Ceil(float64(otherSide) / scale))
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("shortSide: %d, otherSide: %d, scale: %f", shortSide, otherSide, scale))
+		common.SysDebug(fmt.Sprintf("图片尺寸计算 - 短边: %d, 长边: %d, 缩放: %f", shortSide, otherSide, scale))
 	}
 	// 计算图片的token数量(边的长度除以512，向上取整)
 	tiles := (shortSide + 511) / 512 * ((otherSide + 511) / 512)
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("tiles: %d", tiles))
+		common.SysDebug(fmt.Sprintf("🎯 图片token计算完成 - tiles: %d, 总token: %d", tiles, tiles*tileTokens + baseTokens))
 	}
 	return tiles*tileTokens + baseTokens, base64Data, nil
 }
