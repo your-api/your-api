@@ -203,6 +203,12 @@ func main() {
 	middleware.SetUpLogger(server)
 	
 	// Initialize session store
+	// 显示SessionSecret的前几位用于调试
+	secretPreview := common.SessionSecret
+	if len(secretPreview) > 16 {
+		secretPreview = secretPreview[:16] + "..."
+	}
+	common.SysLog("Initializing session store with SessionSecret: " + secretPreview)
 	store := cookie.NewStore([]byte(common.SessionSecret))
 	store.Options(sessions.Options{
 		Path:     "/",

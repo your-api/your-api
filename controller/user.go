@@ -1177,3 +1177,54 @@ func UpdateUserSetting(c *gin.Context) {
 		"message": "设置已更新",
 	})
 }
+
+// DebugSession 调试session状态的接口
+func DebugSession(c *gin.Context) {
+	session := sessions.Default(c)
+	
+	// 获取内存session信息
+	memorySession := map[string]interface{}{
+		"id":       session.Get("id"),
+		"username": session.Get("username"),
+		"role":     session.Get("role"),
+		"status":   session.Get("status"),
+		"group":    session.Get("group"),
+	}
+	
+	// 尝试获取session ID
+	sessionID := ""
+	if cookie, err := c.Cookie("session"); err == nil && cookie != "" {
+		sessionID = cookie
+	} else if sid := session.ID(); sid != "" {
+		sessionID = sid
+	}
+	
+	// 尝试从Redis获取session
+	var redisSession *model.SessionData
+	var redisError string
+	if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
+		redisSession = sessionData
+	} else if err != nil {
+		redisError = err.Error()
+	}
+	
+	// 获取所有cookies信息
+	cookies := make(map[string]string)
+	for _, cookie := range c.Request.Cookies() {
+		cookies[cookie.Name] = cookie.Value
+	}
+	
+	result := gin.H{
+		"success": true,
+		"data": gin.H{
+			"session_id":     sessionID,
+			"memory_session": memorySession,
+			"redis_session":  redisSession,
+			"redis_error":    redisError,
+			"cookies":        cookies,
+			"redis_enabled":  common.RedisEnabled,
+		},
+	}
+	
+	c.JSON(http.StatusOK, result)
+}

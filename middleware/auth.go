@@ -32,6 +32,7 @@ func authHelper(c *gin.Context, minRole int) {
 	
 	// 如果内存session中没有用户信息，尝试从Redis恢复
 	if username == nil {
+		common.SysLog("memory session is empty, trying to recover from Redis")
 		// 尝试从Redis恢复session
 		if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
 			// 成功从Redis恢复session，写入内存session
@@ -40,7 +41,16 @@ func authHelper(c *gin.Context, minRole int) {
 			session.Set("role", sessionData.Role)
 			session.Set("status", sessionData.Status)
 			session.Set("group", sessionData.Group)
-			session.Save()
+			err = session.Save()
+			if err != nil {
+				common.SysError("failed to save recovered session to memory: " + err.Error())
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success": false,
+					"message": "session恢复失败，请重新登录",
+				})
+				c.Abort()
+				return
+			}
 			
 			// 更新局部变量
 			username = sessionData.Username
@@ -48,7 +58,33 @@ func authHelper(c *gin.Context, minRole int) {
 			id = sessionData.ID
 			status = sessionData.Status
 			
+			// 更新Redis中的session数据，记录最新的访问时间
+			model.SyncSessionToRedis(c, sessionData.ID, sessionData.Username, sessionData.Role, sessionData.Status, sessionData.Group)
+			
 			common.SysLog(fmt.Sprintf("session recovered from Redis for user: %s", sessionData.Username))
+		} else {
+			if err != nil {
+				common.SysLog("failed to recover session from Redis: " + err.Error())
+			} else {
+				common.SysLog("no session found in Redis")
+			}
+		}
+	} else {
+		if common.DebugEnabled {
+			common.SysLog(fmt.Sprintf("using existing memory session for user: %s", username.(string)))
+		}
+		// 如果从内存或Redis找到了session，刷新Redis中的session数据
+		// 这样可以保持session数据的最新状态
+		if id != nil && username != nil && role != nil && status != nil {
+			userIdInt, ok := id.(int)
+			groupVal := session.Get("group")
+			var groupStr string
+			if groupVal != nil {
+				groupStr = groupVal.(string)
+			}
+			if ok {
+				model.SyncSessionToRedis(c, userIdInt, username.(string), role.(int), status.(int), groupStr)
+			}
 		}
 	}
 	

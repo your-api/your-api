@@ -21,21 +21,53 @@ type SessionData struct {
 
 // getSessionIDFromContext 从gin.Context中获取session ID
 func getSessionIDFromContext(c *gin.Context) string {
-	// 方法1: 从cookie中直接获取session ID
+	// 方法1: 从cookie中直接获取session ID（最可靠的方法）
 	if cookie, err := c.Cookie("session"); err == nil && cookie != "" {
-		common.SysLog(fmt.Sprintf("found session ID from cookie: %s", cookie[:8]+"..."))
+		if common.DebugEnabled {
+			common.SysLog(fmt.Sprintf("found session ID from cookie: %s", cookie[:min(8, len(cookie))]+"..."))
+		}
 		return cookie
 	}
 
-	// 方法2: 尝试从session中获取ID
+	// 方法2: 尝试解析所有可能的session相关cookie
+	for _, cookie := range c.Request.Cookies() {
+		if cookie.Name == "session" && cookie.Value != "" {
+			if common.DebugEnabled {
+				common.SysLog(fmt.Sprintf("found session ID from cookie iteration: %s", cookie.Value[:min(8, len(cookie.Value))]+"..."))
+			}
+			return cookie.Value
+		}
+	}
+	
+	// 方法3: 尝试从session中获取ID（可能为空，因为session可能已过期）
 	session := sessions.Default(c)
 	if sessionID := session.ID(); sessionID != "" {
-		common.SysLog(fmt.Sprintf("found session ID from session.ID(): %s", sessionID[:8]+"..."))
+		if common.DebugEnabled {
+			common.SysLog(fmt.Sprintf("found session ID from session.ID(): %s", sessionID[:min(8, len(sessionID))]+"..."))
+		}
 		return sessionID
 	}
 
-	common.SysLog("no session ID found")
+	// 记录调试信息
+	common.SysLog("no session ID found in any method")
+	if common.DebugEnabled {
+		// 记录所有cookie信息用于调试
+		cookies := make([]string, 0)
+		for _, cookie := range c.Request.Cookies() {
+			cookies = append(cookies, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value[:min(10, len(cookie.Value))]+"..."))
+		}
+		common.SysLog(fmt.Sprintf("available cookies: %v", cookies))
+	}
+	
 	return ""
+}
+
+// 辅助函数，避免数组越界
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // getSessionCacheKey 生成session缓存key
@@ -110,6 +142,7 @@ func RefreshSessionCache(sessionID string) error {
 // SyncSessionToRedis 将内存session同步到Redis
 func SyncSessionToRedis(c *gin.Context, id int, username string, role int, status int, group string) {
 	if !common.RedisEnabled {
+		common.SysLog("Redis is not enabled, skip session sync")
 		return
 	}
 
@@ -131,6 +164,8 @@ func SyncSessionToRedis(c *gin.Context, id int, username string, role int, statu
 	err := SetSessionCache(sessionID, sessionData)
 	if err != nil {
 		common.SysError("failed to sync session to redis: " + err.Error())
+	} else {
+		common.SysLog(fmt.Sprintf("session synced to Redis successfully for user: %s (session: %s)", username, sessionID[:8]+"..."))
 	}
 }
 

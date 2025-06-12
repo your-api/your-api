@@ -46,6 +46,12 @@ func LoadEnv() {
 		} else {
 			SessionSecret = ss
 		}
+	} else {
+		// 如果没有设置SESSION_SECRET环境变量，使用一个固定的默认值以保持session一致性
+		// 这样重启后仍能识别之前的session
+		SessionSecret = "new-api-default-session-secret-key-2024"
+		SysLog("WARNING: SESSION_SECRET not set, using default value. For security, please set SESSION_SECRET environment variable.")
+		SysLog("警告：未设置SESSION_SECRET，使用默认值。为了安全，请设置SESSION_SECRET环境变量。")
 	}
 	if os.Getenv("CRYPTO_SECRET") != "" {
 		CryptoSecret = os.Getenv("CRYPTO_SECRET")
