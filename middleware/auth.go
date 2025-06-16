@@ -73,19 +73,8 @@ func authHelper(c *gin.Context, minRole int) {
 		if common.DebugEnabled {
 			common.SysLog(fmt.Sprintf("using existing memory session for user: %s", username.(string)))
 		}
-		// 如果从内存或Redis找到了session，刷新Redis中的session数据
-		// 这样可以保持session数据的最新状态
-		if id != nil && username != nil && role != nil && status != nil {
-			userIdInt, ok := id.(int)
-			groupVal := session.Get("group")
-			var groupStr string
-			if groupVal != nil {
-				groupStr = groupVal.(string)
-			}
-			if ok {
-				model.SyncSessionToRedis(c, userIdInt, username.(string), role.(int), status.(int), groupStr)
-			}
-		}
+		// 移除频繁的session刷新，只在session恢复时才需要同步
+		// 正常情况下session已经在Redis中，不需要每次都刷新
 	}
 	
 	// 如果仍然没有用户信息，检查access token
@@ -125,9 +114,8 @@ func authHelper(c *gin.Context, minRole int) {
 			return
 		}
 	} else {
-		// 如果从内存或Redis找到了session，刷新Redis中的session数据
-		// 这样可以保持session数据的最新状态
-		model.RefreshSessionCacheFromContext(c)
+		// 移除频繁的session刷新，只在session恢复时才需要同步
+		// 正常情况下session已经在Redis中，不需要每次都刷新
 	}
 	
 	// get header New-Api-User

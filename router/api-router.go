@@ -70,6 +70,8 @@ func SetApiRouter(router *gin.Engine) {
 			userRoute.GET("/debug/session", controller.DebugSession)
 			userRoute.GET("/epay/notify", controller.EpayNotify)
 			userRoute.GET("/groups", controller.GetUserGroups)
+			// 用户信息恢复接口，不需要New-API-User头部验证
+			userRoute.GET("/recovery", controller.GetSelfForRecovery)
 
 			selfRoute := userRoute.Group("/")
 			selfRoute.Use(middleware.UserAuth())

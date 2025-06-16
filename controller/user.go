@@ -667,6 +667,66 @@ func GetSelf(c *gin.Context) {
 	return
 }
 
+// GetSelfForRecovery 专门用于恢复localStorage中的用户信息
+// 只依赖session，不需要New-API-User头部验证
+func GetSelfForRecovery(c *gin.Context) {
+	session := sessions.Default(c)
+	username := session.Get("username")
+	id := session.Get("id")
+	
+	// 如果内存session中没有用户信息，尝试从Redis恢复
+	if username == nil {
+		if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
+			// 成功从Redis恢复session，写入内存session
+			session.Set("id", sessionData.ID)
+			session.Set("username", sessionData.Username)
+			session.Set("role", sessionData.Role)
+			session.Set("status", sessionData.Status)
+			session.Set("group", sessionData.Group)
+			err = session.Save()
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": "session恢复失败",
+				})
+				return
+			}
+			
+			// 更新局部变量
+			username = sessionData.Username
+			id = sessionData.ID
+			
+			common.SysLog(fmt.Sprintf("session recovered from Redis for user: %s", sessionData.Username))
+		}
+	}
+	
+	// 如果仍然没有用户信息，返回未登录
+	if username == nil || id == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "未登录或登录已过期",
+		})
+		return
+	}
+	
+	// 构造用户信息返回
+	user, err := model.GetUserById(id.(int), false)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    user,
+	})
+	return
+}
+
 func GetUserModels(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

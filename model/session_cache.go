@@ -17,6 +17,7 @@ type SessionData struct {
 	Status    int    `json:"status"`
 	Group     string `json:"group"`
 	LoginTime int64  `json:"login_time"`
+	LastSync  int64  `json:"last_sync"` // 添加最后同步时间字段
 }
 
 // getSessionIDFromContext 从gin.Context中获取session ID
@@ -140,32 +141,75 @@ func RefreshSessionCache(sessionID string) error {
 }
 
 // SyncSessionToRedis 将内存session同步到Redis
+// 优化版本：只在必要时才同步，避免频繁的Redis写操作
 func SyncSessionToRedis(c *gin.Context, id int, username string, role int, status int, group string) {
 	if !common.RedisEnabled {
-		common.SysLog("Redis is not enabled, skip session sync")
-		return
+		return // Redis未启用时直接返回，不记录日志
 	}
 
 	sessionID := getSessionIDFromContext(c)
 	if sessionID == "" {
-		common.SysError("failed to get session ID for Redis sync")
+		if common.DebugEnabled {
+			common.SysError("failed to get session ID for Redis sync")
+		}
 		return
 	}
 
-	sessionData := &SessionData{
-		ID:        id,
-		Username:  username,
-		Role:      role,
-		Status:    status,
-		Group:     group,
-		LoginTime: time.Now().Unix(),
-	}
-
-	err := SetSessionCache(sessionID, sessionData)
-	if err != nil {
-		common.SysError("failed to sync session to redis: " + err.Error())
+	// 检查是否需要同步：先尝试获取现有的session数据
+	existingData, err := GetSessionCache(sessionID)
+	currentTime := time.Now().Unix()
+	
+	// 同步策略：
+	// 1. 如果Redis中没有session数据，立即同步
+	// 2. 如果距离上次同步超过5分钟，才进行同步
+	// 3. 如果用户信息发生变化，立即同步
+	shouldSync := false
+	syncReason := ""
+	
+	if err != nil || existingData == nil {
+		// Redis中没有session数据，需要同步
+		shouldSync = true
+		syncReason = "no existing session in Redis"
 	} else {
-		common.SysLog(fmt.Sprintf("session synced to Redis successfully for user: %s (session: %s)", username, sessionID[:8]+"..."))
+		// 检查是否需要同步
+		timeSinceLastSync := currentTime - existingData.LastSync
+		
+		if timeSinceLastSync > 300 { // 5分钟 = 300秒
+			shouldSync = true
+			syncReason = "sync interval exceeded (5 minutes)"
+		} else if existingData.ID != id || existingData.Username != username || 
+				  existingData.Role != role || existingData.Status != status || 
+				  existingData.Group != group {
+			shouldSync = true
+			syncReason = "user data changed"
+		}
+	}
+	
+	// 只在需要时才同步
+	if shouldSync {
+		sessionData := &SessionData{
+			ID:        id,
+			Username:  username,
+			Role:      role,
+			Status:    status,
+			Group:     group,
+			LoginTime: time.Now().Unix(),
+			LastSync:  currentTime,
+		}
+
+		err := SetSessionCache(sessionID, sessionData)
+		if err != nil {
+			common.SysError("failed to sync session to redis: " + err.Error())
+		} else {
+			if common.DebugEnabled {
+				common.SysLog(fmt.Sprintf("session synced to Redis for user: %s (reason: %s)", username, syncReason))
+			}
+		}
+	} else {
+		// 不需要同步时，只在debug模式下记录
+		if common.DebugEnabled {
+			common.SysLog(fmt.Sprintf("session sync skipped for user: %s (last sync: %d seconds ago)", username, currentTime-existingData.LastSync))
+		}
 	}
 }
 
