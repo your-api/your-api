@@ -37,9 +37,9 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		streamingTimeout *= 3
 	} else if strings.HasPrefix(info.UpstreamModelName, "o") {
 		streamingTimeout *= 2
-	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") || 
-			  strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
-			  strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
+	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") ||
+		strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
+		strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
 		streamingTimeout *= 2
 	}
 
@@ -166,9 +166,9 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 		streamingTimeout *= 3
 	} else if strings.HasPrefix(info.UpstreamModelName, "o") {
 		streamingTimeout *= 2
-	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") || 
-			  strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
-			  strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
+	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") ||
+		strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
+		strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
 		streamingTimeout *= 2
 	}
 
@@ -253,8 +253,13 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 			data = strings.TrimSuffix(data, "\r")
 			if !strings.HasPrefix(data, "[DONE]") {
 				// 判断 data 是否为空，不为空，则将data中的filesystem.site替换为file.yourapi.cn
-				if len(data) > 0 && strings.Contains(info.BaseUrl, "gptgod") {
+				//if len(data) > 0 && strings.Contains(info.BaseUrl, "gptgod") {
+				//	data = strings.ReplaceAll(data, "filesystem.site", "file.yourapi.cn")
+				//}
+				// 判断模型名是否含有reverse
+				if strings.Contains(info.OriginModelName, "reverse") {
 					data = strings.ReplaceAll(data, "filesystem.site", "file.yourapi.cn")
+					data = strings.ReplaceAll(data, "asyncdata.net", "async.yourapi.cn")
 				}
 
 				info.SetFirstResponseTime()
