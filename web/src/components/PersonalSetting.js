@@ -48,6 +48,7 @@ import TelegramLoginButton from 'react-telegram-login';
 import { useTranslation } from 'react-i18next';
 import CheckInCalendar from './CheckInCalendar';
 import { QRCodeSVG } from 'qrcode.react';
+import ImageCaptcha from './ImageCaptcha.js';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -58,6 +59,8 @@ const PersonalSetting = () => {
     wechat_verification_code: '',
     email_verification_code: '',
     email: '',
+    phone: '',
+    phone_verification_code: '',
     self_account_deletion_confirmation: '',
     original_password: '',
     set_new_password: '',
@@ -67,6 +70,7 @@ const PersonalSetting = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showWeChatBindModal, setShowWeChatBindModal] = useState(false);
   const [showEmailBindModal, setShowEmailBindModal] = useState(false);
+  const [showPhoneBindModal, setShowPhoneBindModal] = useState(false);
   const [showAccountDeleteModal, setShowAccountDeleteModal] = useState(false);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
@@ -74,6 +78,8 @@ const PersonalSetting = () => {
   const [loading, setLoading] = useState(false);
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [phoneCountdown, setPhoneCountdown] = useState(30);
+  const [phoneDisableButton, setPhoneDisableButton] = useState(false);
   const [affLink, setAffLink] = useState('');
   const [systemToken, setSystemToken] = useState('');
   const [models, setModels] = useState([]);
@@ -99,6 +105,11 @@ const PersonalSetting = () => {
   const [isCheckingWechatLogin, setIsCheckingWechatLogin] = useState(false);
   const [wechatBindStatus, setWechatBindStatus] = useState('waiting'); // waiting, success, error
   const [wechatBindError, setWechatBindError] = useState('');
+
+  // 新增图片验证码相关状态
+  const [showImageCaptcha, setShowImageCaptcha] = useState(false);
+  const [imageCaptchaData, setImageCaptchaData] = useState(null);
+  const [showPhoneImageCaptcha, setShowPhoneImageCaptcha] = useState(false);
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -131,6 +142,19 @@ const PersonalSetting = () => {
     }
     return () => clearInterval(countdownInterval);
   }, [disableButton, countdown]);
+
+  useEffect(() => {
+    let phoneCountdownInterval = null;
+    if (phoneDisableButton && phoneCountdown > 0) {
+      phoneCountdownInterval = setInterval(() => {
+        setPhoneCountdown(phoneCountdown - 1);
+      }, 1000);
+    } else if (phoneCountdown === 0) {
+      setPhoneDisableButton(false);
+      setPhoneCountdown(30);
+    }
+    return () => clearInterval(phoneCountdownInterval);
+  }, [phoneDisableButton, phoneCountdown]);
 
   const handleInputChange = (name, value) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -554,6 +578,127 @@ const PersonalSetting = () => {
     setLoading(false);
   };
 
+  // 处理图片验证码验证成功
+  const handleImageCaptchaVerified = (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowImageCaptcha(false);
+    // 验证成功后自动发送手机验证码
+    sendPhoneVerificationAfterCaptcha(captchaData);
+  };
+
+  // 图片验证码验证失败或错误
+  const handleImageCaptchaError = (error) => {
+    console.error('图片验证码错误:', error);
+    setImageCaptchaData(null);
+    // 重新显示验证码对话框
+    setShowImageCaptcha(true);
+  };
+
+  // 处理手机号绑定的图片验证码验证成功
+  const handlePhoneImageCaptchaVerified = (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowPhoneImageCaptcha(false);
+    // 验证成功后自动发送手机验证码
+    sendPhoneVerificationAfterCaptcha(captchaData);
+  };
+
+  // 手机号绑定的图片验证码验证失败或错误
+  const handlePhoneImageCaptchaError = (error) => {
+    console.error('手机号绑定图片验证码错误:', error);
+    setImageCaptchaData(null);
+    // 重新显示验证码
+    setShowPhoneImageCaptcha(true);
+  };
+
+  // 发送手机验证码（在图片验证码验证成功后）
+  const sendPhoneVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.phone === '') return;
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await API.post('/api/sms/send', {
+        phone: inputs.phone,
+        purpose: 'bind',
+        image_captcha_id: captchaData.captcha_id,
+        image_captcha_code: captchaData.captcha_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('验证码发送成功，请检查手机！'));
+        setPhoneCountdown(60); // 开始60秒倒计时
+        setPhoneDisableButton(true);
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo(t('请重新完成图片验证码验证'));
+          setImageCaptchaData(null);
+          setShowPhoneImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      showError(t('发送验证码失败，请重试'));
+      // 网络错误时也提示重新验证
+      showInfo(t('请重新完成图片验证码验证'));
+      setImageCaptchaData(null);
+      setShowPhoneImageCaptcha(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 发送手机验证码
+  const sendPhoneVerificationCode = async () => {
+    if (inputs.phone === '') {
+      showError(t('请输入手机号！'));
+      return;
+    }
+    
+    // 验证手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(inputs.phone)) {
+      showError(t('请输入正确的手机号格式'));
+      return;
+    }
+    
+    // 在手机号绑定模态框内显示图片验证码
+    setShowPhoneImageCaptcha(true);
+  };
+
+  // 绑定手机号
+  const bindPhone = async () => {
+    if (inputs.phone_verification_code === '') {
+      showError(t('请输入手机验证码！'));
+      return;
+    }
+    setLoading(true);
+    
+    try {
+      const res = await API.post('/api/oauth/phone/bind', {
+        phone: inputs.phone,
+        code: inputs.phone_verification_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('手机号绑定成功！'));
+        setShowPhoneBindModal(false);
+        if (userState.user) {
+          userState.user.phone = inputs.phone;
+        }
+        getUserData(); // 刷新用户数据
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(t('绑定失败，请重试'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <Layout>
@@ -845,6 +990,40 @@ const PersonalSetting = () => {
                         <div style={{ marginTop: 10 }}>
                           <Typography.Text type='danger' style={{ fontSize: '12px' }}>
                             {wechatBindError}
+                          </Typography.Text>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 手机号绑定 */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Typography.Text strong>{t('手机号')}</Typography.Text>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                        <Input
+                          value={
+                            userState.user && userState.user.phone !== ''
+                              ? userState.user.phone
+                              : t('未绑定')
+                          }
+                          readOnly={true}
+                          style={{ maxWidth: 200 }}
+                        />
+                        {userState.user && userState.user.phone !== '' ? (
+                          <Button disabled={true} type='secondary'>
+                            {t('已绑定')}
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => setShowPhoneBindModal(true)}
+                          >
+                            {t('绑定手机号')}
+                          </Button>
+                        )}
+                      </div>
+                      {userState.user && userState.user.phone !== '' && (
+                        <div style={{ marginTop: 10 }}>
+                          <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                            {t('手机号已绑定，为了账户安全，不支持解绑或修改操作')}
                           </Typography.Text>
                         </div>
                       )}
@@ -1277,6 +1456,81 @@ const PersonalSetting = () => {
             )}
           </Modal>
 
+          {/* 手机号绑定模态框 */}
+          <Modal
+            title={t('绑定手机号')}
+            visible={showPhoneBindModal}
+            onOk={bindPhone}
+            onCancel={() => {
+              setShowPhoneBindModal(false);
+              setShowPhoneImageCaptcha(false);
+            }}
+            maskClosable={false}
+            size={'small'}
+            centered={true}
+          >
+            {!showPhoneImageCaptcha ? (
+              <>
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Input
+                      placeholder={t('输入手机号')}
+                      onChange={(value) => handleInputChange('phone', value)}
+                      name='phone'
+                      type='tel'
+                      style={{ flex: 1, marginRight: 10 }}
+                    />
+                    <Button
+                      onClick={sendPhoneVerificationCode}
+                      disabled={phoneDisableButton || loading}
+                    >
+                      {phoneDisableButton ? `${t('重新发送')} (${phoneCountdown})` : t('获取验证码')}
+                    </Button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Input
+                    placeholder={t('验证码')}
+                    name='phone_verification_code'
+                    value={inputs.phone_verification_code}
+                    onChange={(value) =>
+                      handleInputChange('phone_verification_code', value)
+                    }
+                  />
+                </div>
+                {turnstileEnabled && (
+                  <Turnstile
+                    sitekey={turnstileSiteKey}
+                    onVerify={(token) => {
+                      setTurnstileToken(token);
+                    }}
+                  />
+                )}
+              </>
+            ) : (
+              <div style={{ marginTop: 20 }}>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <span style={{ fontSize: '14px', color: '#666' }}>
+                    {t('请完成图片验证码验证')}
+                  </span>
+                </div>
+                <ImageCaptcha
+                  onVerified={handlePhoneImageCaptchaVerified}
+                  onError={handlePhoneImageCaptchaError}
+                  style={{ display: 'flex', justifyContent: 'center' }}
+                />
+                <div style={{ textAlign: 'center', marginTop: 16 }}>
+                  <Button
+                    onClick={() => setShowPhoneImageCaptcha(false)}
+                    size="small"
+                  >
+                    {t('取消')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Modal>
+
           {/* 修改密码模态框 */}
           <Modal
             title={t('修改密码')}
@@ -1327,6 +1581,8 @@ const PersonalSetting = () => {
               )}
             </div>
           </Modal>
+
+
 
           {/* 删除账户模态框 */}
 

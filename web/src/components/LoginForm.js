@@ -67,6 +67,13 @@ const LoginForm = () => {
   const [loginProcessed, setLoginProcessed] = useState(false); // 防止重复处理登录
   const qrCheckTimerRef = useRef(null);
 
+  // 新增：手机号登录相关状态
+  const [phoneInputs, setPhoneInputs] = useState({
+    phone: '',
+    password: '',
+  });
+  const [phoneLoading, setPhoneLoading] = useState(false);
+
   const logo = getLogo();
 
   let affCode = new URLSearchParams(window.location.search).get('aff');
@@ -399,6 +406,105 @@ const LoginForm = () => {
     </div>
   );
 
+  // 新增：处理手机号输入变化
+  const handlePhoneChange = (name, value) => {
+    setPhoneInputs((inputs) => ({ ...inputs, [name]: value }));
+  };
+
+  // 新增：手机号登录
+  const handlePhoneLogin = async () => {
+    if (!phoneInputs.phone || !phoneInputs.password) {
+      showError(t('请输入手机号和密码'));
+      return;
+    }
+
+    // 验证手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phoneInputs.phone)) {
+      showError(t('请输入正确的手机号格式'));
+      return;
+    }
+
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
+      return;
+    }
+
+    setPhoneLoading(true);
+    try {
+      const res = await API.post('/api/user/phone-login', {
+        phone: phoneInputs.phone,
+        password: phoneInputs.password,
+        turnstile: turnstileToken,
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        userDispatch({ type: 'login', payload: data });
+        setUserData(data);
+        updateAPI();
+        showSuccess(t('登录成功！'));
+        navigate('/token');
+      } else {
+        showError(message || t('登录失败'));
+      }
+    } catch (error) {
+      showError(t('网络错误，请稍后重试'));
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
+  // 新增：渲染手机号登录界面
+  const renderPhoneLogin = () => (
+    <div className="py-4">
+      <Form>
+        <Form.Input
+          field={'phone'}
+          label={t('手机号')}
+          placeholder={t('请输入手机号')}
+          name='phone'
+          value={phoneInputs.phone}
+          onChange={(value) => handlePhoneChange('phone', value)}
+        />
+        <Form.Input
+          field={'password'}
+          label={t('密码')}
+          placeholder={t('请输入密码')}
+          name='password'
+          type='password'
+          value={phoneInputs.password}
+          onChange={(value) => handlePhoneChange('password', value)}
+        />
+
+        <Button
+          theme='solid'
+          style={{ width: '100%' }}
+          type={'primary'}
+          size='large'
+          onClick={handlePhoneLogin}
+          loading={phoneLoading}
+        >
+          {t('登录')}
+        </Button>
+      </Form>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 20,
+        }}
+      >
+        <Text>
+          {t('没有账户？')}{' '}
+          <Link to='/register?from=phone'>{t('点击注册')}</Link>
+        </Text>
+        <Text>
+          {t('忘记密码？')} <Link to='/reset?from=phone'>{t('点击重置')}</Link>
+        </Text>
+      </div>
+    </div>
+  );
+
   // 新增：渲染密码登录界面
   const renderPasswordLogin = () => (
     <div className="py-4">
@@ -439,10 +545,10 @@ const LoginForm = () => {
       >
         <Text>
           {t('没有账户？')}{' '}
-          <Link to='/register'>{t('点击注册')}</Link>
+          <Link to='/register?from=email'>{t('点击注册')}</Link>
         </Text>
         <Text>
-          {t('忘记密码？')} <Link to='/reset'>{t('点击重置')}</Link>
+          {t('忘记密码？')} <Link to='/reset?from=email'>{t('点击重置')}</Link>
         </Text>
       </div>
     </div>
@@ -509,6 +615,19 @@ const LoginForm = () => {
                     itemKey="qr"
                   >
                     {renderQRLogin()}
+                  </TabPane>
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg className="login-tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span>{t('手机登录')}</span>
+                      </div>
+                    } 
+                    itemKey="phone"
+                  >
+                    {renderPhoneLogin()}
                   </TabPane>
                   <TabPane 
                     tab={

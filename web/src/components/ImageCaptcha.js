@@ -88,71 +88,111 @@ const ImageCaptcha = ({ onVerified, onError, style = {} }) => {
   };
 
   return (
-    <div style={{ ...style }}>
-      <Space vertical align="start" spacing={8}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ 
-            border: '1px solid #e0e0e0', 
-            borderRadius: '6px', 
-            padding: '4px',
-            backgroundColor: '#f9f9f9',
-            minWidth: '150px',
-            minHeight: '50px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            {loading ? (
-              <Spin size="small" />
-            ) : captchaImage ? (
-              <img 
-                src={captchaImage} 
-                alt="验证码" 
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '100%',
-                  cursor: 'pointer'
-                }}
-                onClick={handleRefresh}
-                title="点击刷新验证码"
-              />
-            ) : (
-              <div style={{ color: '#999', fontSize: '12px' }}>
-                点击生成验证码
-              </div>
-            )}
-          </div>
-          
-          <Button 
-            icon={<IconRefresh />} 
-            size="small"
-            loading={loading}
-            onClick={handleRefresh}
-            title={t('刷新验证码')}
-          />
+    <div style={{ 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '16px',
+      ...style 
+    }}>
+      {/* 验证码图片区域 */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px',
+        justifyContent: 'center'
+      }}>
+        <div style={{ 
+          border: '2px solid var(--semi-color-border)',
+          borderRadius: '8px', 
+          padding: '8px',
+          backgroundColor: 'var(--semi-color-fill-0)',
+          minWidth: '160px',
+          minHeight: '60px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          {loading ? (
+            <Spin size="small" />
+          ) : captchaImage ? (
+            <img 
+              src={captchaImage} 
+              alt="验证码" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '100%',
+                cursor: 'pointer',
+                borderRadius: '4px'
+              }}
+              onClick={handleRefresh}
+              title="点击刷新验证码"
+            />
+          ) : (
+            <div style={{ 
+              color: 'var(--semi-color-text-2)', 
+              fontSize: '12px',
+              textAlign: 'center'
+            }}>
+              {t('点击生成验证码')}
+            </div>
+          )}
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Input
-            placeholder={t('请输入验证码')}
-            value={captchaCode}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            style={{ width: '120px' }}
-            maxLength={4}
-            disabled={!captchaId}
-          />
-          
-          <Button
-            type="primary"
-            size="small"
-            disabled={!captchaId || !captchaCode || captchaCode.length < 4}
-            onClick={confirmCaptcha}
-          >
-            {t('确认')}
-          </Button>
-        </div>
-      </Space>
+        <Button 
+          icon={<IconRefresh />} 
+          size="default"
+          loading={loading}
+          onClick={handleRefresh}
+          title={t('刷新验证码')}
+          type="tertiary"
+        />
+      </div>
+      
+      {/* 输入和确认区域 */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px',
+        justifyContent: 'center'
+      }}>
+        <Input
+          placeholder={t('请输入验证码')}
+          value={captchaCode}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          style={{ 
+            width: '140px',
+            textAlign: 'center',
+            fontSize: '16px',
+            letterSpacing: '2px'
+          }}
+          maxLength={4}
+          disabled={!captchaId}
+          size="default"
+        />
+        
+        <Button
+          type="primary"
+          size="default"
+          disabled={!captchaId || !captchaCode || captchaCode.length < 4}
+          onClick={confirmCaptcha}
+          style={{ minWidth: '60px' }}
+        >
+          {t('确认')}
+        </Button>
+      </div>
+      
+      {/* 提示文字 */}
+      <div style={{ 
+        textAlign: 'center',
+        color: 'var(--semi-color-text-2)',
+        fontSize: '12px',
+        marginTop: '4px'
+      }}>
+        {t('看不清？点击图片或刷新按钮重新获取')}
+      </div>
     </div>
   );
 };

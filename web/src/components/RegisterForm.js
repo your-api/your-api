@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   API,
   getLogo,
@@ -17,6 +17,8 @@ import {
   Icon,
   Layout,
   Modal,
+  Tabs,
+  TabPane,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -37,15 +39,31 @@ import { useTranslation } from 'react-i18next';
 
 const RegisterForm = () => {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [inputs, setInputs] = useState({
     username: '',
     password: '',
     password2: '',
     email: '',
     verification_code: '',
+    phone: '',
+    phone_code: '',
   });
   const { username, password, password2 } = inputs;
   const [showEmailVerification, setShowEmailVerification] = useState(false);
+  
+  // 根据URL参数设置默认标签页
+  const getDefaultTabKey = () => {
+    const fromParam = searchParams.get('from');
+    if (fromParam === 'phone') {
+      return 'phone';
+    }
+    return 'email'; // 默认显示邮箱注册或从密码登录来的
+  };
+  
+  const [activeTabKey, setActiveTabKey] = useState(getDefaultTabKey());
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const phoneCountdownRef = useRef(null);
   const [userState, userDispatch] = useContext(UserContext);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
@@ -64,6 +82,16 @@ const RegisterForm = () => {
   if (affCode) {
     localStorage.setItem('aff', affCode);
   }
+
+  // 监听URL参数变化，更新活动标签页
+  useEffect(() => {
+    const fromParam = searchParams.get('from');
+    if (fromParam === 'phone') {
+      setActiveTabKey('phone');
+    } else {
+      setActiveTabKey('email');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -91,6 +119,20 @@ const RegisterForm = () => {
       }
     };
   }, [countdown]);
+
+  // 手机号倒计时逻辑
+  useEffect(() => {
+    if (phoneCountdown > 0) {
+      phoneCountdownRef.current = setTimeout(() => {
+        setPhoneCountdown(phoneCountdown - 1);
+      }, 1000);
+    }
+    return () => {
+      if (phoneCountdownRef.current) {
+        clearTimeout(phoneCountdownRef.current);
+      }
+    };
+  }, [phoneCountdown]);
 
   const onWeChatLoginClicked = () => {
     setShowWeChatLoginModal(true);
@@ -132,24 +174,52 @@ const RegisterForm = () => {
       return;
     }
     
-    // 如果启用了邮箱验证，检查邮箱域名
-    if (showEmailVerification) {
-      if (!inputs.email) {
-        showError('请输入邮箱地址');
+    // 验证注册方式
+    if (activeTabKey === 'email') {
+      // 邮箱注册验证
+      if (!username) {
+        showError('请输入用户名');
         return;
       }
-      const emailDomain = inputs.email.split('@')[1];
-      if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
-        showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+      if (showEmailVerification) {
+        if (!inputs.email) {
+          showError('请输入邮箱地址');
+          return;
+        }
+        const emailDomain = inputs.email.split('@')[1];
+        if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
+          showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+          return;
+        }
+        if (!inputs.verification_code) {
+          showError('请输入邮箱验证码');
+          return;
+        }
+      }
+    } else if (activeTabKey === 'phone') {
+      // 手机号注册验证
+      if (!inputs.phone) {
+        showError('请输入手机号');
         return;
       }
-      if (!inputs.verification_code) {
-        showError('请输入邮箱验证码');
+      const phoneRegex = /^1[3-9]\d{9}$/;
+      if (!phoneRegex.test(inputs.phone)) {
+        showError('请输入正确的手机号格式');
         return;
       }
+      if (!inputs.phone_code) {
+        showError('请输入手机验证码');
+        return;
+      }
+      // 手机注册时，将手机号设置为用户名
+      inputs.username = inputs.phone;
     }
     
-    if (username && password) {
+    // 根据注册方式检查必填字段
+    const isEmailRegister = activeTabKey === 'email';
+    const isPhoneRegister = activeTabKey === 'phone';
+    
+    if ((isEmailRegister && username && password) || (isPhoneRegister && inputs.phone && password)) {
       if (turnstileEnabled && turnstileToken === '') {
         showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
         return;
@@ -178,8 +248,14 @@ const RegisterForm = () => {
   const handleImageCaptchaVerified = (captchaData) => {
     setImageCaptchaData(captchaData);
     setShowImageCaptcha(false);
-    // 验证成功后自动发送邮箱验证码
-    sendEmailVerificationAfterCaptcha(captchaData);
+    // 根据当前选中的tab发送对应的验证码
+    if (activeTabKey === 'email') {
+      // 验证成功后自动发送邮箱验证码
+      sendEmailVerificationAfterCaptcha(captchaData);
+    } else if (activeTabKey === 'phone') {
+      // 验证成功后自动发送手机验证码
+      sendPhoneVerificationAfterCaptcha(captchaData);
+    }
   };
 
   // 图片验证码验证失败或错误
@@ -244,6 +320,63 @@ const RegisterForm = () => {
     setShowImageCaptcha(true);
   };
 
+  // 发送手机验证码（在图片验证码验证成功后）
+  const sendPhoneVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.phone === '') return;
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await API.post('/api/sms/send', {
+        phone: inputs.phone,
+        purpose: 'register',
+        image_captcha_id: captchaData.captcha_id,
+        image_captcha_code: captchaData.captcha_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess('验证码发送成功，请检查你的手机！');
+        setPhoneCountdown(60); // 开始60秒倒计时
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo('请重新完成图片验证码验证');
+          setImageCaptchaData(null);
+          setShowImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      showError('发送验证码失败，请重试');
+      // 网络错误时也提示重新验证
+      showInfo('请重新完成图片验证码验证');
+      setImageCaptchaData(null);
+      setShowImageCaptcha(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 点击获取手机验证码按钮
+  const sendPhoneVerificationCode = async () => {
+    if (inputs.phone === '') {
+      showError('请先输入手机号');
+      return;
+    }
+    
+    // 检查手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(inputs.phone)) {
+      showError('请输入正确的手机号格式');
+      return;
+    }
+    
+    // 显示图片验证码模态框
+    setShowImageCaptcha(true);
+  };
+
   const onTelegramLoginClicked = async (response) => {
     const fields = [
       'id',
@@ -289,75 +422,164 @@ const RegisterForm = () => {
           >
             <div style={{ width: 500 }}>
               <Card>
-                <Title heading={2} style={{ textAlign: 'center' }}>
+                <Title heading={2} style={{ textAlign: 'center', marginBottom: 16 }}>
                   {t('新用户注册')}
                 </Title>
-                <Form size='large'>
-                  <Form.Input
-                    field={'username'}
-                    label={t('用户名')}
-                    placeholder={t('用户名')}
-                    name='username'
-                    onChange={(value) => handleChange('username', value)}
-                  />
-                  <Form.Input
-                    field={'password'}
-                    label={t('密码')}
-                    placeholder={t('输入密码，最短 8 位，最长 20 位')}
-                    name='password'
-                    type='password'
-                    onChange={(value) => handleChange('password', value)}
-                  />
-                  <Form.Input
-                    field={'password2'}
-                    label={t('确认密码')}
-                    placeholder={t('确认密码')}
-                    name='password2'
-                    type='password'
-                    onChange={(value) => handleChange('password2', value)}
-                  />
-                  {showEmailVerification ? (
-                    <>
+                
+                {/* Tab切换 */}
+                <Tabs 
+                  activeKey={activeTabKey} 
+                  onChange={setActiveTabKey}
+                  centered
+                  style={{ marginBottom: 16 }}
+                >
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg style={{ width: '1rem', height: '1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zM16 8v6m0-6c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V8zm0 0V7a3 3 0 00-3-3H7a3 3 0 00-3 3v8a3 3 0 003 3v0" />
+                        </svg>
+                        <span>{t('邮箱注册')}</span>
+                      </div>
+                    } 
+                    itemKey="email"
+                  >
+                    <Form size='large'>
                       <Form.Input
-                        field={'email'}
-                        label={t('邮箱(仅限QQ/谷歌邮箱)')}
-                        placeholder={t('输入邮箱地址')}
-                        onChange={(value) => handleChange('email', value)}
-                        name='email'
-                        type='email'
+                        field={'username'}
+                        label={t('用户名')}
+                        placeholder={t('用户名')}
+                        name='username'
+                        onChange={(value) => handleChange('username', value)}
+                      />
+                      <Form.Input
+                        field={'password'}
+                        label={t('密码')}
+                        placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                        name='password'
+                        type='password'
+                        onChange={(value) => handleChange('password', value)}
+                      />
+                      <Form.Input
+                        field={'password2'}
+                        label={t('确认密码')}
+                        placeholder={t('确认密码')}
+                        name='password2'
+                        type='password'
+                        onChange={(value) => handleChange('password2', value)}
+                      />
+                      {showEmailVerification ? (
+                        <>
+                          <Form.Input
+                            field={'email'}
+                            label={t('邮箱(仅限QQ/谷歌邮箱)')}
+                            placeholder={t('输入邮箱地址')}
+                            onChange={(value) => handleChange('email', value)}
+                            name='email'
+                            type='email'
+                            suffix={
+                              <Button
+                                onClick={sendVerificationCode}
+                                disabled={loading || countdown > 0}
+                                size="small"
+                              >
+                                {countdown > 0 ? `${countdown}秒后重试` : t('获取验证码')}
+                              </Button>
+                            }
+                          />
+                          <Form.Input
+                            field={'verification_code'}
+                            label={t('验证码')}
+                            placeholder={t('输入验证码')}
+                            onChange={(value) =>
+                              handleChange('verification_code', value)
+                            }
+                            name='verification_code'
+                          />
+                        </>
+                      ) : (
+                        <></>
+                      )}
+                      <Button
+                        theme='solid'
+                        style={{ width: '100%' }}
+                        type={'primary'}
+                        size='large'
+                        htmlType={'submit'}
+                        onClick={handleSubmit}
+                        loading={loading}
+                      >
+                        {t('注册')}
+                      </Button>
+                    </Form>
+                  </TabPane>
+                  
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg style={{ width: '1rem', height: '1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span>{t('手机注册')}</span>
+                      </div>
+                    } 
+                    itemKey="phone"
+                  >
+                    <Form size='large'>
+                      <Form.Input
+                        field={'phone'}
+                        label={t('手机号')}
+                        placeholder={t('请输入手机号')}
+                        name='phone'
+                        onChange={(value) => handleChange('phone', value)}
+                      />
+                      <Form.Input
+                        field={'password'}
+                        label={t('密码')}
+                        placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                        name='password'
+                        type='password'
+                        onChange={(value) => handleChange('password', value)}
+                      />
+                      <Form.Input
+                        field={'password2'}
+                        label={t('确认密码')}
+                        placeholder={t('确认密码')}
+                        name='password2'
+                        type='password'
+                        onChange={(value) => handleChange('password2', value)}
+                      />
+                      <Form.Input
+                        field={'phone_code'}
+                        label={t('验证码')}
+                        placeholder={t('请输入短信验证码')}
+                        name='phone_code'
+                        onChange={(value) => handleChange('phone_code', value)}
                         suffix={
                           <Button
-                            onClick={sendVerificationCode}
-                            disabled={loading || countdown > 0}
+                            onClick={sendPhoneVerificationCode}
+                            disabled={loading || phoneCountdown > 0}
+                            loading={loading}
+                            size="small"
                           >
-                            {countdown > 0 ? `${countdown}秒后重试` : t('获取验证码')}
+                            {phoneCountdown > 0 ? `${phoneCountdown}秒后重试` : t('获取验证码')}
                           </Button>
                         }
                       />
-                      <Form.Input
-                        field={'verification_code'}
-                        label={t('验证码')}
-                        placeholder={t('输入验证码')}
-                        onChange={(value) =>
-                          handleChange('verification_code', value)
-                        }
-                        name='verification_code'
-                      />
-                    </>
-                  ) : (
-                    <></>
-                  )}
-                  <Button
-                    theme='solid'
-                    style={{ width: '100%' }}
-                    type={'primary'}
-                    size='large'
-                    htmlType={'submit'}
-                    onClick={handleSubmit}
-                  >
-                    {t('注册')}
-                  </Button>
-                </Form>
+                      <Button
+                        theme='solid'
+                        style={{ width: '100%' }}
+                        type={'primary'}
+                        size='large'
+                        htmlType={'submit'}
+                        onClick={handleSubmit}
+                        loading={loading}
+                      >
+                        {t('注册')}
+                      </Button>
+                    </Form>
+                  </TabPane>
+                </Tabs>
                 <div
                   style={{
                     display: 'flex',

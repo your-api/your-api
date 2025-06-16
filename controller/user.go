@@ -23,6 +23,11 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type PhoneLoginRequest struct {
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+}
+
 func Login(c *gin.Context) {
 	if !common.PasswordLoginEnabled {
 		c.JSON(http.StatusOK, gin.H{
@@ -61,6 +66,61 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
+	setupLogin(&user, c)
+}
+
+func PhoneLogin(c *gin.Context) {
+	var phoneLoginRequest PhoneLoginRequest
+	err := json.NewDecoder(c.Request.Body).Decode(&phoneLoginRequest)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "无效的参数",
+			"success": false,
+		})
+		return
+	}
+	
+	phone := phoneLoginRequest.Phone
+	password := phoneLoginRequest.Password
+	
+	if phone == "" || password == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "请输入手机号和密码",
+			"success": false,
+		})
+		return
+	}
+
+	// 验证手机号格式
+	if len(phone) != 11 || phone[:1] != "1" {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "手机号格式不正确",
+			"success": false,
+		})
+		return
+	}
+
+	// 查找用户
+	user := model.User{Phone: phone}
+	err = user.FillUserByPhone()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "手机号或密码错误",
+			"success": false,
+		})
+		return
+	}
+
+	// 验证密码
+	okay := common.ValidatePasswordAndHash(password, user.Password)
+	if !okay || user.Status != common.UserStatusEnabled {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "手机号或密码错误，或用户已被封禁",
+			"success": false,
+		})
+		return
+	}
+	
 	setupLogin(&user, c)
 }
 
@@ -150,21 +210,32 @@ func Register(c *gin.Context) {
 		})
 		return
 	}
-	if common.EmailVerificationEnabled {
-		if user.Email == "" || user.VerificationCode == "" {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "管理员开启了邮箱验证，请输入邮箱地址和验证码",
-			})
-			return
-		}
+	// 验证邮箱或手机号
+	if user.Email != "" && user.VerificationCode != "" {
+		// 邮箱注册验证
 		if !common.VerifyCodeWithKey(user.Email, user.VerificationCode, common.EmailVerificationPurpose) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "验证码错误或已过期",
+				"message": "邮箱验证码错误或已过期",
 			})
 			return
 		}
+	} else if user.Phone != "" && user.PhoneCode != "" {
+		// 手机号注册验证
+		if !common.VerifyCodeWithKey(user.Phone, user.PhoneCode, common.PhoneVerificationPurpose) {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "手机验证码错误或已过期",
+			})
+			return
+		}
+	} else if common.EmailVerificationEnabled {
+		// 如果启用了邮箱验证但没有提供验证信息
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "请提供邮箱或手机号及对应的验证码",
+		})
+		return
 	}
 	exist, err := model.CheckUserExistOrDeleted(user.Username, user.Email)
 	if err != nil {
@@ -191,8 +262,11 @@ func Register(c *gin.Context) {
 		InviterId:   inviterId,
 		RegisterIP:  common.GetClientIP(c), // 记录注册IP
 	}
-	if common.EmailVerificationEnabled {
+	if user.Email != "" {
 		cleanUser.Email = user.Email
+	}
+	if user.Phone != "" {
+		cleanUser.Phone = user.Phone
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -1022,6 +1096,78 @@ func EmailBind(c *gin.Context) {
 		})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+	return
+}
+
+func PhoneBind(c *gin.Context) {
+	var req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+	
+	// 验证手机号格式
+	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "手机号格式不正确",
+		})
+		return
+	}
+	
+	// 验证手机验证码
+	if !common.VerifyCodeWithKey(req.Phone, req.Code, common.PhoneVerificationPurpose) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "验证码错误或已过期",
+		})
+		return
+	}
+	
+	// 检查手机号是否已被其他用户绑定
+	if model.IsPhoneAlreadyTaken(req.Phone) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该手机号已被其他用户绑定",
+		})
+		return
+	}
+	
+	session := sessions.Default(c)
+	id := session.Get("id")
+	user := model.User{
+		Id: id.(int),
+	}
+	err := user.FillUserById()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	user.Phone = req.Phone
+	err = user.Update(false)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

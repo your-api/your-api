@@ -23,6 +23,8 @@ type User struct {
 	Role             int            `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
+	Phone            string         `json:"phone" gorm:"index" validate:"max=11"`
+	PhoneCode        string         `json:"phone_code" gorm:"-:all"` // this field is only for Phone verification, don't save it to database!
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
@@ -589,6 +591,10 @@ func IsEmailAlreadyTaken(email string) bool {
 	return DB.Unscoped().Where("email = ?", email).Find(&User{}).RowsAffected == 1
 }
 
+func IsPhoneAlreadyTaken(phone string) bool {
+	return DB.Unscoped().Where("phone = ?", phone).Find(&User{}).RowsAffected == 1
+}
+
 func IsWeChatIdAlreadyTaken(wechatId string) bool {
 	return DB.Unscoped().Where("wechat_id = ?", wechatId).Find(&User{}).RowsAffected == 1
 }
@@ -605,6 +611,17 @@ func IsTelegramIdAlreadyTaken(telegramId string) bool {
 	return DB.Unscoped().Where("telegram_id = ?", telegramId).Find(&User{}).RowsAffected == 1
 }
 
+func (user *User) FillUserByPhone() error {
+	if user.Phone == "" {
+		return errors.New("手机号为空！")
+	}
+	err := DB.Where(User{Phone: user.Phone}).First(user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("该手机号未注册")
+	}
+	return nil
+}
+
 func ResetUserPasswordByEmail(email string, password string) error {
 	if email == "" || password == "" {
 		return errors.New("邮箱地址或密码为空！")
@@ -614,6 +631,18 @@ func ResetUserPasswordByEmail(email string, password string) error {
 		return err
 	}
 	err = DB.Model(&User{}).Where("email = ?", email).Update("password", hashedPassword).Error
+	return err
+}
+
+func ResetUserPasswordByPhone(phone string, password string) error {
+	if phone == "" || password == "" {
+		return errors.New("手机号或密码为空！")
+	}
+	hashedPassword, err := common.Password2Hash(password)
+	if err != nil {
+		return err
+	}
+	err = DB.Model(&User{}).Where("phone = ?", phone).Update("password", hashedPassword).Error
 	return err
 }
 

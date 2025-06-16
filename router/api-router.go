@@ -33,7 +33,9 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/captcha/verify", controller.VerifyImageCaptchaAPI)
 
 		apiRouter.GET("/verification", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
+		apiRouter.POST("/sms/send", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPhoneVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
+		apiRouter.POST("/reset_password_phone", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.ResetPasswordByPhone)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), controller.ResetPassword)
 		apiRouter.GET("/oauth/github", middleware.CriticalRateLimit(), controller.GitHubOAuth)
 		apiRouter.GET("/oauth/oidc", middleware.CriticalRateLimit(), controller.OidcAuth)
@@ -47,6 +49,7 @@ func SetApiRouter(router *gin.Engine) {
 		// 为了防止刷额度，暂时禁用手动合并API
 		// apiRouter.POST("/oauth/wechat/merge", middleware.CriticalRateLimit(), controller.MergeWeChatAccount)
 		apiRouter.GET("/oauth/email/bind", middleware.CriticalRateLimit(), controller.EmailBind)
+		apiRouter.POST("/oauth/phone/bind", middleware.CriticalRateLimit(), controller.PhoneBind)
 		apiRouter.GET("/oauth/telegram/login", middleware.CriticalRateLimit(), controller.TelegramLogin)
 		apiRouter.GET("/oauth/telegram/bind", middleware.CriticalRateLimit(), controller.TelegramBind)
 
@@ -61,6 +64,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)
 			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Login)
+			userRoute.POST("/phone-login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.PhoneLogin)
 			//userRoute.POST("/tokenlog", middleware.CriticalRateLimit(), controller.TokenLog)
 			userRoute.GET("/logout", controller.Logout)
 			userRoute.GET("/debug/session", controller.DebugSession)

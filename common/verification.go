@@ -2,6 +2,8 @@ package common
 
 import (
 	"github.com/google/uuid"
+	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ type verificationValue struct {
 
 const (
 	EmailVerificationPurpose = "v"
+	PhoneVerificationPurpose = "p"
 	PasswordResetPurpose     = "r"
 )
 
@@ -29,6 +32,23 @@ func GenerateVerificationCode(length int) string {
 		return code
 	}
 	return code[:length]
+}
+
+// GenerateNumericVerificationCode 生成指定长度的纯数字验证码
+func GenerateNumericVerificationCode(length int) string {
+	if length <= 0 {
+		length = 6
+	}
+	
+	// 生成指定长度的随机数字
+	min := 1
+	for i := 1; i < length; i++ {
+		min *= 10
+	}
+	max := min*10 - 1
+	
+	code := rand.Intn(max-min+1) + min
+	return strconv.Itoa(code)
 }
 
 func RegisterVerificationCodeWithKey(key string, code string, purpose string) {

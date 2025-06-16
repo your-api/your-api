@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -104,7 +106,7 @@ func GetAbout(c *gin.Context) {
 func GetContact(c *gin.Context) {
 	common.OptionMapRWMutex.RLock()
 	defer common.OptionMapRWMutex.RUnlock()
-	
+
 	// 获取ContactInfo JSON字符串
 	contactInfoStr, exists := common.OptionMap["ContactInfo"]
 	if !exists || contactInfoStr == "" {
@@ -126,7 +128,7 @@ func GetContact(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 解析JSON
 	var contactInfo gin.H
 	if err := json.Unmarshal([]byte(contactInfoStr), &contactInfo); err != nil {
@@ -148,7 +150,7 @@ func GetContact(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -218,7 +220,7 @@ func SendEmailVerification(c *gin.Context) {
 	}
 	localPart := parts[0]
 	domainPart := parts[1]
-	
+
 	// 检查是否为QQ或Gmail邮箱
 	if domainPart != "qq.com" && domainPart != "gmail.com" {
 		c.JSON(http.StatusOK, gin.H{
@@ -227,7 +229,7 @@ func SendEmailVerification(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if common.EmailDomainRestrictionEnabled {
 		allowed := false
 		for _, domain := range common.EmailDomainWhitelist {
@@ -281,6 +283,179 @@ func SendEmailVerification(c *gin.Context) {
 		"message": "",
 	})
 	return
+}
+
+func SendPhoneVerification(c *gin.Context) {
+	var req struct {
+		Phone            string `json:"phone"`
+		Code             string `json:"code"`
+		Purpose          string `json:"purpose"`            // register, login, reset_password
+		ImageCaptchaId   string `json:"image_captcha_id"`   // 图片验证码ID
+		ImageCaptchaCode string `json:"image_captcha_code"` // 图片验证码
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+
+	// 对于注册、重置密码和绑定，需要验证图片验证码
+	purpose := req.Purpose
+	if purpose == "" {
+		purpose = "register" // 默认为注册
+	}
+
+	if purpose == "register" || purpose == "reset_password" || purpose == "bind" {
+		// 验证图片验证码
+		if req.ImageCaptchaId != "" && req.ImageCaptchaCode != "" {
+			if !VerifyImageCaptcha(req.ImageCaptchaId, req.ImageCaptchaCode) {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": "图片验证码错误或已过期",
+				})
+				return
+			}
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "请先完成图片验证码验证",
+			})
+			return
+		}
+	}
+
+	// 验证手机号格式
+	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的手机号格式",
+		})
+		return
+	}
+
+	// 根据用途检查手机号状态
+	phoneExists := model.IsPhoneAlreadyTaken(req.Phone)
+
+	switch purpose {
+	case "register":
+		if phoneExists {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "手机号已被注册",
+			})
+			return
+		}
+	case "login", "reset_password":
+		if !phoneExists {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "手机号未注册",
+			})
+			return
+		}
+	case "bind":
+		if phoneExists {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "该手机号已被其他用户绑定",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的用途参数",
+		})
+		return
+	}
+
+	// 生成6位纯数字验证码
+	code := common.GenerateNumericVerificationCode(6)
+	common.RegisterVerificationCodeWithKey(req.Phone, code, common.PhoneVerificationPurpose)
+
+	// 调用外部短信API发送验证码
+	err := sendSMSCode(req.Phone, code)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "发送验证码失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "验证码发送成功",
+	})
+	return
+}
+
+// SMSResponse 短信API响应结构
+type SMSResponse struct {
+	Code int         `json:"code"`
+	Data interface{} `json:"data"`
+	Msg  string      `json:"msg"`
+}
+
+// sendSMSCode 发送短信验证码
+func sendSMSCode(phone, code string) error {
+	// 构建请求数据
+	requestData := map[string]string{
+		"phone": phone,
+		"code":  code,
+	}
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return fmt.Errorf("构建请求数据失败: %v", err)
+	}
+
+	// 创建HTTP请求
+	req, err := http.NewRequest("POST", "https://api.aicnn.cn/app-api/system/user/sendSms", bytes.NewBuffer(jsonData))
+	//req, err := http.NewRequest("POST", "http://localhost:31020/app-api/system/user/sendSms", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Authorization", "Bearer zzzqqqfsadfsa")
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	// 检查HTTP状态码
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP请求失败，状态码: %d, 响应: %s", resp.StatusCode, string(body))
+	}
+
+	// 解析JSON响应
+	var smsResp SMSResponse
+	if err := json.Unmarshal(body, &smsResp); err != nil {
+		return fmt.Errorf("解析响应JSON失败: %v, 响应内容: %s", err, string(body))
+	}
+
+	// 检查业务状态码
+	// 根据您提供的错误信息，成功的状态码应该不是1002000010
+	if smsResp.Code != 200 && smsResp.Code != 0 { // 假设成功状态码是200或0
+		return fmt.Errorf("短信发送失败: %s (错误码: %d)", smsResp.Msg, smsResp.Code)
+	}
+
+	return nil
 }
 
 func SendPasswordResetEmail(c *gin.Context) {
@@ -362,25 +537,98 @@ func ResetPassword(c *gin.Context) {
 	return
 }
 
+type PhonePasswordResetRequest struct {
+	Phone       string `json:"phone"`
+	PhoneCode   string `json:"phone_code"`
+	NewPassword string `json:"new_password"`
+}
+
+func ResetPasswordByPhone(c *gin.Context) {
+	var req PhonePasswordResetRequest
+	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	if req.Phone == "" || req.PhoneCode == "" || req.NewPassword == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+
+	// 验证新密码长度
+	if len(req.NewPassword) < 6 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "密码长度至少6位",
+		})
+		return
+	}
+
+	// 验证手机号格式
+	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "手机号格式不正确",
+		})
+		return
+	}
+
+	// 验证手机验证码
+	if !common.VerifyCodeWithKey(req.Phone, req.PhoneCode, common.PhoneVerificationPurpose) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "验证码错误或已过期",
+		})
+		return
+	}
+
+	// 检查手机号是否注册
+	if !model.IsPhoneAlreadyTaken(req.Phone) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该手机号未注册",
+		})
+		return
+	}
+
+	// 使用用户提供的新密码
+	err = model.ResetUserPasswordByPhone(req.Phone, req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// 删除已使用的验证码
+	common.DeleteKey(req.Phone, common.PhoneVerificationPurpose)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码重置成功",
+	})
+	return
+}
+
 func TestIP(c *gin.Context) {
 	clientIP := common.GetClientIP(c)
 	ginDefaultIP := c.ClientIP()
-	
+
 	headers := map[string]string{
-		"X-Real-IP":          c.GetHeader("X-Real-IP"),
-		"X-Forwarded-For":    c.GetHeader("X-Forwarded-For"),
-		"CF-Connecting-IP":   c.GetHeader("CF-Connecting-IP"),
-		"X-Forwarded-Host":   c.GetHeader("X-Forwarded-Host"),
-		"X-Forwarded-Proto":  c.GetHeader("X-Forwarded-Proto"),
+		"X-Real-IP":         c.GetHeader("X-Real-IP"),
+		"X-Forwarded-For":   c.GetHeader("X-Forwarded-For"),
+		"CF-Connecting-IP":  c.GetHeader("CF-Connecting-IP"),
+		"X-Forwarded-Host":  c.GetHeader("X-Forwarded-Host"),
+		"X-Forwarded-Proto": c.GetHeader("X-Forwarded-Proto"),
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"client_ip":        clientIP,
-			"gin_default_ip":   ginDefaultIP,
-			"remote_addr":      c.Request.RemoteAddr,
-			"headers":          headers,
+			"client_ip":      clientIP,
+			"gin_default_ip": ginDefaultIP,
+			"remote_addr":    c.Request.RemoteAddr,
+			"headers":        headers,
 		},
 	})
 }
