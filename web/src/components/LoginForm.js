@@ -26,12 +26,13 @@ import {
   TabPane,
   Tabs,
   Spin,
+  Input,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import TelegramLoginButton from 'react-telegram-login';
 
-import { IconGithubLogo, IconAlarm } from '@douyinfe/semi-icons';
+import { IconGithubLogo, IconAlarm, IconEyeOpened, IconEyeClosed } from '@douyinfe/semi-icons';
 import OIDCIcon from './OIDCIcon.js';
 import WeChatIcon from './WeChatIcon';
 import { setUserData } from '../helpers/data.js';
@@ -73,6 +74,10 @@ const LoginForm = () => {
     password: '',
   });
   const [phoneLoading, setPhoneLoading] = useState(false);
+
+  // 密码显示状态
+  const [showPhonePassword, setShowPhonePassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const logo = getLogo();
 
@@ -466,15 +471,34 @@ const LoginForm = () => {
           value={phoneInputs.phone}
           onChange={(value) => handlePhoneChange('phone', value)}
         />
-        <Form.Input
-          field={'password'}
-          label={t('密码')}
-          placeholder={t('请输入密码')}
-          name='password'
-          type='password'
-          value={phoneInputs.password}
-          onChange={(value) => handlePhoneChange('password', value)}
-        />
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: 'var(--semi-color-text-0)' 
+            }}>
+              {t('密码')}
+            </label>
+          </div>
+          <Input
+            placeholder={t('请输入密码')}
+            name='password'
+            type={showPhonePassword ? 'text' : 'password'}
+            value={phoneInputs.password}
+            onChange={(value) => handlePhoneChange('password', value)}
+            suffix={
+              <Button
+                type="tertiary"
+                theme="borderless"
+                icon={showPhonePassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                onClick={() => setShowPhonePassword(!showPhonePassword)}
+                style={{ padding: '4px' }}
+              />
+            }
+            style={{ height: '40px' }}
+          />
+        </div>
 
         <Button
           theme='solid'
@@ -516,14 +540,34 @@ const LoginForm = () => {
           name='username'
           onChange={(value) => handleChange('username', value)}
         />
-        <Form.Input
-          field={'password'}
-          label={t('密码')}
-          placeholder={t('密码')}
-          name='password'
-          type='password'
-          onChange={(value) => handleChange('password', value)}
-        />
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: 'var(--semi-color-text-0)' 
+            }}>
+              {t('密码')}
+            </label>
+          </div>
+          <Input
+            placeholder={t('密码')}
+            name='password'
+            type={showLoginPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(value) => handleChange('password', value)}
+            suffix={
+              <Button
+                type="tertiary"
+                theme="borderless"
+                icon={showLoginPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                style={{ padding: '4px' }}
+              />
+            }
+            style={{ height: '40px' }}
+          />
+        </div>
 
         <Button
           theme='solid'

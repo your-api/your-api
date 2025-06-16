@@ -1519,14 +1519,6 @@ const PersonalSetting = () => {
                   onError={handlePhoneImageCaptchaError}
                   style={{ display: 'flex', justifyContent: 'center' }}
                 />
-                <div style={{ textAlign: 'center', marginTop: 16 }}>
-                  <Button
-                    onClick={() => setShowPhoneImageCaptcha(false)}
-                    size="small"
-                  >
-                    {t('取消')}
-                  </Button>
-                </div>
               </div>
             )}
           </Modal>

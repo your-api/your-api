@@ -19,10 +19,11 @@ import {
   Modal,
   Tabs,
   TabPane,
+  Input,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
-import { IconGithubLogo } from '@douyinfe/semi-icons';
+import { IconGithubLogo, IconEyeOpened, IconEyeClosed } from '@douyinfe/semi-icons';
 import {
   onGitHubOAuthClicked,
   onLinuxDOOAuthClicked,
@@ -75,6 +76,11 @@ const RegisterForm = () => {
   const [showImageCaptcha, setShowImageCaptcha] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const countdownRef = useRef(null);
+  
+  // 密码显示状态
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
+  
   let navigate = useNavigate();
   const logo = getLogo();
 
@@ -452,22 +458,89 @@ const RegisterForm = () => {
                         name='username'
                         onChange={(value) => handleChange('username', value)}
                       />
-                      <Form.Input
-                        field={'password'}
-                        label={t('密码')}
-                        placeholder={t('输入密码，最短 8 位，最长 20 位')}
-                        name='password'
-                        type='password'
-                        onChange={(value) => handleChange('password', value)}
-                      />
-                      <Form.Input
-                        field={'password2'}
-                        label={t('确认密码')}
-                        placeholder={t('确认密码')}
-                        name='password2'
-                        type='password'
-                        onChange={(value) => handleChange('password2', value)}
-                      />
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                          name='password'
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(value) => handleChange('password', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword(!showPassword)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password && password.length < 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码长度至少8位')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('确认密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('确认密码')}
+                          name='password2'
+                          type={showPassword2 ? 'text' : 'password'}
+                          value={password2}
+                          onChange={(value) => handleChange('password2', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword2 ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword2(!showPassword2)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password2 && password && password2 !== password && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('两次输入的密码不一致')}
+                          </div>
+                        )}
+                        {password2 && password && password2 === password && password.length >= 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-success)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码确认正确')}
+                          </div>
+                        )}
+                      </div>
                       {showEmailVerification ? (
                         <>
                           <Form.Input
@@ -533,22 +606,89 @@ const RegisterForm = () => {
                         name='phone'
                         onChange={(value) => handleChange('phone', value)}
                       />
-                      <Form.Input
-                        field={'password'}
-                        label={t('密码')}
-                        placeholder={t('输入密码，最短 8 位，最长 20 位')}
-                        name='password'
-                        type='password'
-                        onChange={(value) => handleChange('password', value)}
-                      />
-                      <Form.Input
-                        field={'password2'}
-                        label={t('确认密码')}
-                        placeholder={t('确认密码')}
-                        name='password2'
-                        type='password'
-                        onChange={(value) => handleChange('password2', value)}
-                      />
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                          name='password'
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(value) => handleChange('password', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword(!showPassword)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password && password.length < 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码长度至少8位')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('确认密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('确认密码')}
+                          name='password2'
+                          type={showPassword2 ? 'text' : 'password'}
+                          value={password2}
+                          onChange={(value) => handleChange('password2', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword2 ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword2(!showPassword2)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password2 && password && password2 !== password && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('两次输入的密码不一致')}
+                          </div>
+                        )}
+                        {password2 && password && password2 === password && password.length >= 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-success)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码确认正确')}
+                          </div>
+                        )}
+                      </div>
                       <Form.Input
                         field={'phone_code'}
                         label={t('验证码')}

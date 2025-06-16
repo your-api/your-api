@@ -11,8 +11,10 @@ import {
   TabPane, 
   Modal,
   Typography,
-  Input
+  Input,
+  Toast
 } from '@douyinfe/semi-ui';
+import { IconEyeOpened, IconEyeClosed } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import ImageCaptcha from './ImageCaptcha';
 
@@ -48,6 +50,10 @@ const PasswordResetForm = () => {
   const [showImageCaptcha, setShowImageCaptcha] = useState(false);
   const [imageCaptchaId, setImageCaptchaId] = useState('');
   const [imageCaptchaCode, setImageCaptchaCode] = useState('');
+
+  // 密码显示状态
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const logo = getLogo();
 
@@ -289,27 +295,90 @@ const PasswordResetForm = () => {
           style={{ marginBottom: 20 }}
         />
         
-        <Form.Input
-          field={'new_password'}
-          label={t('新密码')}
-          placeholder={t('请输入新密码')}
-          name='new_password'
-          type='password'
-          value={new_password}
-          onChange={(value) => handleChange('new_password', value)}
-          style={{ marginBottom: 20 }}
-        />
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: 'var(--semi-color-text-0)' 
+            }}>
+              {t('新密码')}
+            </label>
+          </div>
+          <Input
+            placeholder={t('请输入新密码')}
+            name='new_password'
+            type={showNewPassword ? 'text' : 'password'}
+            value={new_password}
+            onChange={(value) => handleChange('new_password', value)}
+            suffix={
+              <Button
+                type="tertiary"
+                theme="borderless"
+                icon={showNewPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                style={{ padding: '4px' }}
+              />
+            }
+            style={{ height: '40px' }}
+          />
+          {new_password && new_password.length < 6 && (
+            <div style={{ 
+              color: 'var(--semi-color-danger)', 
+              fontSize: '12px', 
+              marginTop: '4px' 
+            }}>
+              {t('密码长度至少6位')}
+            </div>
+          )}
+        </div>
         
-        <Form.Input
-          field={'confirm_password'}
-          label={t('确认新密码')}
-          placeholder={t('请再次输入新密码')}
-          name='confirm_password'
-          type='password'
-          value={confirm_password}
-          onChange={(value) => handleChange('confirm_password', value)}
-          style={{ marginBottom: 20 }}
-        />
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: 'var(--semi-color-text-0)' 
+            }}>
+              {t('确认新密码')}
+            </label>
+          </div>
+          <Input
+            placeholder={t('请再次输入新密码')}
+            name='confirm_password'
+            type={showConfirmPassword ? 'text' : 'password'}
+            value={confirm_password}
+            onChange={(value) => handleChange('confirm_password', value)}
+            suffix={
+              <Button
+                type="tertiary"
+                theme="borderless"
+                icon={showConfirmPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{ padding: '4px' }}
+              />
+            }
+            style={{ height: '40px' }}
+          />
+          {confirm_password && new_password && confirm_password !== new_password && (
+            <div style={{ 
+              color: 'var(--semi-color-danger)', 
+              fontSize: '12px', 
+              marginTop: '4px' 
+            }}>
+              {t('两次输入的密码不一致')}
+            </div>
+          )}
+          {confirm_password && new_password && confirm_password === new_password && new_password.length >= 6 && (
+            <div style={{ 
+              color: 'var(--semi-color-success)', 
+              fontSize: '12px', 
+              marginTop: '4px' 
+            }}>
+              {t('密码确认正确')}
+            </div>
+          )}
+        </div>
         
         <div style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 8 }}>
@@ -495,19 +564,6 @@ const PasswordResetForm = () => {
             gap: '16px'
           }}
         />
-        
-        <div style={{ 
-          textAlign: 'center',
-          marginTop: '16px'
-        }}>
-          <Button
-            type="tertiary"
-            size="small"
-            onClick={() => setShowImageCaptcha(false)}
-          >
-            {t('取消')}
-          </Button>
-        </div>
       </Modal>
     </div>
   );
