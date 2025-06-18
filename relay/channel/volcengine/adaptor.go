@@ -90,7 +90,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			err, usage = openai.OpenaiHandler(c, resp, info)
 		}
 	case constant.RelayModeEmbeddings:
-		err, usage = openai.OpenaiHandler(c, resp, info)
+		err, usage = openai.OpenaiEmbeddingHandler(c, resp, info)
 	}
 	return
 }

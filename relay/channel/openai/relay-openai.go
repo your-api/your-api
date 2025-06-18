@@ -758,3 +758,93 @@ func OpenaiHandlerWithUsage(c *gin.Context, resp *http.Response, info *relaycomm
 	}
 	return nil, &usageResp.Usage
 }
+
+func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+	var embeddingResponse dto.OpenAIEmbeddingResponse
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+	}
+	
+	err = common.DecodeJson(responseBody, &embeddingResponse)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+	}
+
+	// 检查是否有错误
+	if embeddingResponse.Object == "" {
+		// 尝试解析为错误响应
+		var errorResponse dto.SimpleResponse
+		err = common.DecodeJson(responseBody, &errorResponse)
+		if err == nil && errorResponse.Error != nil && errorResponse.Error.Type != "" {
+			return &dto.OpenAIErrorWithStatusCode{
+				Error:      *errorResponse.Error,
+				StatusCode: resp.StatusCode,
+			}, nil
+		}
+	}
+
+	// 检测空回复：如果没有data
+	if len(embeddingResponse.Data) == 0 {
+		common.LogWarn(c, "embedding请求返回空data，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "embedding response has empty data, should retry other channels",
+				Type:    "empty_response", 
+				Code:    "empty_data",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	// 检查是否所有embedding都为空
+	hasEmbedding := false
+	for _, item := range embeddingResponse.Data {
+		if len(item.Embedding) > 0 {
+			hasEmbedding = true
+			break
+		}
+	}
+
+	if !hasEmbedding {
+		common.LogWarn(c, "embedding请求返回空向量，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "embedding response has empty vectors, should retry other channels",
+				Type:    "empty_response",
+				Code:    "empty_vectors", 
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	// 计算token usage，如果没有提供的话
+	if embeddingResponse.Usage.TotalTokens == 0 && embeddingResponse.Usage.PromptTokens == 0 {
+		embeddingResponse.Usage = dto.Usage{
+			PromptTokens:     info.PromptTokens,
+			CompletionTokens: 0,
+			TotalTokens:      info.PromptTokens,
+		}
+	}
+
+	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
+	// Reset response body
+	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// 设置响应头
+	for k, v := range resp.Header {
+		c.Writer.Header().Set(k, v[0])
+	}
+	c.Writer.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		common.SysError("error copying response body: " + err.Error())
+	}
+	resp.Body.Close()
+	return nil, &embeddingResponse.Usage
+}
