@@ -460,6 +460,8 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		err, usage = common_handler.RerankHandler(c, info, resp)
 	case constant.RelayModeEmbeddings:
 		err, usage = OpenaiEmbeddingHandler(c, resp, info)
+	case constant.RelayModeModerations:
+		err, usage = OpenaiModerationHandler(c, resp, info)
 	case constant.RelayModeResponses:
 		if info.IsStream {
 			err, usage = OaiResponsesStreamHandler(c, resp, info)

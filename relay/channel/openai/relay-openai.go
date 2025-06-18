@@ -848,3 +848,95 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 	resp.Body.Close()
 	return nil, &embeddingResponse.Usage
 }
+
+func OpenaiModerationHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+	}
+
+	// 首先尝试解析为错误响应
+	var errorResponse dto.SimpleResponse
+	err = common.DecodeJson(responseBody, &errorResponse)
+	if err == nil && errorResponse.Error != nil && errorResponse.Error.Type != "" {
+		return &dto.OpenAIErrorWithStatusCode{
+			Error:      *errorResponse.Error,
+			StatusCode: resp.StatusCode,
+		}, nil
+	}
+
+	// 尝试解析为 moderations 响应
+	var moderationResponse map[string]interface{}
+	err = common.DecodeJson(responseBody, &moderationResponse)
+	if err != nil {
+		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+	}
+
+	// 检查是否有 results 字段
+	results, hasResults := moderationResponse["results"]
+	if !hasResults {
+		common.LogWarn(c, "moderation请求返回空results，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "moderation response has no results field, should retry other channels",
+				Type:    "empty_response",
+				Code:    "missing_results",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	// 检查 results 是否为空
+	if resultsArray, ok := results.([]interface{}); ok {
+		if len(resultsArray) == 0 {
+			common.LogWarn(c, "moderation请求返回空results数组，应该重试其他渠道")
+			return &dto.OpenAIErrorWithStatusCode{
+				Error: dto.OpenAIError{
+					Message: "moderation response has empty results array, should retry other channels",
+					Type:    "empty_response",
+					Code:    "empty_results",
+				},
+				StatusCode: http.StatusInternalServerError,
+				LocalError: false, // 不标记为本地错误，允许重试
+			}, nil
+		}
+	} else {
+		common.LogWarn(c, "moderation请求results字段格式错误，应该重试其他渠道")
+		return &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: "moderation response results field format error, should retry other channels",
+				Type:    "empty_response",
+				Code:    "invalid_results_format",
+			},
+			StatusCode: http.StatusInternalServerError,
+			LocalError: false, // 不标记为本地错误，允许重试
+		}, nil
+	}
+
+	// 计算 usage，moderations 通常只有 prompt tokens
+	usage := &dto.Usage{
+		PromptTokens:     info.PromptTokens,
+		CompletionTokens: 0,
+		TotalTokens:      info.PromptTokens,
+	}
+
+	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
+	// Reset response body
+	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+	// 设置响应头
+	for k, v := range resp.Header {
+		c.Writer.Header().Set(k, v[0])
+	}
+	c.Writer.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		common.SysError("error copying response body: " + err.Error())
+	}
+	resp.Body.Close()
+	return nil, usage
+}
