@@ -760,7 +760,6 @@ func OpenaiHandlerWithUsage(c *gin.Context, resp *http.Response, info *relaycomm
 }
 
 func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	var embeddingResponse dto.OpenAIEmbeddingResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
@@ -770,9 +769,22 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
 	
+	// 🔑 关键修复：先尝试标准解析，失败时使用兼容解析
+	var embeddingResponse dto.OpenAIEmbeddingResponse
 	err = common.DecodeJson(responseBody, &embeddingResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		// 如果标准解析失败，尝试兼容解析（处理字符串格式的embedding）
+		var rawResponse map[string]interface{}
+		if rawErr := common.DecodeJson(responseBody, &rawResponse); rawErr == nil {
+			// 手动构建兼容的响应
+			if convertedResponse, convertErr := convertRawEmbeddingResponse(rawResponse); convertErr == nil {
+				embeddingResponse = *convertedResponse
+			} else {
+				return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+			}
+		} else {
+			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		}
 	}
 
 	// 检查是否有错误
@@ -847,6 +859,73 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 	}
 	resp.Body.Close()
 	return nil, &embeddingResponse.Usage
+}
+
+// convertRawEmbeddingResponse 将原始响应转换为标准的embedding响应格式
+func convertRawEmbeddingResponse(rawResponse map[string]interface{}) (*dto.OpenAIEmbeddingResponse, error) {
+	response := &dto.OpenAIEmbeddingResponse{
+		Object: "list",
+		Model:  "",
+		Usage:  dto.Usage{},
+	}
+	
+	// 处理基本字段
+	if obj, ok := rawResponse["object"].(string); ok {
+		response.Object = obj
+	}
+	if model, ok := rawResponse["model"].(string); ok {
+		response.Model = model
+	}
+	
+	// 处理usage字段
+	if usageData, ok := rawResponse["usage"].(map[string]interface{}); ok {
+		if promptTokens, ok := usageData["prompt_tokens"].(float64); ok {
+			response.Usage.PromptTokens = int(promptTokens)
+		}
+		if completionTokens, ok := usageData["completion_tokens"].(float64); ok {
+			response.Usage.CompletionTokens = int(completionTokens)
+		}
+		if totalTokens, ok := usageData["total_tokens"].(float64); ok {
+			response.Usage.TotalTokens = int(totalTokens)
+		}
+	}
+	
+	// 处理data字段 - 这是关键部分
+	if dataArray, ok := rawResponse["data"].([]interface{}); ok {
+		response.Data = make([]dto.OpenAIEmbeddingResponseItem, 0, len(dataArray))
+		
+		for i, item := range dataArray {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				responseItem := dto.OpenAIEmbeddingResponseItem{
+					Object: "embedding",
+					Index:  i,
+				}
+				
+				// 设置object字段
+				if obj, ok := itemMap["object"].(string); ok {
+					responseItem.Object = obj
+				}
+				
+				// 设置index字段
+				if idx, ok := itemMap["index"].(float64); ok {
+					responseItem.Index = int(idx)
+				}
+				
+				// 处理embedding字段 - 支持多种格式
+				if embeddingData, exists := itemMap["embedding"]; exists {
+					var embedding dto.FlexibleEmbedding
+					embeddingJSON, _ := json.Marshal(embeddingData)
+					if err := embedding.UnmarshalJSON(embeddingJSON); err == nil {
+						responseItem.Embedding = embedding
+					}
+				}
+				
+				response.Data = append(response.Data, responseItem)
+			}
+		}
+	}
+	
+	return response, nil
 }
 
 func OpenaiModerationHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
