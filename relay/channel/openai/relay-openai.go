@@ -773,17 +773,29 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 	var embeddingResponse dto.OpenAIEmbeddingResponse
 	err = common.DecodeJson(responseBody, &embeddingResponse)
 	if err != nil {
+		if common.DebugEnabled {
+			fmt.Printf("DEBUG: 标准embedding解析失败: %v, 尝试兼容解析\n", err)
+		}
 		// 如果标准解析失败，尝试兼容解析（处理字符串格式的embedding）
 		var rawResponse map[string]interface{}
 		if rawErr := common.DecodeJson(responseBody, &rawResponse); rawErr == nil {
 			// 手动构建兼容的响应
 			if convertedResponse, convertErr := convertRawEmbeddingResponse(rawResponse); convertErr == nil {
 				embeddingResponse = *convertedResponse
+				if common.DebugEnabled {
+					fmt.Printf("DEBUG: 兼容解析成功，data项数量: %d\n", len(embeddingResponse.Data))
+				}
 			} else {
+				fmt.Printf("ERROR: 兼容解析也失败: %v\n", convertErr)
 				return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
 			}
 		} else {
+			fmt.Printf("ERROR: 原始JSON解析失败: %v\n", rawErr)
 			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		}
+	} else {
+		if common.DebugEnabled {
+			fmt.Printf("DEBUG: 标准embedding解析成功，data项数量: %d\n", len(embeddingResponse.Data))
 		}
 	}
 
@@ -816,18 +828,32 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 
 	// 检查是否所有embedding都为空
 	hasEmbedding := false
-	for _, item := range embeddingResponse.Data {
-		if len(item.GetEmbedding()) > 0 {
+	totalEmbeddings := 0
+	validEmbeddings := 0
+	
+	for i, item := range embeddingResponse.Data {
+		embedding := item.GetEmbedding()
+		totalEmbeddings++
+		if common.DebugEnabled {
+			common.SysLog(fmt.Sprintf("DEBUG: embedding[%d] length: %d, first few values: %v", 
+				i, len(embedding), getFirstFewValues(embedding, 5)))
+		}
+		if len(embedding) > 0 {
 			hasEmbedding = true
-			break
+			validEmbeddings++
 		}
 	}
 
+	// 如果没有任何有效的embedding，报错
 	if !hasEmbedding {
-		common.LogWarn(c, "embedding请求返回空向量，应该重试其他渠道")
+		// 添加详细的调试信息
+		debugInfo := fmt.Sprintf("原始响应体前500字符: %s", truncateString(string(responseBody), 500))
+		common.LogWarn(c, fmt.Sprintf("embedding请求返回空向量，应该重试其他渠道. 总数: %d, 有效: %d. %s", 
+			totalEmbeddings, validEmbeddings, debugInfo))
+		
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
-				Message: "embedding response has empty vectors, should retry other channels",
+				Message: fmt.Sprintf("embedding response has empty vectors, should retry other channels (checked %d embeddings)", totalEmbeddings),
 				Type:    "empty_response",
 				Code:    "empty_vectors", 
 			},
@@ -914,10 +940,23 @@ func convertRawEmbeddingResponse(rawResponse map[string]interface{}) (*dto.OpenA
 				// 处理embedding字段 - 支持多种格式
 				if embeddingData, exists := itemMap["embedding"]; exists {
 					var embedding dto.FlexibleEmbedding
-					embeddingJSON, _ := json.Marshal(embeddingData)
-					if err := embedding.UnmarshalJSON(embeddingJSON); err == nil {
-						responseItem.Embedding = embedding
+					embeddingJSON, marshalErr := json.Marshal(embeddingData)
+					if marshalErr != nil {
+						fmt.Printf("ERROR: 无法marshal embedding数据: %v, 数据类型: %T\n", marshalErr, embeddingData)
+						continue
 					}
+					
+					if err := embedding.UnmarshalJSON(embeddingJSON); err != nil {
+						fmt.Printf("ERROR: 无法解析embedding数据: %v, JSON: %s\n", err, string(embeddingJSON))
+						continue
+					}
+					
+					responseItem.Embedding = embedding
+					if common.DebugEnabled {
+						fmt.Printf("DEBUG: 成功解析embedding, 长度: %d\n", len(embedding.GetData()))
+					}
+				} else {
+					fmt.Printf("WARNING: embedding字段不存在于数据项中\n")
 				}
 				
 				response.Data = append(response.Data, responseItem)
@@ -1018,4 +1057,23 @@ func OpenaiModerationHandler(c *gin.Context, resp *http.Response, info *relaycom
 	}
 	resp.Body.Close()
 	return nil, usage
+}
+
+// getFirstFewValues 获取数组的前几个值用于调试
+func getFirstFewValues(arr []float64, count int) []float64 {
+	if len(arr) == 0 {
+		return []float64{}
+	}
+	if len(arr) <= count {
+		return arr
+	}
+	return arr[:count]
+}
+
+// truncateString 截断字符串到指定长度
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -80,25 +81,47 @@ func (f *FlexibleEmbedding) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err == nil {
 		// 尝试base64解码
-		if decoded, err := f.parseBase64Embedding(str); err == nil {
+		if decoded, err := f.parseBase64Embedding(str); err == nil && len(decoded) > 0 {
 			f.data = decoded
 			return nil
 		}
 		
 		// 尝试逗号分隔的字符串
-		if parsed, err := f.parseCommaSeparatedString(str); err == nil {
+		if parsed, err := f.parseCommaSeparatedString(str); err == nil && len(parsed) > 0 {
 			f.data = parsed
 			return nil
 		}
 		
 		// 尝试其他字符串格式
-		if parsed, err := f.parseOtherStringFormat(str); err == nil {
+		if parsed, err := f.parseOtherStringFormat(str); err == nil && len(parsed) > 0 {
 			f.data = parsed
 			return nil
 		}
+		
+		// 如果是空字符串，记录但不报错
+		if str == "" {
+			f.data = []float64{}
+			return nil
+		}
+		
+		// 记录无法解析的字符串格式
+		fmt.Printf("WARNING: 无法解析的embedding字符串格式: %s (前100字符)\n", truncateStringHelper(str, 100))
 	}
 
-	return json.Unmarshal(data, &floatSlice)
+	// 最后尝试解析为[]float64，如果失败就返回错误
+	if err := json.Unmarshal(data, &floatSlice); err != nil {
+		return err
+	}
+	f.data = floatSlice
+	return nil
+}
+
+// truncateStringHelper 字符串截断辅助函数
+func truncateStringHelper(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // MarshalJSON 序列化为[]float64格式
@@ -118,14 +141,13 @@ func (f *FlexibleEmbedding) parseBase64Embedding(str string) ([]float64, error) 
 		return nil, err
 	}
 	
-	// 假设每个float64是8字节
-	if len(decoded)%8 != 0 {
-		return nil, json.Unmarshal(decoded, &[]float64{})
+	// 尝试将解码后的数据作为JSON解析
+	var result []float64
+	if err := json.Unmarshal(decoded, &result); err != nil {
+		return nil, err
 	}
 	
-	var result []float64
-	// 这里可以根据实际情况调整解析逻辑
-	return result, json.Unmarshal(decoded, &result)
+	return result, nil
 }
 
 // parseCommaSeparatedString 解析逗号分隔的字符串
