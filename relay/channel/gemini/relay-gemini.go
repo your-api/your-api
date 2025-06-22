@@ -836,12 +836,16 @@ func GeminiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 	}
 
 	// convert to openai format response
+	var embedding dto.FlexibleEmbedding
+	embeddingJSON, _ := json.Marshal(geminiResponse.Embedding.Values)
+	embedding.UnmarshalJSON(embeddingJSON)
+	
 	openAIResponse := dto.OpenAIEmbeddingResponse{
 		Object: "list",
 		Data: []dto.OpenAIEmbeddingResponseItem{
 			{
 				Object:    "embedding",
-				Embedding: geminiResponse.Embedding.Values,
+				Embedding: embedding,
 				Index:     0,
 			},
 		},

@@ -33,9 +33,14 @@ type OpenAITextResponse struct {
 }
 
 type OpenAIEmbeddingResponseItem struct {
-	Object    string    `json:"object"`
-	Index     int       `json:"index"`
-	Embedding []float64 `json:"embedding"`
+	Object    string             `json:"object"`
+	Index     int                `json:"index"`
+	Embedding FlexibleEmbedding  `json:"embedding"`
+}
+
+// GetEmbedding 获取embedding数据的便捷方法
+func (e *OpenAIEmbeddingResponseItem) GetEmbedding() []float64 {
+	return e.Embedding.GetData()
 }
 
 type OpenAIEmbeddingResponse struct {

@@ -805,7 +805,7 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 	// 检查是否所有embedding都为空
 	hasEmbedding := false
 	for _, item := range embeddingResponse.Data {
-		if len(item.Embedding) > 0 {
+		if len(item.GetEmbedding()) > 0 {
 			hasEmbedding = true
 			break
 		}

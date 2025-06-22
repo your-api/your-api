@@ -102,10 +102,13 @@ func embeddingResponseBaidu2OpenAI(response *BaiduEmbeddingResponse) *dto.OpenAI
 		Usage:  response.Usage,
 	}
 	for _, item := range response.Data {
+		var embedding dto.FlexibleEmbedding
+		embeddingJSON, _ := json.Marshal(item.Embedding)
+		embedding.UnmarshalJSON(embeddingJSON)
 		openAIEmbeddingResponse.Data = append(openAIEmbeddingResponse.Data, dto.OpenAIEmbeddingResponseItem{
 			Object:    item.Object,
 			Index:     item.Index,
-			Embedding: item.Embedding,
+			Embedding: embedding,
 		})
 	}
 	return &openAIEmbeddingResponse

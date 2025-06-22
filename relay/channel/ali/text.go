@@ -3,6 +3,7 @@ package ali
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
@@ -84,10 +85,12 @@ func embeddingResponseAli2OpenAI(response *AliEmbeddingResponse) *dto.OpenAIEmbe
 	}
 
 	for _, item := range response.Output.Embeddings {
+		var embedding dto.FlexibleEmbedding
+		embedding.UnmarshalJSON([]byte(fmt.Sprintf("%v", item.Embedding)))
 		openAIEmbeddingResponse.Data = append(openAIEmbeddingResponse.Data, dto.OpenAIEmbeddingResponseItem{
 			Object:    `embedding`,
 			Index:     item.TextIndex,
-			Embedding: item.Embedding,
+			Embedding: embedding,
 		})
 	}
 	return &openAIEmbeddingResponse

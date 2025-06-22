@@ -100,9 +100,13 @@ func ollamaEmbeddingHandler(c *gin.Context, resp *http.Response, promptTokens in
 		return service.OpenAIErrorWrapper(err, "ollama_error", resp.StatusCode), nil
 	}
 	flattenedEmbeddings := flattenEmbeddings(ollamaEmbeddingResponse.Embedding)
+	var embedding dto.FlexibleEmbedding
+	embeddingJSON, _ := json.Marshal(flattenedEmbeddings)
+	embedding.UnmarshalJSON(embeddingJSON)
+	
 	data := make([]dto.OpenAIEmbeddingResponseItem, 0, 1)
 	data = append(data, dto.OpenAIEmbeddingResponseItem{
-		Embedding: flattenedEmbeddings,
+		Embedding: embedding,
 		Object:    "embedding",
 	})
 	usage := &dto.Usage{
