@@ -769,19 +769,24 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
 	
-	// 🔑 关键修复：先尝试标准解析，失败时使用兼容解析
+	var usage *dto.Usage
+	var shouldPassthrough = true
+	
+	// 🔑 优化：先尝试轻量级验证，如果成功就直接透传
 	var embeddingResponse dto.OpenAIEmbeddingResponse
 	err = common.DecodeJson(responseBody, &embeddingResponse)
 	if err != nil {
+		// 解析失败，尝试兼容解析
 		if common.DebugEnabled {
 			fmt.Printf("DEBUG: 标准embedding解析失败: %v, 尝试兼容解析\n", err)
 		}
-		// 如果标准解析失败，尝试兼容解析（处理字符串格式的embedding）
+		
 		var rawResponse map[string]interface{}
 		if rawErr := common.DecodeJson(responseBody, &rawResponse); rawErr == nil {
 			// 手动构建兼容的响应
 			if convertedResponse, convertErr := convertRawEmbeddingResponse(rawResponse); convertErr == nil {
 				embeddingResponse = *convertedResponse
+				shouldPassthrough = false // 需要重新序列化，不能透传
 				if common.DebugEnabled {
 					fmt.Printf("DEBUG: 兼容解析成功，data项数量: %d\n", len(embeddingResponse.Data))
 				}
@@ -812,7 +817,7 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 		}
 	}
 
-	// 检测空回复：如果没有data
+	// 快速验证：检查数据是否为空
 	if len(embeddingResponse.Data) == 0 {
 		common.LogWarn(c, "embedding请求返回空data，应该重试其他渠道")
 		return &dto.OpenAIErrorWithStatusCode{
@@ -822,69 +827,94 @@ func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycomm
 				Code:    "empty_data",
 			},
 			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
+			LocalError: false,
 		}, nil
 	}
 
-	// 检查是否所有embedding都为空
-	hasEmbedding := false
-	totalEmbeddings := 0
-	validEmbeddings := 0
-	
-	for i, item := range embeddingResponse.Data {
-		embedding := item.GetEmbedding()
-		totalEmbeddings++
-		if common.DebugEnabled {
+	// 只在调试模式下做详细验证
+	if common.DebugEnabled {
+		hasEmbedding := false
+		totalEmbeddings := 0
+		validEmbeddings := 0
+		
+		for i, item := range embeddingResponse.Data {
+			embedding := item.GetEmbedding()
+			totalEmbeddings++
 			common.SysLog(fmt.Sprintf("DEBUG: embedding[%d] length: %d, first few values: %v", 
 				i, len(embedding), getFirstFewValues(embedding, 5)))
+			
+			if len(embedding) > 0 {
+				hasEmbedding = true
+				validEmbeddings++
+			}
 		}
-		if len(embedding) > 0 {
-			hasEmbedding = true
-			validEmbeddings++
+
+		if !hasEmbedding {
+			debugInfo := fmt.Sprintf("原始响应体前500字符: %s", truncateString(string(responseBody), 500))
+			common.LogWarn(c, fmt.Sprintf("embedding请求返回空向量，应该重试其他渠道. 总数: %d, 有效: %d. %s", 
+				totalEmbeddings, validEmbeddings, debugInfo))
+			
+			return &dto.OpenAIErrorWithStatusCode{
+				Error: dto.OpenAIError{
+					Message: fmt.Sprintf("embedding response has empty vectors, should retry other channels (checked %d embeddings)", totalEmbeddings),
+					Type:    "empty_response",
+					Code:    "empty_vectors", 
+				},
+				StatusCode: http.StatusInternalServerError,
+				LocalError: false,
+			}, nil
 		}
 	}
 
-	// 如果没有任何有效的embedding，报错
-	if !hasEmbedding {
-		// 添加详细的调试信息
-		debugInfo := fmt.Sprintf("原始响应体前500字符: %s", truncateString(string(responseBody), 500))
-		common.LogWarn(c, fmt.Sprintf("embedding请求返回空向量，应该重试其他渠道. 总数: %d, 有效: %d. %s", 
-			totalEmbeddings, validEmbeddings, debugInfo))
-		
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: fmt.Sprintf("embedding response has empty vectors, should retry other channels (checked %d embeddings)", totalEmbeddings),
-				Type:    "empty_response",
-				Code:    "empty_vectors", 
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
-	}
-
-	// 计算token usage，如果没有提供的话
+	// 计算token usage
 	if embeddingResponse.Usage.TotalTokens == 0 && embeddingResponse.Usage.PromptTokens == 0 {
-		embeddingResponse.Usage = dto.Usage{
+		usage = &dto.Usage{
 			PromptTokens:     info.PromptTokens,
 			CompletionTokens: 0,
 			TotalTokens:      info.PromptTokens,
 		}
+	} else {
+		usage = &embeddingResponse.Usage
 	}
 
-	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// 设置响应头
-	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
+	// 🔑 关键优化：根据情况选择透传还是重新序列化
+	if shouldPassthrough {
+		// 直接透传原始响应，保持原始格式（JSON或Base64）
+		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
+		for k, v := range resp.Header {
+			c.Writer.Header().Set(k, v[0])
+		}
+		c.Writer.WriteHeader(resp.StatusCode)
+		_, err = io.Copy(c.Writer, resp.Body)
+		if err != nil {
+			common.SysError("error copying response body: " + err.Error())
+		}
+		resp.Body.Close()
+		
+		if common.DebugEnabled {
+			fmt.Printf("DEBUG: 透传原始embedding响应 (保持原始格式)\n")
+		}
+	} else {
+		// 重新序列化为标准JSON格式
+		newResponseBody, err := json.Marshal(embeddingResponse)
+		if err != nil {
+			return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+		}
+		
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(newResponseBody)))
+		c.Writer.WriteHeader(resp.StatusCode)
+		_, err = c.Writer.Write(newResponseBody)
+		if err != nil {
+			common.SysError("error writing response body: " + err.Error())
+		}
+		
+		if common.DebugEnabled {
+			fmt.Printf("DEBUG: 重新序列化embedding响应为JSON格式\n")
+		}
 	}
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	if err != nil {
-		common.SysError("error copying response body: " + err.Error())
-	}
-	resp.Body.Close()
-	return nil, &embeddingResponse.Usage
+	
+	return nil, usage
 }
 
 // convertRawEmbeddingResponse 将原始响应转换为标准的embedding响应格式
