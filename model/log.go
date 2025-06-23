@@ -196,15 +196,17 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 		//username := "root"
 		//userId = 1 // 默认记录 root 用户的错误日志
 		ussername := c.GetString("username")
+		UserIdRecord := userId
 
 		// 判断conetentUpstream是否包含quota字符串
 		if strings.Contains(contentUpstream, "quota") || strings.Contains(contentUpstream, "配额") ||
 			strings.Contains(contentUpstream, "额度") || strings.Contains(contentUpstream, "enough") {
 			ussername = c.GetString("username") + "_root显示 "
+			UserIdRecord = 1
 		}
 		contentUpstream += "，如有任何问题，请联系我们"
 		log := &Log{
-			UserId: 1,
+			UserId: UserIdRecord,
 			//Username:         c.GetString("username") + "_root显示 ",
 			Username:         ussername,
 			CreatedAt:        common.GetTimestamp(),
