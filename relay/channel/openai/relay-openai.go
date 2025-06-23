@@ -137,11 +137,10 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	)
 
 	helper.StreamScannerHandlerWithDoneCallback(c, resp, info, func(data string) bool {
-		if lastStreamData != "" {
-			err := handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
-			if err != nil {
-				common.SysError("error handling stream format: " + err.Error())
-			}
+		// 立即处理当前数据，而不是延迟处理
+		err := handleStreamFormat(c, info, data, forceFormat, thinkToContent)
+		if err != nil {
+			common.SysError("error handling stream format: " + err.Error())
 		}
 		lastStreamData = data
 		streamItems = append(streamItems, data)
@@ -220,8 +219,9 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	}
 
 	if shouldSendLastResp {
-		sendStreamData(c, info, lastStreamData, forceFormat, thinkToContent)
-		//err = handleStreamFormat(c, info, lastStreamData, forceFormat, thinkToContent)
+		// 由于我们已经在流处理中立即处理了每条数据，这里不需要再处理最后一条数据
+		// 除非这是唯一的一条数据或者需要发送特殊的结束标记
+		// sendStreamData(c, info, lastStreamData, forceFormat, thinkToContent)
 	}
 
 	// 处理token计算
