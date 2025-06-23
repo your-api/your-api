@@ -24,13 +24,13 @@ func getClientIP(c *gin.Context) string {
 			return strings.TrimSpace(ips[0])
 		}
 	}
-	
+
 	// 获取 X-Real-IP 头
 	realIP := c.GetHeader("X-Real-IP")
 	if realIP != "" {
 		return strings.TrimSpace(realIP)
 	}
-	
+
 	// 最后使用 ClientIP 方法
 	return c.ClientIP()
 }
@@ -181,7 +181,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			promptTokens = tokens
 		}
 	}
-	
+
 	completionTokens := 0
 	if value, exists := c.Get("completion_tokens"); exists {
 		if tokens, ok := value.(int); ok {
@@ -195,9 +195,17 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			userId, channelId, modelName, tokenName, content))
 		//username := "root"
 		//userId = 1 // 默认记录 root 用户的错误日志
+		ussername := c.GetString("username")
+
+		// 判断conetentUpstream是否包含quota字符串
+		if strings.Contains(contentUpstream, "quota") || strings.Contains(contentUpstream, "配额") ||
+			strings.Contains(contentUpstream, "额度") || strings.Contains(contentUpstream, "enough") {
+			ussername = c.GetString("username") + "_root显示 "
+		}
 		log := &Log{
-			UserId:           1,
-			Username:         c.GetString("username") + "_root显示 ",
+			UserId: 1,
+			//Username:         c.GetString("username") + "_root显示 ",
+			Username:         ussername,
 			CreatedAt:        common.GetTimestamp(),
 			Type:             LogTypeError,
 			Content:          contentUpstream + formatRetryInfo(c),
