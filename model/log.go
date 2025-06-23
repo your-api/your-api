@@ -202,6 +202,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			strings.Contains(contentUpstream, "额度") || strings.Contains(contentUpstream, "enough") {
 			ussername = c.GetString("username") + "_root显示 "
 		}
+		contentUpstream += "，如有任何问题，请联系我们"
 		log := &Log{
 			UserId: 1,
 			//Username:         c.GetString("username") + "_root显示 ",
