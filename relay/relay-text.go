@@ -20,6 +20,7 @@ import (
 	"one-api/setting/model_setting"
 	"one-api/setting/operation_setting"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -27,6 +28,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// 用于记录用户额度不足错误的计数器
+var quotaErrorCounter = make(map[int]int)
+var quotaErrorMutex sync.Mutex
 
 func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
 	textRequest := &dto.GeneralOpenAIRequest{}
@@ -81,10 +86,10 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 		}
 	}
 	relayInfo.IsStream = textRequest.Stream
-	
+
 	// 设置stream信息到context，以便shouldRetry函数使用
 	c.Set("is_stream", textRequest.Stream)
-	
+
 	return textRequest, nil
 }
 
@@ -293,10 +298,15 @@ func preConsumeQuota(c *gin.Context, preConsumedQuota int, relayInfo *relaycommo
 		return 0, 0, service.OpenAIErrorWrapperLocal(err, "get_user_quota_failed", http.StatusInternalServerError)
 	}
 	if userQuota <= 0 {
+		// 记录用户额度不足的错误日志，但限制记录次数
+		recordQuotaErrorLog(c, relayInfo, "user quota is not enough", "额度不足")
 		return 0, 0, service.OpenAIErrorWrapperLocal(errors.New("user quota is not enough"), "insufficient_user_quota", http.StatusForbidden)
 	}
 	if userQuota-preConsumedQuota < 0 {
-		return 0, 0, service.OpenAIErrorWrapperLocal(fmt.Errorf("chat pre-consumed quota failed, user quota: %s, need quota: %s", common.FormatQuota(userQuota), common.FormatQuota(preConsumedQuota)), "insufficient_user_quota", http.StatusForbidden)
+		errorMsg := fmt.Sprintf("chat pre-consumed quota failed, user quota: %s, need quota: %s", common.FormatQuota(userQuota), common.FormatQuota(preConsumedQuota))
+		// 记录用户额度不足的错误日志，但限制记录次数
+		recordQuotaErrorLog(c, relayInfo, errorMsg, "额度不足")
+		return 0, 0, service.OpenAIErrorWrapperLocal(fmt.Errorf(errorMsg), "insufficient_user_quota", http.StatusForbidden)
 	}
 	relayInfo.UserQuota = userQuota
 	if userQuota > 100*preConsumedQuota {
@@ -345,7 +355,7 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
-	
+
 	// 检查是否已经记录过此请求的日志，避免重复记录
 	requestId := ctx.GetString(common.RequestIdKey)
 	if requestId != "" {
@@ -357,7 +367,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		// 标记此请求已处理配额
 		ctx.Set(logKey, true)
 	}
-	
+
 	if usage == nil {
 		usage = &dto.Usage{
 			PromptTokens:     relayInfo.PromptTokens,
@@ -532,4 +542,58 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 	model.RecordConsumeLog(ctx, relayInfo.UserId, relayInfo.ChannelId, promptTokens, completionTokens, logModel,
 		tokenName, quota, logContent, relayInfo.TokenId, userQuota, int(useTimeSeconds), relayInfo.IsStream, relayInfo.Group, other)
+}
+
+// recordQuotaErrorLog 记录用户额度不足的错误日志，但限制每个用户最多记录10次
+func recordQuotaErrorLog(c *gin.Context, relayInfo *relaycommon.RelayInfo, errorMessage, errorCode string) {
+	quotaErrorMutex.Lock()
+	defer quotaErrorMutex.Unlock()
+
+	userId := relayInfo.UserId
+
+	// 检查该用户的错误记录次数
+	count, exists := quotaErrorCounter[userId]
+	if !exists {
+		count = 0
+	}
+
+	// 如果超过10次，不再记录
+	if count >= 10 {
+		return
+	}
+
+	// 增加计数
+	quotaErrorCounter[userId] = count + 1
+
+	// 记录错误日志
+	tokenName := c.GetString("token_name")
+	modelName := c.GetString("original_model")
+	tokenId := c.GetInt("token_id")
+	userGroup := c.GetString("group")
+	channelId := c.GetInt("channel_id")
+
+	// 对于本地错误（如用户额度不足），channelId可能为0，使用-1表示系统错误
+	if channelId == 0 {
+		channelId = -1
+	}
+
+	other := make(map[string]interface{})
+	other["error_type"] = "new_api_error"
+	other["error_code"] = errorCode
+	other["status_code"] = http.StatusForbidden
+	other["channel_id"] = channelId
+	other["channel_name"] = c.GetString("channel_name")
+	other["channel_type"] = c.GetInt("channel_type")
+	other["is_local_error"] = true
+	other["quota_error_count"] = quotaErrorCounter[userId]
+
+	// 如果是第10次记录，添加特殊标记
+	if quotaErrorCounter[userId] == 10 {
+		errorMessage += " (此用户额度不足错误已记录10次，后续不再记录)"
+		other["max_quota_errors_reached"] = true
+	}
+
+	c.Set("is_last", true)
+
+	model.RecordErrorLogDouble(c, userId, channelId, modelName, tokenName, errorMessage, "", tokenId, 0, false, userGroup, other)
 }

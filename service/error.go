@@ -29,11 +29,11 @@ func MidjourneyErrorWithStatusCodeWrapper(code int, desc string, statusCode int)
 func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIErrorWithStatusCode {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
-	
+
 	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
-		
+
 		// 根据错误类型提供更具体的错误信息
 		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
@@ -46,13 +46,13 @@ func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIError
 		} else {
 			text = "请求上游地址失败"
 		}
-		
+
 		// 在debug模式下保留原始错误信息
 		if common.DebugEnabled {
 			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
 		}
 	}
-	
+
 	openAIError := dto.OpenAIError{
 		Message: text,
 		Type:    "new_api_error",
@@ -73,11 +73,11 @@ func OpenAIErrorWrapperLocal(err error, code string, statusCode int) *dto.OpenAI
 func ClaudeErrorWrapper(err error, code string, statusCode int) *dto.ClaudeErrorWithStatusCode {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
-	
+
 	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
-		
+
 		// 根据错误类型提供更具体的错误信息
 		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
@@ -90,13 +90,13 @@ func ClaudeErrorWrapper(err error, code string, statusCode int) *dto.ClaudeError
 		} else {
 			text = "请求上游地址失败"
 		}
-		
+
 		// 在debug模式下保留原始错误信息
 		if common.DebugEnabled {
 			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
 		}
 	}
-	
+
 	claudeError := dto.ClaudeError{
 		Message: text,
 		Type:    "new_api_error",
@@ -142,7 +142,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 	}
 
 	errWithStatusCode.UpstreamError = true
-	errWithStatusCode.Error.Message = "上游服务异常，请稍后重试"
+	errWithStatusCode.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
 	if errResponse.Error.Message != "" {
 		// OpenAI format error, so we override the default one
 		errWithStatusCode.UpstreamErrorInfo = errResponse.Error
@@ -183,11 +183,11 @@ func TaskErrorWrapperLocal(err error, code string, statusCode int) *dto.TaskErro
 func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
-	
+
 	// 网络相关错误处理
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
-		
+
 		// 根据错误类型提供更具体的错误信息
 		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
@@ -200,13 +200,13 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 		} else {
 			text = "请求上游地址失败"
 		}
-		
+
 		// 在debug模式下保留原始错误信息
 		if common.DebugEnabled {
 			text = fmt.Sprintf("%s (原始错误: %s)", text, err.Error())
 		}
 	}
-	
+
 	//避免暴露内部错误
 	taskError := &dto.TaskError{
 		Code:       code,
