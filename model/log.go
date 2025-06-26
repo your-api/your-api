@@ -199,8 +199,8 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 		UserIdRecord := userId
 
 		// 判断conetentUpstream是否包含quota字符串
-		if strings.Contains(contentUpstream, "quota") || strings.Contains(contentUpstream, "配额") ||
-			strings.Contains(contentUpstream, "额度") || strings.Contains(contentUpstream, "enough") {
+		if strings.Contains(contentUpstream, "quota") || strings.Contains(contentUpstream, "配额") || strings.Contains(contentUpstream, "渠道") ||
+			strings.Contains(contentUpstream, "额度") || strings.Contains(contentUpstream, "credit") || strings.Contains(contentUpstream, "enough") {
 			ussername = c.GetString("username") + "_root显示 "
 			UserIdRecord = 1
 		}

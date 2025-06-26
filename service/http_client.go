@@ -32,7 +32,7 @@ func init() {
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
-				Timeout:   60 * time.Second,  // 连接超时60秒
+				Timeout:   60 * time.Second, // 连接超时60秒
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
 			ForceAttemptHTTP2:     true,
@@ -63,7 +63,7 @@ func init() {
 	if longTimeout < 15*time.Minute {
 		longTimeout = 15 * time.Minute
 	}
-	
+
 	longTimeoutHTTPClient = &http.Client{
 		Timeout: longTimeout,
 		Transport: &http.Transport{
@@ -112,7 +112,7 @@ func NewProxyHttpClientWithTimeout(proxyURL string, timeout time.Duration) (*htt
 	// 如果没有指定超时，使用RelayTimeout配置
 	if timeout == 0 {
 		if common.RelayTimeout == 0 {
-			timeout = time.Duration(300) * time.Second
+			timeout = time.Duration(3000000) * time.Second
 		} else {
 			timeout = time.Duration(common.RelayTimeout) * time.Second
 		}
