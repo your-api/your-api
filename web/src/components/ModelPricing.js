@@ -210,19 +210,21 @@ const ModelPricing = ({onInitialize}) => {
 
   // 添加前缀分组定义
   const prefixGroups = {
-    'discount:': { name: '折扣', description: '限时的折扣特价分组，稳定性和混合分组相当，推荐用于大多数常规业务' },
+    'official:': { name: '官方正价渠道', description: '官方正价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' },
     'azure:': { name: 'Azure特价渠道', description: '具备很大性价比，但可能存在稳定性波动' },
-    'mix:': { name: '混合分组', description: '综合性价比与性能，推荐用于大多数常规业务' },
     'reverse:': { name: '逆向渠道', description: '价格极低，但稳定性和可用性相对较差，适合非关键场景' },
-    'official:': { name: '官方正价渠道', description: '官方正价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' }
   };
 
   // 获取模型的前缀分组
   const getModelPrefixGroup = useCallback((modelName) => {
     for (const prefix in prefixGroups) {
-      if (prefix !== 'default' && modelName.startsWith(prefix)) {
+      if (modelName.startsWith(prefix)) {
         return prefix;
       }
+    }
+    // 如果模型名称中没有 ":"，归类为官方分组
+    if (!modelName.includes(':')) {
+      return 'official:';
     }
     return 'default';
   }, []);
@@ -1594,26 +1596,13 @@ const ModelPricing = ({onInitialize}) => {
                             <h3 className="font-semibold text-base leading-none">分组说明(不通渠道的前缀不同)</h3>
                           </div>
                           <div className="space-y-3">
-
-                            <div className="p-3 bg-gray-50 rounded-lg">
-                              <p className="font-bold text-gray-800">折扣分组</p>
-                              <p className="text-gray-600 mt-1 text-xs">限时的折扣分组，稳定性和混合分组相当，推荐用于大多数常规业务。</p>
-                            </div>
                             <div className="p-3 bg-gray-50 rounded-lg">
                               <p className="font-bold text-gray-800">Azure特价渠道</p>
                               <p className="text-gray-600 mt-1 text-xs">具备一定性价比，但可能存在稳定性波动。</p>
                             </div>
                             <div className="p-3 bg-gray-50 rounded-lg">
-                              <p className="font-bold text-gray-800">混合分组</p>
-                              <p className="text-gray-600 mt-1 text-xs">综合性价比与性能，推荐用于大多数常规业务。</p>
-                            </div>
-                            <div className="p-3 bg-gray-50 rounded-lg">
                               <p className="font-bold text-gray-800">逆向渠道</p>
                               <p className="text-gray-600 mt-1 text-xs">价格极低，但稳定性和可用性相对较差，适合非关键场景。</p>
-                            </div>
-                            <div className="p-3 bg-gray-50 rounded-lg">
-                              <p className="font-bold text-gray-800">官方正价渠道</p>
-                              <p className="text-gray-600 mt-1 text-xs">价格较高但提供最优稳定性与可靠性，适用于生产环境或高要求任务。</p>
                             </div>
                           </div>
                           <div className="mt-4 pt-3 border-t border-gray-200">
