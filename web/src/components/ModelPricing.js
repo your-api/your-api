@@ -226,6 +226,9 @@ const ModelPricing = ({onInitialize}) => {
     if (!modelName.includes(':')) {
       return 'official:';
     }
+    if (modelName.includes('official') || modelName.includes('guan') ) {
+      return 'official:';
+    }
     return 'default';
   }, []);
 
