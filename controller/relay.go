@@ -135,9 +135,9 @@ func Relay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, maxRetries-i) {
-			break
-		}
+		//if !shouldRetry(c, openaiErr, maxRetries-i) {
+		//	break
+		//}
 	}
 
 	useChannel := c.GetStringSlice("use_channel")
