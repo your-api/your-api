@@ -153,7 +153,11 @@ func Relay(c *gin.Context) {
 		} else if !openaiErr.LocalError {
 			// 上游错误，不返回具体错误信息，避免信息泄露
 			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
-			openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") || strings.Contains(openaiErr.Error.Message, "渠道") ||
+				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
+			} else {
+				openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			}
 		}
 		// 本地错误（LocalError为true）直接返回原始错误信息
 
@@ -231,7 +235,11 @@ func WssRelay(c *gin.Context) {
 		} else if !openaiErr.LocalError {
 			// 上游错误，不返回具体错误信息，避免信息泄露
 			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
-			openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") || strings.Contains(openaiErr.Error.Message, "渠道") ||
+				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
+			} else {
+				openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			}
 		}
 		// 本地错误（LocalError为true）直接返回原始错误信息
 
@@ -301,7 +309,11 @@ func RelayClaude(c *gin.Context) {
 		} else {
 			// Claude错误通常都是上游错误，不返回具体错误信息，避免信息泄露
 			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeErr.StatusCode, claudeErr.Error.Message))
-			claudeErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			if strings.Contains(claudeErr.Error.Message, "quota") || strings.Contains(claudeErr.Error.Message, "配额") || strings.Contains(claudeErr.Error.Message, "渠道") ||
+				strings.Contains(claudeErr.Error.Message, "额度") || strings.Contains(claudeErr.Error.Message, "credit") || strings.Contains(claudeErr.Error.Message, "enough") {
+			} else {
+				claudeErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+			}
 		}
 
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
