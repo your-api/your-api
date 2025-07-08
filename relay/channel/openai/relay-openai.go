@@ -156,7 +156,15 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 			var response struct {
 				Choices []struct {
 					Delta struct {
-						Content string `json:"content"`
+						Content   string `json:"content"`
+						ToolCalls []struct {
+							ID       string `json:"id"`
+							Type     string `json:"type"`
+							Function struct {
+								Name      string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
 					} `json:"delta"`
 				} `json:"choices"`
 			}
@@ -168,10 +176,10 @@ func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 
 			// 检查 choices 数组存在且非空
 			if len(response.Choices) > 0 {
-				// 检查 content 字段非空
-				if response.Choices[0].Delta.Content != "" {
+				// 检查 content 字段非空或者有tool_calls
+				if response.Choices[0].Delta.Content != "" || len(response.Choices[0].Delta.ToolCalls) > 0 {
 					isEmptyResp = false
-					return // 找到非空内容，直接返回 false
+					return // 找到非空内容或function calling，直接返回
 				}
 			}
 		}
@@ -284,12 +292,13 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		}, nil
 	}
 
-	// 检查是否所有choices都没有内容
+	// 检查是否所有choices都没有内容（包括function calling的tool_calls）
 	hasContent := false
 	for _, choice := range simpleResponse.Choices {
 		if choice.Message.StringContent() != "" || 
 		   choice.Message.ReasoningContent != "" || 
-		   choice.Message.Reasoning != "" {
+		   choice.Message.Reasoning != "" ||
+		   len(choice.Message.ParseToolCalls()) > 0 {
 			hasContent = true
 			break
 		}
@@ -313,8 +322,17 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	if simpleResponse.Usage.TotalTokens == 0 || (simpleResponse.Usage.PromptTokens == 0 && simpleResponse.Usage.CompletionTokens == 0) {
 		completionTokens := 0
 		for _, choice := range simpleResponse.Choices {
-			ctkm, _ := service.CountTextToken(choice.Message.StringContent()+choice.Message.ReasoningContent+choice.Message.Reasoning, info.UpstreamModelName)
+			// 计算文本内容的tokens
+			textContent := choice.Message.StringContent() + choice.Message.ReasoningContent + choice.Message.Reasoning
+			ctkm, _ := service.CountTextToken(textContent, info.UpstreamModelName)
 			completionTokens += ctkm
+			
+			// 计算tool_calls的tokens
+			toolCalls := choice.Message.ParseToolCalls()
+			for _, toolCall := range toolCalls {
+				toolTokens, _ := service.CountTextToken(toolCall.Function.Name+toolCall.Function.Arguments, info.UpstreamModelName)
+				completionTokens += toolTokens
+			}
 		}
 		simpleResponse.Usage = dto.Usage{
 			PromptTokens:     info.PromptTokens,
@@ -326,18 +344,29 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	// 设置token信息到context中，以便错误日志记录
 	c.Set("completion_tokens", simpleResponse.Usage.CompletionTokens)
 
-	// 二次检查：如果计算出的completion tokens为0，也应该重试
+	// 二次检查：如果计算出的completion tokens为0且没有tool_calls，也应该重试
+	// 注意：function calling响应可能没有文本内容但有tool_calls，这是正常的
 	if simpleResponse.Usage.CompletionTokens == 0 {
-		common.LogWarn(c, "非流式请求计算出的completion tokens为0，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "non-stream response has zero completion tokens, should retry other channels",
-				Type:    "empty_response",
-				Code:    "zero_completion_tokens",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
+		hasToolCalls := false
+		for _, choice := range simpleResponse.Choices {
+			if len(choice.Message.ParseToolCalls()) > 0 {
+				hasToolCalls = true
+				break
+			}
+		}
+		
+		if !hasToolCalls {
+			common.LogWarn(c, "非流式请求计算出的completion tokens为0且无tool_calls，应该重试其他渠道")
+			return &dto.OpenAIErrorWithStatusCode{
+				Error: dto.OpenAIError{
+					Message: "non-stream response has zero completion tokens and no tool calls, should retry other channels",
+					Type:    "empty_response",
+					Code:    "zero_completion_tokens",
+				},
+				StatusCode: http.StatusInternalServerError,
+				LocalError: false, // 不标记为本地错误，允许重试
+			}, nil
+		}
 	}
 
 	forceFormat := false
