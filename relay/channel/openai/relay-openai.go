@@ -292,13 +292,13 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		}, nil
 	}
 
-	// 检查是否所有choices都没有内容（包括function calling的tool_calls）
+	// 检查是否所有choices都没有内容（包括function calling的tool_calls和function_call）
 	hasContent := false
 	for _, choice := range simpleResponse.Choices {
 		if choice.Message.StringContent() != "" || 
 		   choice.Message.ReasoningContent != "" || 
 		   choice.Message.Reasoning != "" ||
-		   len(choice.Message.ParseToolCalls()) > 0 {
+		   choice.Message.HasFunctionOrToolCall() {
 			hasContent = true
 			break
 		}
@@ -333,6 +333,12 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 				toolTokens, _ := service.CountTextToken(toolCall.Function.Name+toolCall.Function.Arguments, info.UpstreamModelName)
 				completionTokens += toolTokens
 			}
+			
+			// 计算function_call的tokens (老版本支持)
+			if functionCall := choice.Message.ParseFunctionCall(); functionCall != nil {
+				functionTokens, _ := service.CountTextToken(functionCall.Name+functionCall.Arguments, info.UpstreamModelName)
+				completionTokens += functionTokens
+			}
 		}
 		simpleResponse.Usage = dto.Usage{
 			PromptTokens:     info.PromptTokens,
@@ -344,22 +350,22 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	// 设置token信息到context中，以便错误日志记录
 	c.Set("completion_tokens", simpleResponse.Usage.CompletionTokens)
 
-	// 二次检查：如果计算出的completion tokens为0且没有tool_calls，也应该重试
-	// 注意：function calling响应可能没有文本内容但有tool_calls，这是正常的
+	// 二次检查：如果计算出的completion tokens为0且没有tool_calls或function_call，也应该重试
+	// 注意：function calling响应可能没有文本内容但有tool_calls或function_call，这是正常的
 	if simpleResponse.Usage.CompletionTokens == 0 {
-		hasToolCalls := false
+		hasFunctionCalls := false
 		for _, choice := range simpleResponse.Choices {
-			if len(choice.Message.ParseToolCalls()) > 0 {
-				hasToolCalls = true
+			if choice.Message.HasFunctionOrToolCall() {
+				hasFunctionCalls = true
 				break
 			}
 		}
 		
-		if !hasToolCalls {
-			common.LogWarn(c, "非流式请求计算出的completion tokens为0且无tool_calls，应该重试其他渠道")
+		if !hasFunctionCalls {
+			common.LogWarn(c, "非流式请求计算出的completion tokens为0且无function calls，应该重试其他渠道")
 			return &dto.OpenAIErrorWithStatusCode{
 				Error: dto.OpenAIError{
-					Message: "non-stream response has zero completion tokens and no tool calls, should retry other channels",
+					Message: "non-stream response has zero completion tokens and no function calls, should retry other channels",
 					Type:    "empty_response",
 					Code:    "zero_completion_tokens",
 				},

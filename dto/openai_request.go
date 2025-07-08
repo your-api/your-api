@@ -113,6 +113,7 @@ type Message struct {
 	ReasoningContent    string          `json:"reasoning_content,omitempty"`
 	Reasoning           string          `json:"reasoning,omitempty"`
 	ToolCalls           json.RawMessage `json:"tool_calls,omitempty"`
+	FunctionCall        json.RawMessage `json:"function_call,omitempty"` // 支持老版本function calling
 	ToolCallId          string          `json:"tool_call_id,omitempty"`
 	parsedContent       []MediaContent
 	parsedStringContent *string
@@ -201,6 +202,21 @@ func (m *Message) ParseToolCalls() []ToolCallRequest {
 		return toolCalls
 	}
 	return toolCalls
+}
+
+func (m *Message) ParseFunctionCall() *FunctionRequest {
+	if m.FunctionCall == nil {
+		return nil
+	}
+	var functionCall FunctionRequest
+	if err := json.Unmarshal(m.FunctionCall, &functionCall); err == nil {
+		return &functionCall
+	}
+	return nil
+}
+
+func (m *Message) HasFunctionOrToolCall() bool {
+	return len(m.ParseToolCalls()) > 0 || m.ParseFunctionCall() != nil
 }
 
 func (m *Message) SetToolCalls(toolCalls any) {
