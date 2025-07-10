@@ -142,7 +142,29 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 	}
 
 	errWithStatusCode.UpstreamError = true
-	errWithStatusCode.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+	//errWithStatusCode.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+
+	// 检查上游错误信息中是否包含配额相关的关键词
+	upstreamMessage := ""
+	if errResponse.Error.Message != "" {
+		upstreamMessage = errResponse.Error.Message
+	} else {
+		upstreamMessage = errResponse.ToMessage()
+	}
+	
+	if strings.Contains(upstreamMessage, "quota") || strings.Contains(upstreamMessage, "配额") ||
+		strings.Contains(upstreamMessage, "额度") || strings.Contains(upstreamMessage, "credit") || strings.Contains(upstreamMessage, "enough") {
+		errWithStatusCode.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+	} else {
+		// 设置具体的错误信息
+		if upstreamMessage != "" {
+			errWithStatusCode.Error.Message = upstreamMessage
+		} else {
+			errWithStatusCode.Error.Message = fmt.Sprintf("bad response status code %d", resp.StatusCode)
+		}
+	}
+	
+	// 设置UpstreamErrorInfo用于内部处理
 	if errResponse.Error.Message != "" {
 		// OpenAI format error, so we override the default one
 		errWithStatusCode.UpstreamErrorInfo = errResponse.Error

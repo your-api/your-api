@@ -151,13 +151,13 @@ func Relay(c *gin.Context) {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", openaiErr.Error.Message))
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		} else if !openaiErr.LocalError {
-			// 上游错误，不返回具体错误信息，避免信息泄露
+			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
-			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") || strings.Contains(openaiErr.Error.Message, "渠道") ||
+			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") ||
 				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
-			} else {
-				openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+				openaiErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}
+			// 非配额相关错误保持原始错误信息
 		}
 		// 本地错误（LocalError为true）直接返回原始错误信息
 
@@ -233,13 +233,13 @@ func WssRelay(c *gin.Context) {
 		if openaiErr.StatusCode == http.StatusTooManyRequests {
 			openaiErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		} else if !openaiErr.LocalError {
-			// 上游错误，不返回具体错误信息，避免信息泄露
+			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
-			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") || strings.Contains(openaiErr.Error.Message, "渠道") ||
+			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") ||
 				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
-			} else {
-				openaiErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+				openaiErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}
+			// 非配额相关错误保持原始错误信息
 		}
 		// 本地错误（LocalError为true）直接返回原始错误信息
 
@@ -307,13 +307,13 @@ func RelayClaude(c *gin.Context) {
 		if claudeErr.StatusCode == http.StatusTooManyRequests {
 			claudeErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
 		} else {
-			// Claude错误通常都是上游错误，不返回具体错误信息，避免信息泄露
+			// Claude错误通常都是上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeErr.StatusCode, claudeErr.Error.Message))
-			if strings.Contains(claudeErr.Error.Message, "quota") || strings.Contains(claudeErr.Error.Message, "配额") || strings.Contains(claudeErr.Error.Message, "渠道") ||
+			if strings.Contains(claudeErr.Error.Message, "quota") || strings.Contains(claudeErr.Error.Message, "配额") ||
 				strings.Contains(claudeErr.Error.Message, "额度") || strings.Contains(claudeErr.Error.Message, "credit") || strings.Contains(claudeErr.Error.Message, "enough") {
-			} else {
-				claudeErr.Error.Message = "上游服务异常，请稍后重试，如有任何问题，请联系我们"
+				claudeErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}
+			// 非配额相关错误保持原始错误信息
 		}
 
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
