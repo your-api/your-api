@@ -19,6 +19,7 @@ import (
 	"one-api/relay/helper"
 	"one-api/service"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -321,6 +322,110 @@ func RelayClaude(c *gin.Context) {
 			"error": claudeErr.Error,
 		})
 	}
+}
+
+func RelayClaudeK2(c *gin.Context) {
+	// 获取原始请求体并修改模型名称
+	rawBody, err := common.GetRequestBody(c)
+	if err != nil {
+		common.LogError(c, fmt.Sprintf("获取请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "无效的请求",
+			},
+			StatusCode: http.StatusBadRequest,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 解析 JSON 以修改模型名称
+	var requestBody map[string]interface{}
+	if err := json.Unmarshal(rawBody, &requestBody); err != nil {
+		common.LogError(c, fmt.Sprintf("解析请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "无效的JSON格式",
+			},
+			StatusCode: http.StatusBadRequest,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 强制设置模型为 kimi-k2-0711-preview
+	targetModel := "kimi-k2-0711-preview"
+	requestBody["model"] = targetModel
+
+	// 重新序列化请求体
+	modifiedBody, err := json.Marshal(requestBody)
+	if err != nil {
+		common.LogError(c, fmt.Sprintf("序列化请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "处理请求失败",
+			},
+			StatusCode: http.StatusInternalServerError,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 重置请求体
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(modifiedBody))
+
+	// 手动设置渠道相关信息（模拟 Distribute 中间件的行为）
+	group := c.GetString("group")
+	if group == "" {
+		// 如果没有设置分组，使用用户的默认分组
+		userId := c.GetInt("id")
+		userGroup, err := model.GetUserGroup(userId, true)
+		if err != nil {
+			group = "default"
+		} else {
+			group = userGroup
+		}
+		c.Set("group", group)
+	}
+
+	// 选择适合目标模型的渠道
+	channel, err := model.CacheGetRandomSatisfiedChannel(group, targetModel, 0)
+	if err != nil {
+		common.LogError(c, err.Error())
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: fmt.Sprintf("当前分组 %s 下对于模型 %s 无可用渠道", group, targetModel),
+			},
+			StatusCode: http.StatusServiceUnavailable,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 设置请求开始时间（模拟 Distribute 中间件的行为）
+	c.Set(constant2.ContextKeyRequestStartTime, time.Now())
+
+	// 设置渠道相关的上下文信息
+	middleware.SetupContextForSelectedChannel(c, channel, targetModel)
+
+	// 调用原有的 Claude 处理逻辑
+	RelayClaude(c)
 }
 
 func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.OpenAIErrorWithStatusCode {
