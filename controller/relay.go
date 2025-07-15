@@ -361,8 +361,9 @@ func RelayClaudeK2(c *gin.Context) {
 		return
 	}
 
-	// 强制设置模型为 kimi-k2-0711-preview
-	targetModel := "kimi-k2-0711-preview"
+	// 强制设置模型为 cc:kimi-k2-0711-preview
+	//targetModel := "cc:kimi-k2-0711-preview"
+	targetModel := "cc:claude-code"
 	requestBody["model"] = targetModel
 
 	// 重新序列化请求体
