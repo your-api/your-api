@@ -165,6 +165,7 @@ func OpenAIErrorToClaudeError(openAIError *dto.OpenAIErrorWithStatusCode) *dto.C
 	return &dto.ClaudeErrorWithStatusCode{
 		Error:      claudeError,
 		StatusCode: openAIError.StatusCode,
+		LocalError: openAIError.LocalError,
 	}
 }
 

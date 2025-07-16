@@ -307,9 +307,10 @@ func RelayClaude(c *gin.Context) {
 
 	if claudeErr != nil {
 		if claudeErr.StatusCode == http.StatusTooManyRequests {
+			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Error.Message))
 			claudeErr.Error.Message = "当前分组上游负载已饱和，请稍后再试"
-		} else {
-			// Claude错误通常都是上游错误，根据错误类型决定是否暴露具体信息
+		} else if !claudeErr.LocalError {
+			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeErr.StatusCode, claudeErr.Error.Message))
 			if strings.Contains(claudeErr.Error.Message, "quota") || strings.Contains(claudeErr.Error.Message, "配额") ||
 				strings.Contains(claudeErr.Error.Message, "额度") || strings.Contains(claudeErr.Error.Message, "credit") || strings.Contains(claudeErr.Error.Message, "enough") {
@@ -317,6 +318,7 @@ func RelayClaude(c *gin.Context) {
 			}
 			// 非配额相关错误保持原始错误信息
 		}
+		// 本地错误（LocalError为true）直接返回原始错误信息
 
 		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
 		c.JSON(claudeErr.StatusCode, gin.H{
