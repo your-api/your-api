@@ -259,6 +259,7 @@ const ModelPricing = ({onInitialize}) => {
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [isModalOpenurl, setIsModalOpenurl] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState('default');
+  const [selectedPriceGroup, setSelectedPriceGroup] = useState('default'); // 新增：用于价格计算的分组状态
   const [selectedProvider, setSelectedProvider] = useState('全部');
   const [groupOptions, setGroupOptions] = useState([]);
   const [models, setModels] = useState([]);
@@ -716,37 +717,33 @@ const ModelPricing = ({onInitialize}) => {
           return (
               <div className="flex flex-wrap gap-1.5">
                 {text.map((group) => {
-                  if (usableGroup[group]) {
-                    const colorStyle = getGroupColor(group);
+                  const colorStyle = getGroupColor(group);
 
-                    if (group === selectedGroup) {
-                      return (
-                          <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
-                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            {group}
-                          </div>
-                      );
-                    } else {
-                      return (
-                          <div
-                              key={group}
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
-                              onClick={() => {
-                                // setSelectedGroup(group);
-                                // setActivePage(1); // 重置页码为第一页
-                                // showInfo(t('当前查看的分组为：{{group}}', {
-                                //   group: group
-                                // }));
-                              }}
-                          >
-                            {group}
-                          </div>
-                      );
-                    }
+                  if (group === selectedPriceGroup) {
+                    return (
+                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+                          </svg>
+                          {group}
+                        </div>
+                    );
+                  } else {
+                    return (
+                        <div
+                            key={group}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                            onClick={() => {
+                              setSelectedPriceGroup(group);
+                              showInfo(t('价格计算已切换到分组：{{group}}', {
+                                group: group
+                              }));
+                            }}
+                        >
+                          {group}
+                        </div>
+                    );
                   }
-                  return null;
                 })}
               </div>
           );
@@ -807,7 +804,7 @@ const ModelPricing = ({onInitialize}) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span style={{ color: 'var(--semi-color-text-2)' }}>{t('分组')}：</span>
-                  <span className="font-medium" style={{ color: 'var(--semi-color-text-0)' }}>{typeof groupRatio[selectedGroup] === 'number' ? Number(groupRatio[selectedGroup]).toFixed(3) : 1}</span>
+                  <span className="font-medium" style={{ color: 'var(--semi-color-text-0)' }}>{typeof groupRatio[selectedPriceGroup] === 'number' ? Number(groupRatio[selectedPriceGroup]).toFixed(3) : 1}</span>
                 </div>
               </div>
           );
@@ -833,7 +830,7 @@ const ModelPricing = ({onInitialize}) => {
         let content = text;
         const currencySymbol = currencyType === 'USD' ? '$' : '￥';
         // 使用固定倍率1，因为现在只有default分组
-        const currentGroupRatio = 1;
+        const currentGroupRatio = typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1;
 
         if (record.quota_type === 0) {
           // 这里的 *2 是因为 1倍率=0.002刀，请勿删除
@@ -946,7 +943,7 @@ const ModelPricing = ({onInitialize}) => {
     )
 
     return baseColumns;
-  }, [t, selectedGroup, groupRatio, filteredValue, usableGroup, showRatioColumn, currencyType]);
+  }, [t, selectedGroup, groupRatio, filteredValue, usableGroup, showRatioColumn, currencyType, selectedPriceGroup]);
 
   const setModelsFormat = useCallback((models, groupRatio) => {
     // 为每个模型添加必要的属性
@@ -1051,6 +1048,7 @@ const ModelPricing = ({onInitialize}) => {
         setGroupRatio(group_ratio);
         setUsableGroup(usableGroupFiltered);
         setSelectedGroup('all')
+        setSelectedPriceGroup('default'); // 设置价格分组的默认值
 
         // 先设置原始模型数据（不排序）
         const formattedModels = data.map(model => ({
@@ -1839,37 +1837,33 @@ const ModelPricing = ({onInitialize}) => {
                               <div className="text-gray-600 mb-1">{t('可用分组')}</div>
                               <div className="flex flex-wrap gap-1.5">
                                 {model.enable_groups.map((group) => {
-                                  if (usableGroup[group]) {
-                                    const colorStyle = getGroupColor(group);
+                                  const colorStyle = getGroupColor(group);
 
-                                    if (group === selectedGroup) {
-                                      return (
-                                          <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
-                                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
-                                            </svg>
-                                            {group}
-                                          </div>
-                                      );
-                                    } else {
-                                      return (
-                                          <div
-                                              key={group}
-                                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity opacity-100 shadow-sm`}
-                                              onClick={() => {
-                                                setSelectedGroup(group);
-                                                setActivePage(1); // 重置页码为第一页
-                                                showInfo(t('当前查看的分组为：{{group}}', {
-                                                  group: group
-                                                }));
-                                              }}
-                                          >
-                                            {group}
-                                          </div>
-                                      );
-                                    }
+                                  if (group === selectedPriceGroup) {
+                                    return (
+                                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+                                          </svg>
+                                          {group}
+                                        </div>
+                                    );
+                                  } else {
+                                    return (
+                                        <div
+                                            key={group}
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                                            onClick={() => {
+                                              setSelectedPriceGroup(group);
+                                              showInfo(t('价格计算已切换到分组：{{group}}', {
+                                                group: group
+                                              }));
+                                            }}
+                                        >
+                                          {group}
+                                        </div>
+                                    );
                                   }
-                                  return null;
                                 })}
                               </div>
                             </div>
@@ -1888,7 +1882,7 @@ const ModelPricing = ({onInitialize}) => {
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-gray-500">{t('分组倍率')}</span>
-                                      <span className="font-medium text-gray-700">1</span>
+                                      <span className="font-medium text-gray-700">{typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1904,8 +1898,8 @@ const ModelPricing = ({onInitialize}) => {
                                         <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                           {currencyType === 'CNY'
-                                              ? ((model.model_ratio * 2 * 1)).toFixed(2)
-                                              : (model.model_ratio * 2 * 1).toFixed(2)} / 1M tokens
+                                              ? ((model.model_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1))).toFixed(2)
+                                              : (model.model_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)).toFixed(2)} / 1M tokens
                                 </span>
                                       </div>
                                       <div className="flex justify-between items-center mt-1">
@@ -1913,8 +1907,8 @@ const ModelPricing = ({onInitialize}) => {
                                         <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                           {currencyType === 'CNY'
-                                              ? ((model.model_ratio * model.completion_ratio * 2 * 1)).toFixed(2)
-                                              : (model.model_ratio * model.completion_ratio * 2 * 1/7.29).toFixed(2)} / 1M tokens
+                                              ? ((model.model_ratio * model.completion_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1))).toFixed(2)
+                                              : (model.model_ratio * model.completion_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)/7.29).toFixed(2)} / 1M tokens
                                 </span>
                                       </div>
                                     </>
@@ -1923,7 +1917,7 @@ const ModelPricing = ({onInitialize}) => {
                                       <span className="text-gray-500">{t('模型价格')}</span>
                                       <span className="font-medium text-blue-500">
                                 {currencyType === 'USD' ? '$' : '￥'}
-                                        {(parseFloat(model.model_price) * 1).toFixed(2)}
+                                        {(parseFloat(model.model_price) * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)).toFixed(2)}
                               </span>
                                     </div>
                                 )}
