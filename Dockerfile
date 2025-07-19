@@ -3,9 +3,10 @@
 ##### 第一阶段：按当前平台构建 Web 静态资源 #####
 FROM --platform=$BUILDPLATFORM oven/bun:latest AS web-builder
 
-# bun 镜像是 Debian 基础，所以用 apk 会报错，这里直接 apt
+# bun 镜像是 Debian 系，所以用 apt
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git openssh-client ca-certificates \
+ && apt-get install -y --no-install-recommends \
+      git openssh-client ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && ssh-keyscan github.com >> /etc/ssh/ssh_known_hosts
 
@@ -40,15 +41,21 @@ RUN go mod download
 COPY . .
 COPY --from=web-builder /build/dist ./web/dist
 
-RUN go build -ldflags "-s -w -X 'one-api/common.Version=$(cat VERSION)'" -o one-api
+RUN go build \
+    -ldflags "-s -w -X 'one-api/common.Version=$(cat VERSION)'" \
+    -o one-api
 
 
 ##### 第三阶段：瘦身运行时镜像 #####
-FROM alpine:latest
+FROM alpine:3.18
 
+# 更新索引并安装运行时依赖
 RUN apk update && apk upgrade && \
-    apk add --no-cache ca-certificates tzdata ffmpeg && \
-    update-ca-certificates
+    apk add --no-cache \
+      ca-certificates \
+      tzdata \
+      ffmpeg \
+ && update-ca-certificates
 
 COPY --from=builder2 /build/one-api /one-api
 
