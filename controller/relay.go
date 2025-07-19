@@ -220,9 +220,9 @@ func WssRelay(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, maxRetries-i) {
-			break
-		}
+		//if !shouldRetry(c, openaiErr, maxRetries-i) {
+		//	break
+		//}
 	}
 
 	useChannel := c.GetStringSlice("use_channel")
@@ -294,9 +294,9 @@ func RelayClaude(c *gin.Context) {
 
 		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
 
-		if !shouldRetry(c, openaiErr, maxRetries-i) {
-			break
-		}
+		//if !shouldRetry(c, openaiErr, maxRetries-i) {
+		//	break
+		//}
 	}
 
 	useChannel := c.GetStringSlice("use_channel")
@@ -634,6 +634,20 @@ func shouldRetry(c *gin.Context, openaiErr *dto.OpenAIErrorWithStatusCode, retry
 		openaiErr.Error.Type == "empty_stream_response" ||
 		openaiErr.Error.Type == "empty_response" {
 		common.LogInfo(c, "empty response detected, will try other channels")
+		return true
+	}
+
+	// 特殊处理：网络连接错误，包括 socket hang up
+	if strings.Contains(strings.ToLower(errorMessage), "socket hang up") ||
+		strings.Contains(strings.ToLower(errorMessage), "connection reset") ||
+		strings.Contains(strings.ToLower(errorMessage), "connection refused") ||
+		strings.Contains(strings.ToLower(errorMessage), "network is unreachable") ||
+		strings.Contains(strings.ToLower(errorMessage), "no route to host") ||
+		strings.Contains(strings.ToLower(errorMessage), "timeout") ||
+		strings.Contains(strings.ToLower(errorMessage), "deadline exceeded") ||
+		strings.Contains(strings.ToLower(errorMessage), "eof") ||
+		strings.Contains(strings.ToLower(errorMessage), "unexpected eof") {
+		common.LogInfo(c, "network error detected, will try other channels")
 		return true
 	}
 

@@ -31,11 +31,15 @@ func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIError
 	lowerText := strings.ToLower(text)
 
 	// 网络相关错误处理
-	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
+	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") ||
+		strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") ||
+		strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
 
 		// 根据错误类型提供更具体的错误信息
-		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+		if strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") {
+			text = "网络连接被中断，请稍后重试"
+		} else if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
 		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
 			text = "无法连接到上游服务，请检查网络连接"
@@ -43,6 +47,8 @@ func OpenAIErrorWrapper(err error, code string, statusCode int) *dto.OpenAIError
 			text = "SSL/TLS连接失败，请检查证书配置"
 		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
 			text = "域名解析失败，请检查网络配置"
+		} else if strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
+			text = "连接意外断开，请稍后重试"
 		} else {
 			text = "请求上游地址失败"
 		}
@@ -75,11 +81,15 @@ func ClaudeErrorWrapper(err error, code string, statusCode int) *dto.ClaudeError
 	lowerText := strings.ToLower(text)
 
 	// 网络相关错误处理
-	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
+	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") ||
+		strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") ||
+		strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
 
 		// 根据错误类型提供更具体的错误信息
-		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+		if strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") {
+			text = "网络连接被中断，请稍后重试"
+		} else if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
 		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
 			text = "无法连接到上游服务，请检查网络连接"
@@ -87,6 +97,8 @@ func ClaudeErrorWrapper(err error, code string, statusCode int) *dto.ClaudeError
 			text = "SSL/TLS连接失败，请检查证书配置"
 		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
 			text = "域名解析失败，请检查网络配置"
+		} else if strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
+			text = "连接意外断开，请稍后重试"
 		} else {
 			text = "请求上游地址失败"
 		}
@@ -207,11 +219,15 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 	lowerText := strings.ToLower(text)
 
 	// 网络相关错误处理
-	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
+	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") ||
+		strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") ||
+		strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
 		common.SysLog(fmt.Sprintf("network error: %s", text))
 
 		// 根据错误类型提供更具体的错误信息
-		if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
+		if strings.Contains(lowerText, "socket hang up") || strings.Contains(lowerText, "connection reset") {
+			text = "网络连接被中断，请稍后重试"
+		} else if strings.Contains(lowerText, "timeout") || strings.Contains(lowerText, "deadline") {
 			text = "请求上游服务超时，请稍后重试"
 		} else if strings.Contains(lowerText, "connection refused") || strings.Contains(lowerText, "dial") {
 			text = "无法连接到上游服务，请检查网络连接"
@@ -219,6 +235,8 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 			text = "SSL/TLS连接失败，请检查证书配置"
 		} else if strings.Contains(lowerText, "dns") || strings.Contains(lowerText, "no such host") {
 			text = "域名解析失败，请检查网络配置"
+		} else if strings.Contains(lowerText, "eof") || strings.Contains(lowerText, "unexpected eof") {
+			text = "连接意外断开，请稍后重试"
 		} else {
 			text = "请求上游地址失败"
 		}
