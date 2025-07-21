@@ -792,6 +792,10 @@ const ModelPricing = ({onInitialize}) => {
         render: (text, record, index) => {
           let content = text;
           let completionRatio = parseFloat(record.completion_ratio.toFixed(3));
+          // 只有当模型包含选中分组时才使用该分组的倍率，否则使用默认倍率
+          const hasSelectedGroup = record.enable_groups.includes(selectedPriceGroup);
+          const currentGroupRatio = hasSelectedGroup && typeof groupRatio[selectedPriceGroup] === 'number' ? Number(groupRatio[selectedPriceGroup]).toFixed(3) : 1;
+          
           content = (
               <div className="text-sm space-y-1">
                 <div className="flex items-center justify-between">
@@ -804,7 +808,7 @@ const ModelPricing = ({onInitialize}) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span style={{ color: 'var(--semi-color-text-2)' }}>{t('分组')}：</span>
-                  <span className="font-medium" style={{ color: 'var(--semi-color-text-0)' }}>{typeof groupRatio[selectedPriceGroup] === 'number' ? Number(groupRatio[selectedPriceGroup]).toFixed(3) : 1}</span>
+                  <span className="font-medium" style={{ color: 'var(--semi-color-text-0)' }}>{currentGroupRatio}</span>
                 </div>
               </div>
           );
@@ -829,8 +833,9 @@ const ModelPricing = ({onInitialize}) => {
       render: (text, record, index) => {
         let content = text;
         const currencySymbol = currencyType === 'USD' ? '$' : '￥';
-        // 使用固定倍率1，因为现在只有default分组
-        const currentGroupRatio = typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1;
+        // 只有当模型包含选中分组时才使用该分组的倍率，否则使用默认倍率
+        const hasSelectedGroup = record.enable_groups.includes(selectedPriceGroup);
+        const currentGroupRatio = hasSelectedGroup && typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1;
 
         if (record.quota_type === 0) {
           // 这里的 *2 是因为 1倍率=0.002刀，请勿删除
@@ -1882,7 +1887,12 @@ const ModelPricing = ({onInitialize}) => {
                                     </div>
                                     <div className="flex justify-between">
                                       <span className="text-gray-500">{t('分组倍率')}</span>
-                                      <span className="font-medium text-gray-700">{typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1}</span>
+                                      <span className="font-medium text-gray-700">
+                                        {(() => {
+                                          const hasSelectedGroup = model.enable_groups.includes(selectedPriceGroup);
+                                          return hasSelectedGroup && typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1;
+                                        })()}
+                                      </span>
                                     </div>
                                   </div>
                                 </div>
@@ -1891,15 +1901,20 @@ const ModelPricing = ({onInitialize}) => {
                             <div>
                               <div className="text-gray-600 mb-1">{t('模型价格')}</div>
                               <div className="bg-blue-50 bg-opacity-60 p-2 rounded text-sm">
-                                {model.quota_type === 0 ? (
+                                {(() => {
+                                  // 只有当模型包含选中分组时才使用该分组的倍率，否则使用默认倍率
+                                  const hasSelectedGroup = model.enable_groups.includes(selectedPriceGroup);
+                                  const currentGroupRatio = hasSelectedGroup && typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1;
+                                  
+                                  return model.quota_type === 0 ? (
                                     <>
                                       <div className="flex justify-between items-center">
                                         <span className="text-gray-500">{t('提示')}</span>
                                         <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                           {currencyType === 'CNY'
-                                              ? ((model.model_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1))).toFixed(2)
-                                              : (model.model_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)).toFixed(2)} / 1M tokens
+                                              ? ((model.model_ratio * 2 * currentGroupRatio)).toFixed(2)
+                                              : (model.model_ratio * 2 * currentGroupRatio).toFixed(2)} / 1M tokens
                                 </span>
                                       </div>
                                       <div className="flex justify-between items-center mt-1">
@@ -1907,20 +1922,21 @@ const ModelPricing = ({onInitialize}) => {
                                         <span className="font-medium text-blue-500">
                                   {currencyType === 'USD' ? '$' : '￥'}
                                           {currencyType === 'CNY'
-                                              ? ((model.model_ratio * model.completion_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1))).toFixed(2)
-                                              : (model.model_ratio * model.completion_ratio * 2 * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)/7.29).toFixed(2)} / 1M tokens
+                                              ? ((model.model_ratio * model.completion_ratio * 2 * currentGroupRatio)).toFixed(2)
+                                              : (model.model_ratio * model.completion_ratio * 2 * currentGroupRatio/7.29).toFixed(2)} / 1M tokens
                                 </span>
                                       </div>
                                     </>
-                                ) : (
+                                  ) : (
                                     <div className="flex justify-between items-center">
                                       <span className="text-gray-500">{t('模型价格')}</span>
                                       <span className="font-medium text-blue-500">
                                 {currencyType === 'USD' ? '$' : '￥'}
-                                        {(parseFloat(model.model_price) * (typeof groupRatio[selectedPriceGroup] === 'number' ? groupRatio[selectedPriceGroup] : 1)).toFixed(2)}
+                                        {(parseFloat(model.model_price) * currentGroupRatio).toFixed(2)}
                               </span>
                                     </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                             </div>
 

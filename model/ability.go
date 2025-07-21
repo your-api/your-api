@@ -152,68 +152,6 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	return &channel, nil
 }
 
-// GetRandomSatisfiedChannelWithType 根据指定类型获取随机满足条件的渠道
-func GetRandomSatisfiedChannelWithType(group string, model string, retry int, channelType int) (*Channel, error) {
-	var abilities []Ability
-
-	var err error = nil
-	channelQuery := getChannelQuery(group, model, retry)
-	// 添加渠道类型过滤
-	channelQuery = channelQuery.Where("channels.type = ?", channelType)
-	
-	if common.UsingSQLite || common.UsingPostgreSQL {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	} else {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	}
-	if err != nil {
-		return nil, err
-	}
-	channel := Channel{}
-	if len(abilities) > 0 {
-		// 对同优先级的abilities进行随机排序，实现负载均衡
-		common.ShuffleChannels(abilities)
-
-		// Randomly choose one based on weight
-		weightSum := uint(0)
-		for _, ability_ := range abilities {
-			weightSum += ability_.Weight + 10
-		}
-		// Randomly choose one
-		weight := common.GetRandomInt(int(weightSum))
-		for _, ability_ := range abilities {
-			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
-			if weight <= 0 {
-				channel.Id = ability_.ChannelId
-				break
-			}
-		}
-	} else {
-		return nil, errors.New(fmt.Sprintf("no channels found for type %d", channelType))
-	}
-	err = DB.First(&channel, "id = ?", channel.Id).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 处理 Key 字段，如果包含逗号分隔的多个值
-	if strings.Contains(channel.Key, ",") {
-		keys := strings.Split(channel.Key, ",")
-		if len(keys) > 0 {
-			// 使用当前 Robin 值选择 key
-			keyIndex := channel.Robin % len(keys)
-			channel.Key = keys[keyIndex]
-
-			// 更新 Robin 值，循环 0 -> len-1 -> 0
-			newRobin := (channel.Robin + 1) % len(keys)
-			DB.Model(&Channel{}).Where("id = ?", channel.Id).Update("robin", newRobin)
-		}
-	}
-
-	return &channel, nil
-}
-
 func (channel *Channel) AddAbilities() error {
 	models_ := strings.Split(channel.Models, ",")
 	groups_ := strings.Split(channel.Group, ",")
