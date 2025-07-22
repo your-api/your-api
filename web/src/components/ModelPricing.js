@@ -251,6 +251,12 @@ const ModelPricing = ({onInitialize}) => {
       margin-bottom: -8px;
       padding-bottom: 16px;
     }
+    
+    /* 可用端点列样式 */
+    .responsive-table .semi-table-tbody .semi-table-row .semi-table-cell[data-column="${t('可用端点')}"] {
+      background-color: var(--semi-color-bg-1);
+      border-radius: 4px;
+    }
   `;
 
   const [filteredValue, setFilteredValue] = useState([]);
@@ -753,6 +759,50 @@ const ModelPricing = ({onInitialize}) => {
           'data-column': t('可用分组')
         }),
         width: '25%',
+      },
+      {
+        title: t('可用端点'),
+        dataIndex: 'supported_endpoint_types',
+        render: (text, record, index) => {
+          return (
+              <div className="flex flex-wrap gap-1.5">
+                {text && text.length > 0 ? text.map((endpoint) => {
+                  // 端点类型样式映射
+                  const getEndpointColor = (endpoint) => {
+                    const colors = {
+                      'openai': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
+                      'openai-response': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
+                      'anthropic': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200' },
+                      'gemini': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
+                      'jina-rerank': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200' },
+                      'image-generation': { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' }
+                    };
+                    return colors[endpoint] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+                  };
+
+                  const colorStyle = getEndpointColor(endpoint);
+                  
+                  return (
+                      <div
+                          key={endpoint}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.bg} ${colorStyle.text} ${colorStyle.border} border cursor-default shadow-sm`}
+                      >
+                        {endpoint}
+                      </div>
+                  );
+                }) : (
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                      {t('暂无')}
+                    </div>
+                )}
+              </div>
+          );
+        },
+        className: 'min-w-[120px]',
+        onCell: () => ({
+          'data-column': t('可用端点')
+        }),
+        width: '15%',
       },
     ];
 
@@ -1897,6 +1947,41 @@ const ModelPricing = ({onInitialize}) => {
                                   </div>
                                 </div>
                             )}
+
+                            <div>
+                              <div className="text-gray-600 mb-1">{t('可用端点')}</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {model.supported_endpoint_types && model.supported_endpoint_types.length > 0 ? model.supported_endpoint_types.map((endpoint) => {
+                                  // 端点类型样式映射
+                                  const getEndpointColor = (endpoint) => {
+                                    const colors = {
+                                      'openai': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
+                                      'openai-response': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
+                                      'anthropic': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200' },
+                                      'gemini': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
+                                      'jina-rerank': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200' },
+                                      'image-generation': { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' }
+                                    };
+                                    return colors[endpoint] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+                                  };
+
+                                  const colorStyle = getEndpointColor(endpoint);
+                                  
+                                  return (
+                                      <div
+                                          key={endpoint}
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.bg} ${colorStyle.text} ${colorStyle.border} border cursor-default shadow-sm`}
+                                      >
+                                        {endpoint}
+                                      </div>
+                                  );
+                                }) : (
+                                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                                      {t('暂无')}
+                                    </div>
+                                )}
+                              </div>
+                            </div>
 
                             <div>
                               <div className="text-gray-600 mb-1">{t('模型价格')}</div>

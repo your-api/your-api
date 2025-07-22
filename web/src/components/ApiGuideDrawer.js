@@ -30,14 +30,19 @@ export default function ApiGuideDrawer({
   // API端点列表
   const apiEndpoints = [
     {
-      label: '主API端点 - 香港直连',
+      label: '主API端点 - 美国前置机直连',
       value: 'https://api.yourapi.cn',
       description: '稳定的主要API端点'
     },
     {
       label: '优质线路 - 亚太优化CDN',
-      value: 'https://yourapi.cn',
+      value: 'https://cdn.yourapi.cn',
       description: '亚太地区优化的CDN节点'
+    },
+    {
+      label: 'CloudFlare高防节点',
+      value: 'https://api8.yourapi.cn',
+      description: 'CloudFlare高防节点'
     },
     // {
     //   label: '优质线路 - CN2',
@@ -105,6 +110,15 @@ export default function ApiGuideDrawer({
 
   // 各语言示例（请求都指向 /v1/chat/completions）
   const snippets = {
+    接入CherryStudio客户端: `
+      1.访问 https://www.cherry-ai.com/  下载cherry studio
+      2.点击左下角的设置按钮，进入渠道管理页面，点击添加
+      3.供应商名称填写yourapi，供应商类型选择OpenAI
+      4.API秘钥填写你自己的API KEY
+      5.API地址填 https://api.yourapi.cn/v1/chat/completions#
+      6.配置好模型后，即可调用
+      7.有任何问题随时联系QQ:2137994192
+    `,
     curl: `curl "${urlCompletions}" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <你自己的API KEY>" \\
@@ -410,6 +424,7 @@ int main(void) {
                   {/*<br />• 中国大陆用户推荐选择"亚太优化CDN"或"CN2线路"获得更好的连接速度*/}
                   {/*<br />• 海外用户可选择"美国直连"获得最佳性能*/}
                   <br />• 如遇到连接问题，可尝试切换到其他备用线路
+
                 </Text>
               </div>
             </div>
@@ -499,6 +514,10 @@ int main(void) {
                         。
                       </>
                   )
+                },
+                {
+                  step: '5. 客服支持',
+                  desc: '接口已适配Claude原生格式，以及openai最新/v1/responses格式，有任何问题随时联系QQ:2137994192'
                 }
               ].map(({ step, desc }) => (
                   <div key={step}>
