@@ -359,9 +359,8 @@ const Home = () => {
           <p className="text-3xl font-bold">模型价格</p>
         </div>
 
-        <div className="mt-8 model-pricing-section">
+        <div>
           <ModelPricing onInitialize={handleModelPricingInit} />
-
         </div>
 
         <div className="py-8 h-1 w-full">

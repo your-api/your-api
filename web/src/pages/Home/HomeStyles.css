@@ -341,7 +341,6 @@
 .model-pricing-section {
   background: linear-gradient(145deg, rgba(var(--semi-blue-0), 0.3), rgba(var(--semi-purple-0), 0.2));
   border-radius: 20px;
-  padding: 30px;
   transition: all 0.5s ease;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(var(--semi-blue-1), 0.5);
