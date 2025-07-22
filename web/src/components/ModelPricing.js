@@ -210,7 +210,7 @@ const ModelPricing = ({onInitialize}) => {
 
   // 添加前缀分组定义
   const prefixGroups = {
-    'official:': { name: '官方正价渠道', description: '官方正价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' },
+    'official:': { name: '全模型特价', description: '全模型特价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' },
     'azure:': { name: 'Azure特价渠道', description: '具备很大性价比，但可能存在稳定性波动' },
     'reverse:': { name: '逆向渠道', description: '价格极低，但稳定性和可用性相对较差，适合非关键场景' },
   };
@@ -268,6 +268,7 @@ const ModelPricing = ({onInitialize}) => {
   const [groupRatio, setGroupRatio] = useState({});
   const [usableGroup, setUsableGroup] = useState({});
   const [showRatioColumn, setShowRatioColumn] = useState(false);
+  const [showEndpointsColumn, setShowEndpointsColumn] = useState(false);
   const [showOnlySelectedGroup, setShowOnlySelectedGroup] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [activePage, setActivePage] = useState(1);
@@ -756,6 +757,43 @@ const ModelPricing = ({onInitialize}) => {
       },
     ];
 
+    // 如果显示可用端点列，则添加可用端点列
+    if (showEndpointsColumn) {
+      baseColumns.push({
+        title: t('可用端点'),
+        dataIndex: 'supported_endpoint_types',
+        render: (text, record, index) => {
+          return (
+              <div className="flex flex-col gap-1">
+                {text?.map((endpoint, idx) => (
+                    <div
+                        key={idx}
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium cursor-pointer hover:bg-opacity-80 transition-all duration-200 shadow-sm"
+                        style={{
+                          backgroundColor: 'var(--semi-color-info-light-default)',
+                          color: 'var(--semi-color-info)',
+                          borderColor: 'var(--semi-color-info-light-active)',
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onClick={() => copyText(endpoint)}
+                        title={t('点击复制端点类型')}
+                    >
+                      <IconCopy size="small" style={{ marginRight: '4px' }} />
+                      <span>{endpoint}</span>
+                    </div>
+                ))}
+              </div>
+          );
+        },
+        className: 'min-w-[100px]',
+        onCell: () => ({
+          'data-column': t('可用端点')
+        }),
+        width: '12%',
+      });
+    }
+
     // 如果显示倍率列，则添加倍率列
     if (showRatioColumn) {
       baseColumns.push({
@@ -948,7 +986,7 @@ const ModelPricing = ({onInitialize}) => {
     )
 
     return baseColumns;
-  }, [t, selectedGroup, groupRatio, filteredValue, usableGroup, showRatioColumn, currencyType, selectedPriceGroup]);
+  }, [t, selectedGroup, groupRatio, filteredValue, usableGroup, showRatioColumn, showEndpointsColumn, currencyType, selectedPriceGroup]);
 
   const setModelsFormat = useCallback((models, groupRatio) => {
     // 为每个模型添加必要的属性
@@ -1684,6 +1722,15 @@ const ModelPricing = ({onInitialize}) => {
                   >
                     {showRatioColumn ? t('隐藏倍率列') : t('显示倍率列')}
                   </Button>
+
+                  <Button
+                      theme='light'
+                      type='tertiary'
+                      onClick={() => setShowEndpointsColumn(!showEndpointsColumn)}
+                      className="toggle-endpoints-btn"
+                  >
+                    {showEndpointsColumn ? t('隐藏可用端点列') : t('显示可用端点列')}
+                  </Button>
                 </div>
               </div>
 
@@ -1872,6 +1919,32 @@ const ModelPricing = ({onInitialize}) => {
                                 })}
                               </div>
                             </div>
+
+                            {showEndpointsColumn && (
+                              <div>
+                                <div className="text-gray-600 mb-1">{t('可用端点')}</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {model.supported_endpoint_types?.map((endpoint, idx) => (
+                                      <div
+                                          key={idx}
+                                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium cursor-pointer hover:bg-opacity-80 transition-all duration-200 shadow-sm"
+                                          style={{
+                                            backgroundColor: 'var(--semi-color-info-light-default)',
+                                            color: 'var(--semi-color-info)',
+                                            borderColor: 'var(--semi-color-info-light-active)',
+                                            borderWidth: '1px',
+                                            borderStyle: 'solid'
+                                          }}
+                                          onClick={() => copyText(endpoint)}
+                                          title={t('点击复制端点类型')}
+                                      >
+                                        <IconCopy size="small" style={{ marginRight: '4px' }} />
+                                        <span>{endpoint}</span>
+                                      </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             {showRatioColumn && (
                                 <div>

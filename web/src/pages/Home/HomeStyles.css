@@ -157,6 +157,32 @@
   padding-bottom: 2rem;
 }
 
+/* 确保表格和所有文本内容都可以被选择 */
+.responsive-table,
+.responsive-table *,
+.model-pricing-section,
+.model-pricing-section *,
+.semi-table,
+.semi-table *,
+.semi-table-cell,
+.semi-table-cell * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* 但是按钮和特定交互元素保持不可选择 */
+.semi-button,
+.semi-button *,
+button,
+button * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
 .select-none {
   user-select: none;
 }
@@ -758,7 +784,6 @@
   height: 32px;
   max-width: 100%;
   transition: all 0.2s cubic-bezier(0.38, 0, 0.24, 1);
-  user-select: none;
   cursor: pointer;
 }
 
