@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"one-api/common"
+	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -15,8 +16,10 @@ import (
 var httpClient *http.Client
 var impatientHTTPClient *http.Client
 var longTimeoutHTTPClient *http.Client // 为长时间非流式请求专用
+var initOnce sync.Once
 
-func init() {
+// 延迟初始化HTTP客户端，确保在环境变量加载后执行
+func initHTTPClients() {
 	// 根据RelayTimeout配置决定超时时间
 	var timeout time.Duration
 	if common.RelayTimeout == 0 {
@@ -44,14 +47,6 @@ func init() {
 			MaxIdleConnsPerHost:   100,
 		},
 	}
-
-	//if common.RelayTimeout == 0 {
-	//	httpClient = &http.Client{}
-	//} else {
-	//	httpClient = &http.Client{
-	//		Timeout: time.Duration(common.RelayTimeout) * time.Second,
-	//	}
-	//}
 
 	impatientHTTPClient = &http.Client{
 		Timeout: 5 * time.Second,
@@ -84,15 +79,23 @@ func init() {
 }
 
 func GetHttpClient() *http.Client {
+	initOnce.Do(initHTTPClients)
 	return httpClient
 }
 
 func GetImpatientHttpClient() *http.Client {
+	initOnce.Do(initHTTPClients)
 	return impatientHTTPClient
 }
 
 func GetLongTimeoutHttpClient() *http.Client {
+	initOnce.Do(initHTTPClients)
 	return longTimeoutHTTPClient
+}
+
+// InitHTTPClients 公开的初始化函数，供main.go调用
+func InitHTTPClients() {
+	initOnce.Do(initHTTPClients)
 }
 
 // NewProxyHttpClient 创建支持代理的 HTTP 客户端
@@ -112,7 +115,8 @@ func NewProxyHttpClientWithTimeout(proxyURL string, timeout time.Duration) (*htt
 	// 如果没有指定超时，使用RelayTimeout配置
 	if timeout == 0 {
 		if common.RelayTimeout == 0 {
-			timeout = time.Duration(3000000) * time.Second
+			// 如果RelayTimeout未设置，使用合理的默认值
+			timeout = time.Duration(600) * time.Second // 10分钟
 		} else {
 			timeout = time.Duration(common.RelayTimeout) * time.Second
 		}

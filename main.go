@@ -53,6 +53,9 @@ func main() {
 
 	common.LoadEnv()
 
+	// 在环境变量加载后立即初始化HTTP客户端，确保使用正确的超时配置
+	service.InitHTTPClients()
+
 	common.SetupLogger()
 	common.SysLog("New API " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
