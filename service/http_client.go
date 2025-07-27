@@ -24,7 +24,7 @@ func initHTTPClients() {
 	var timeout time.Duration
 	if common.RelayTimeout == 0 {
 		// 如果没有配置RelayTimeout，使用默认的300秒
-		timeout = time.Duration(300) * time.Second
+		timeout = time.Duration(3000000) * time.Second
 	} else {
 		// 使用配置的RelayTimeout值
 		timeout = time.Duration(common.RelayTimeout) * time.Second
