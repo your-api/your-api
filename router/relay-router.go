@@ -88,6 +88,28 @@ func SetRelayRouter(router *gin.Engine) {
 		c2Router.POST("/v1/messages", controller.RelayClaudeC2)
 	}
 
+	// K2 路由组，用于处理 /k2/v1/messages 请求
+	qwenRouter := router.Group("/qwen")
+	qwenRouter.Use(middleware.TokenAuth())
+	qwenRouter.Use(middleware.ModelRequestRateLimit())
+	qwenRouter.Use(middleware.RelayPanicRecover())
+	qwenRouter.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
+	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
+	{
+		qwenRouter.POST("/v1/messages", controller.RelayClaudeQwen)
+	}
+
+	// K2 路由组，用于处理 /k2/v1/messages 请求
+	glmRouter := router.Group("/glm")
+	glmRouter.Use(middleware.TokenAuth())
+	glmRouter.Use(middleware.ModelRequestRateLimit())
+	glmRouter.Use(middleware.RelayPanicRecover())
+	glmRouter.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
+	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
+	{
+		glmRouter.POST("/v1/messages", controller.RelayClaudeGlm)
+	}
+
 	relayMjRouter := router.Group("/mj")
 	relayMjRouter.Use(middleware.RelayPanicRecover())
 	registerMjRouterGroup(relayMjRouter)
