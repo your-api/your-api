@@ -113,14 +113,34 @@ func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 	if err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "convert_request_failed", http.StatusInternalServerError)
 	}
-	jsonData, err := json.Marshal(convertedRequest)
-	if common.DebugEnabled {
-		println("requestBody: ", string(jsonData))
-	}
+	
+	// 优化大请求
+	optimizer := service.GetLargeRequestOptimizer()
+	optimizedBody, size, err := optimizer.OptimizeRequest(convertedRequest)
 	if err != nil {
-		return service.ClaudeErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
+		common.LogError(c, fmt.Sprintf("Failed to optimize request: %v", err))
+		// 继续使用原始请求
+		jsonData, err := json.Marshal(convertedRequest)
+		if err != nil {
+			return service.ClaudeErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
+		}
+		requestBody = bytes.NewBuffer(jsonData)
+		size = len(jsonData)
+	} else {
+		requestBody = optimizedBody
 	}
-	requestBody = bytes.NewBuffer(jsonData)
+	
+	// 监控请求大小
+	if openaiRequest, ok := c.Get("request"); ok {
+		if req, ok := openaiRequest.(*dto.GeneralOpenAIRequest); ok {
+			monitor := service.NewRequestSizeMonitor()
+			monitor.CheckRequestSize(req, size)
+		}
+	}
+	
+	if common.DebugEnabled {
+		common.LogInfo(c, fmt.Sprintf("Request size: %d bytes", size))
+	}
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")
 	var httpResp *http.Response

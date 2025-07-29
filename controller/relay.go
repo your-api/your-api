@@ -124,9 +124,9 @@ func Relay(c *gin.Context) {
 			break
 		}
 
-		// 记录重试信息
+		// 记录重试信息（使用异步日志）
 		if i > 0 {
-			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
+			common.LogInfoAsync(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		openaiErr = relayRequest(c, relayMode, channel)
@@ -207,9 +207,9 @@ func WssRelay(c *gin.Context) {
 			break
 		}
 
-		// 记录重试信息
+		// 记录重试信息（使用异步日志）
 		if i > 0 {
-			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
+			common.LogInfoAsync(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		openaiErr = wssRequest(c, ws, relayMode, channel)
@@ -272,9 +272,9 @@ func RelayClaude(c *gin.Context) {
 			break
 		}
 
-		// 记录重试信息
+		// 记录重试信息（使用异步日志）
 		if i > 0 {
-			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
+			common.LogInfoAsync(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
 		}
 
 		claudeErr = claudeRequest(c, channel)

@@ -30,22 +30,36 @@ func initHTTPClients() {
 		timeout = time.Duration(common.RelayTimeout) * time.Second
 	}
 
+	// 设置基础Transport
+	baseTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second, // 优化：连接超时30秒
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          500, // 优化：增加最大空闲连接数
+		MaxIdleConnsPerHost:   200, // 优化：增加每个主机的最大空闲连接数
+		MaxConnsPerHost:       200, // 优化：增加每个主机的最大连接数
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second, // 优化：TLS握手超时15秒
+		ResponseHeaderTimeout: 60 * time.Second, // 优化：响应头超时60秒
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableCompression:    false,     // 启用压缩
+		WriteBufferSize:       64 * 1024, // 优化：64KB写缓冲区
+		ReadBufferSize:        64 * 1024, // 优化：64KB读缓冲区
+	}
+
+	// 使用连接池管理器
+	poolManager := GetConnectionPoolManager()
+	transport := &ConnectionLimitedTransport{
+		Base:        baseTransport,
+		PoolManager: poolManager,
+	}
+
 	httpClient = &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   60 * time.Second, // 连接超时60秒
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   30 * time.Second,  // TLS握手超时30秒
-			ResponseHeaderTimeout: 120 * time.Second, // 响应头超时120秒
-			ExpectContinueTimeout: 1 * time.Second,
-			MaxIdleConnsPerHost:   100,
-		},
+		Timeout:   timeout,
+		Transport: transport,
 	}
 
 	impatientHTTPClient = &http.Client{
@@ -59,22 +73,35 @@ func initHTTPClients() {
 		longTimeout = 15 * time.Minute
 	}
 
+	// 设置基础Transport
+	longTimeoutBaseTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   60 * time.Second, // 长时间请求保持60秒
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          300, // 优化：增加连接池大小
+		MaxIdleConnsPerHost:   100,
+		MaxConnsPerHost:       100, // 优化：限制并发连接
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   30 * time.Second,  // 优化：平衡的TLS超时
+		ResponseHeaderTimeout: 180 * time.Second, // 优化：3分钟响应头超时
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableCompression:    false,     // 启用压缩
+		WriteBufferSize:       64 * 1024, // 优化：64KB写缓冲区
+		ReadBufferSize:        64 * 1024, // 优化：64KB读缓冲区
+	}
+
+	// 使用连接池管理器
+	longTimeoutTransport := &ConnectionLimitedTransport{
+		Base:        longTimeoutBaseTransport,
+		PoolManager: GetConnectionPoolManager(),
+	}
+
 	longTimeoutHTTPClient = &http.Client{
-		Timeout: longTimeout,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   120 * time.Second, // 连接超时120秒，更宽松
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   60 * time.Second,  // TLS握手超时60秒，更宽松
-			ResponseHeaderTimeout: 300 * time.Second, // 响应头超时5分钟，更宽松
-			ExpectContinueTimeout: 1 * time.Second,
-			MaxIdleConnsPerHost:   100,
-		},
+		Timeout:   longTimeout,
+		Transport: longTimeoutTransport,
 	}
 }
 
