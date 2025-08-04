@@ -501,15 +501,28 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	if claudeResponse.Error != nil && claudeResponse.Error.Type != "" {
 		// 记录原始错误信息用于调试
 		common.LogError(c, fmt.Sprintf("claude stream error: %s (type: %s)", claudeResponse.Error.Message, claudeResponse.Error.Type))
-		
-		// 返回统一的友好错误信息，不暴露上游错误详情
+
+		// 检查错误信息中是否包含敏感关键词
+		errorMessage := claudeResponse.Error.Message
+		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") ||
+			strings.Contains(errorMessage, "poe") || strings.Contains(errorMessage, "tenclock") || strings.Contains(errorMessage, "服务超时") ||
+			strings.Contains(errorMessage, "额度") || strings.Contains(errorMessage, "credit") || strings.Contains(errorMessage, "enough") {
+			errorMessage = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+		}
+
+		// 与 OpenAI 保持一致，返回处理后的错误
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
-				Code:    "service_error",
-				Type:    "service_unavailable",
-				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
+				Message: errorMessage,
+				Type:    claudeResponse.Error.Type,
+				Code:    "claude_error",
 			},
-			StatusCode: http.StatusInternalServerError,
+			StatusCode:    http.StatusInternalServerError,
+			UpstreamError: true,
+			UpstreamErrorInfo: dto.OpenAIError{
+				Message: claudeResponse.Error.Message,
+				Type:    claudeResponse.Error.Type,
+			},
 		}
 	}
 	if info.RelayFormat == relaycommon.RelayFormatClaude {
@@ -618,15 +631,28 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	if claudeResponse.Error != nil && claudeResponse.Error.Type != "" {
 		// 记录原始错误信息用于调试
 		common.LogError(c, fmt.Sprintf("claude response error: %s (type: %s)", claudeResponse.Error.Message, claudeResponse.Error.Type))
-		
-		// 返回统一的友好错误信息，不暴露上游错误详情
+
+		// 检查错误信息中是否包含敏感关键词
+		errorMessage := claudeResponse.Error.Message
+		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") ||
+			strings.Contains(errorMessage, "poe") || strings.Contains(errorMessage, "tenclock") || strings.Contains(errorMessage, "服务超时") ||
+			strings.Contains(errorMessage, "额度") || strings.Contains(errorMessage, "credit") || strings.Contains(errorMessage, "enough") {
+			errorMessage = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+		}
+
+		// 与 OpenAI 保持一致，返回处理后的错误
 		return &dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
-				Message: "当前渠道由于负载较大，暂不可用，请稍后重试",
-				Type:    "service_unavailable",
-				Code:    "service_error",
+				Message: errorMessage,
+				Type:    claudeResponse.Error.Type,
+				Code:    "claude_error",
 			},
-			StatusCode: http.StatusInternalServerError,
+			StatusCode:    http.StatusInternalServerError,
+			UpstreamError: true,
+			UpstreamErrorInfo: dto.OpenAIError{
+				Message: claudeResponse.Error.Message,
+				Type:    claudeResponse.Error.Type,
+			},
 		}
 	}
 	if requestMode == RequestModeCompletion {
