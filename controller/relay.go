@@ -156,6 +156,7 @@ func Relay(c *gin.Context) {
 			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
 			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") ||
+				strings.Contains(openaiErr.Error.Message, "poe") || strings.Contains(openaiErr.Error.Message, "tenclock") || strings.Contains(openaiErr.Error.Message, "服务超时") ||
 				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
 				openaiErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}
@@ -238,6 +239,7 @@ func WssRelay(c *gin.Context) {
 			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", openaiErr.StatusCode, openaiErr.Error.Message))
 			if strings.Contains(openaiErr.Error.Message, "quota") || strings.Contains(openaiErr.Error.Message, "配额") ||
+				strings.Contains(openaiErr.Error.Message, "poe") || strings.Contains(openaiErr.Error.Message, "tenclock") || strings.Contains(openaiErr.Error.Message, "服务超时") ||
 				strings.Contains(openaiErr.Error.Message, "额度") || strings.Contains(openaiErr.Error.Message, "credit") || strings.Contains(openaiErr.Error.Message, "enough") {
 				openaiErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}
@@ -313,6 +315,7 @@ func RelayClaude(c *gin.Context) {
 			// 上游错误，根据错误类型决定是否暴露具体信息
 			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeErr.StatusCode, claudeErr.Error.Message))
 			if strings.Contains(claudeErr.Error.Message, "quota") || strings.Contains(claudeErr.Error.Message, "配额") ||
+				strings.Contains(claudeErr.Error.Message, "poe") || strings.Contains(claudeErr.Error.Message, "tenclock") || strings.Contains(claudeErr.Error.Message, "服务超时") ||
 				strings.Contains(claudeErr.Error.Message, "额度") || strings.Contains(claudeErr.Error.Message, "credit") || strings.Contains(claudeErr.Error.Message, "enough") {
 				claudeErr.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 			}

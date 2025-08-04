@@ -163,8 +163,9 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 	} else {
 		upstreamMessage = errResponse.ToMessage()
 	}
-	
+
 	if strings.Contains(upstreamMessage, "quota") || strings.Contains(upstreamMessage, "配额") ||
+		strings.Contains(upstreamMessage, "poe") || strings.Contains(upstreamMessage, "tenclock") || strings.Contains(upstreamMessage, "服务超时") ||
 		strings.Contains(upstreamMessage, "额度") || strings.Contains(upstreamMessage, "credit") || strings.Contains(upstreamMessage, "enough") {
 		errWithStatusCode.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 	} else {
@@ -175,7 +176,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 			errWithStatusCode.Error.Message = fmt.Sprintf("bad response status code %d", resp.StatusCode)
 		}
 	}
-	
+
 	// 设置UpstreamErrorInfo用于内部处理
 	if errResponse.Error.Message != "" {
 		// OpenAI format error, so we override the default one
