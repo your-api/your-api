@@ -84,7 +84,7 @@ const CheckInCalendar = () => {
       });
       if (res.data.success) {
         showSuccess(
-          `${t('签到成功')}！${t('获得奖励')}: ${res.data.data.quota_reward_text}，${t('连续签到')}: ${res.data.data.consecutive_days} ${t('天')}`
+          `${t('签到成功')}！${t('获得奖励')}: ${(res.data.data.quota_reward_text).replace('＄', '￥')}，${t('连续签到')}: ${res.data.data.consecutive_days} ${t('天')}`
         );
         // 刷新数据
         await Promise.all([
@@ -207,13 +207,13 @@ const CheckInCalendar = () => {
       // 已签到，显示明天的奖励信息
       const nextDay = (checkInStatus?.consecutive_days || 0) + 1;
       const bonus = getBonusDescription(nextDay);
-      const nextRewardText = checkInStatus?.next_reward_text || '$0.00';
-      return `${t('明天奖励')}: ${nextRewardText} (${t('加成')}: ${bonus})`;
+      const nextRewardText = (checkInStatus?.next_reward_text || '$0.00').replace('＄', '￥');
+      return `￥{t('明天奖励')}: ${nextRewardText} (${t('加成')}: ${bonus})`;
     }
     
     const nextDay = (checkInStatus?.consecutive_days || 0) + 1;
     const bonus = getBonusDescription(nextDay);
-    const nextRewardText = checkInStatus?.next_reward_text || '$0.00';
+    const nextRewardText = (checkInStatus?.next_reward_text || '$0.00').replace('＄', '￥');
     
     return `${t('下次奖励')}: ${nextRewardText} (${t('加成')}: ${bonus})`;
   };
@@ -281,7 +281,7 @@ const CheckInCalendar = () => {
             </div>
             <div className="text-content">
               <p style={{ color: 'rgba(var(--semi-purple-5), 1)' }} className="text-title">{t('总收益')}</p>
-              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value">{stats?.total_quota_text || '$0.00'}</p>
+              <p style={{ color: 'var(--semi-color-text-0)' }} className="text-value"> {(stats?.next_reward_text || '￥0.00').replace('＄', '￥')}</p>
               <p className="text-subtitle" style={{ color: 'transparent' }}>-</p>
             </div>
           </div>
@@ -328,9 +328,9 @@ const CheckInCalendar = () => {
           <button
             onClick={handleCheckIn}
             disabled={!checkInStatus?.can_check_in || checkingIn}
-            className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
+            className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 ￥{
               checkInStatus?.can_check_in && !checkingIn
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
                 : 'cursor-not-allowed'
             }`}
             style={!checkInStatus?.can_check_in || checkingIn ? {
@@ -466,7 +466,7 @@ const CheckInCalendar = () => {
                           </div>
                           {day.quota_reward_text && (
                             <div style={{ color: 'rgba(var(--semi-green-5), 1)' }} className="text-xs mt-1 text-center leading-tight">
-                              {day.quota_reward_text}
+                              {(day.quota_reward_text).replace('＄', '￥')}
                             </div>
                           )}
                         </div>

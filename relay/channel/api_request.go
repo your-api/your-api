@@ -173,9 +173,13 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 			client, err = service.NewProxyHttpClient(info.Proxy)
 		} else {
 			// 非流式请求使用长超时的代理客户端
-			longTimeout := time.Duration(15) * time.Minute // 默认15分钟
-			if common2.RelayTimeout > 0 && time.Duration(common2.RelayTimeout)*time.Second > longTimeout {
-				longTimeout = time.Duration(common2.RelayTimeout) * time.Second
+			longTimeout := 3600 * time.Second // 默认60分钟
+			if common2.RelayTimeout > 0 && common2.RelayTimeout <= 3600 {
+				// 使用配置值的2倍或至少30分钟
+				longTimeout = time.Duration(common2.RelayTimeout*2) * time.Second
+				if longTimeout < 30*time.Minute {
+					longTimeout = 30 * time.Minute
+				}
 			}
 			client, err = service.NewProxyHttpClientWithTimeout(info.Proxy, longTimeout)
 		}

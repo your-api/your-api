@@ -1170,6 +1170,7 @@
   "实付金额": "Actual payment amount",
   "是否确认充值？": "Confirm recharge?",
   "我的钱包": "My wallet",
+  "源头底价直供，价格透明，稳定可用，点击相应分组即可查看对应模型的价格明细。例如：￥0.38 / 1M 表示每百万输入Token的费用为人民币0.38元。": "Direct Source Pricing, Transparent Rates, and Reliable Availability\nClick on the corresponding group to view detailed pricing for each model. For example: ￥0.38 / 1M indicates a cost of RMB 0.38 per 1 million input tokens.",
   "默认聊天页面链接": "Default chat page link",
   "聊天页面 2 链接": "Chat page 2 link",
   "失败重试次数": "Failed retry times",

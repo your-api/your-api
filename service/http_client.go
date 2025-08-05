@@ -22,9 +22,9 @@ var initOnce sync.Once
 func initHTTPClients() {
 	// 根据RelayTimeout配置决定超时时间
 	var timeout time.Duration
-	if common.RelayTimeout == 0 {
-		// 如果没有配置RelayTimeout，使用默认的300秒
-		timeout = time.Duration(3000000) * time.Second
+	if common.RelayTimeout == 0 || common.RelayTimeout > 3600 {
+		// 如果没有配置RelayTimeout或配置过大，使用默认的1800秒（30分钟）
+		timeout = 1800 * time.Second
 	} else {
 		// 使用配置的RelayTimeout值
 		timeout = time.Duration(common.RelayTimeout) * time.Second
@@ -57,10 +57,14 @@ func initHTTPClients() {
 	}
 
 	// 为非流式长时间请求创建专用客户端
-	longTimeout := timeout
-	// 如果配置的超时时间小于15分钟，对于非流式请求使用15分钟
-	if longTimeout < 15*time.Minute {
-		longTimeout = 15 * time.Minute
+	// 非流式请求（如 /v1/messages 和 /v1/chat/completions）使用更长的超时时间
+	longTimeout := 3600 * time.Second // 默认60分钟
+	if common.RelayTimeout > 0 && common.RelayTimeout <= 3600 {
+		// 如果用户配置了合理的超时时间，使用配置值的2倍或至少30分钟
+		longTimeout = time.Duration(common.RelayTimeout*2) * time.Second
+		if longTimeout < 30*time.Minute {
+			longTimeout = 30 * time.Minute
+		}
 	}
 
 	longTimeoutHTTPClient = &http.Client{
@@ -122,9 +126,9 @@ func NewProxyHttpClientWithTimeout(proxyURL string, timeout time.Duration) (*htt
 
 	// 如果没有指定超时，使用RelayTimeout配置
 	if timeout == 0 {
-		if common.RelayTimeout == 0 {
-			// 如果RelayTimeout未设置，使用合理的默认值
-			timeout = time.Duration(600) * time.Second // 10分钟
+		if common.RelayTimeout == 0 || common.RelayTimeout > 3600 {
+			// 如果RelayTimeout未设置或过大，使用合理的默认值
+			timeout = 1800 * time.Second // 30分钟
 		} else {
 			timeout = time.Duration(common.RelayTimeout) * time.Second
 		}

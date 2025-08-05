@@ -298,7 +298,7 @@ export function renderQuota(quota, digits = 2) {
   quotaPerUnit = parseFloat(quotaPerUnit);
   displayInCurrency = displayInCurrency === 'true';
   if (displayInCurrency) {
-    return '$' + (quota / quotaPerUnit).toFixed(digits);
+    return '￥' + (quota / quotaPerUnit).toFixed(digits);
   }
   return renderNumber(quota);
 }
@@ -359,13 +359,13 @@ export function renderModelPrice(
       <>
         <article>
           <p>
-            {i18next.t('输入价格：${{price}} / 1M tokens', {
+            {i18next.t('输入价格：￥{{price}} / 1M tokens', {
               price: inputRatioPrice,
             })}
           </p>
           <p>
             {i18next.t(
-              '输出价格：${{price}} * {{completionRatio}} = ${{total}} / 1M tokens (补全倍率: {{completionRatio}})',
+              '输出价格：￥{{price}} * {{completionRatio}} = ￥{{total}} / 1M tokens (补全倍率: {{completionRatio}})',
               {
                 price: inputRatioPrice,
                 total: completionRatioPrice,
@@ -376,7 +376,7 @@ export function renderModelPrice(
           {cacheTokens > 0 && (
             <p>
               {i18next.t(
-                '缓存价格：${{price}} * {{cacheRatio}} = ${{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
+                '缓存价格：￥{{price}} * {{cacheRatio}} = ￥{{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
                 {
                   price: inputRatioPrice,
                   total: inputRatioPrice * cacheRatio,
@@ -388,7 +388,7 @@ export function renderModelPrice(
           {image && imageOutputTokens > 0 && (
             <p>
               {i18next.t(
-                '图片输入价格：${{price}} * {{ratio}} = ${{total}} / 1M tokens (图片倍率: {{imageRatio}})',
+                '图片输入价格：￥{{price}} * {{ratio}} = ￥{{total}} / 1M tokens (图片倍率: {{imageRatio}})',
                 {
                   price: imageRatioPrice,
                   ratio: groupRatio,
@@ -400,14 +400,14 @@ export function renderModelPrice(
           )}
           {webSearch && webSearchCallCount > 0 && (
             <p>
-              {i18next.t('Web搜索价格：${{price}} / 1K 次', {
+              {i18next.t('Web搜索价格：￥{{price}} / 1K 次', {
                 price: webSearchPrice,
               })}
             </p>
           )}
           {fileSearch && fileSearchCallCount > 0 && (
             <p>
-              {i18next.t('文件搜索价格：${{price}} / 1K 次', {
+              {i18next.t('文件搜索价格：￥{{price}} / 1K 次', {
                 price: fileSearchPrice,
               })}
             </p>
@@ -416,7 +416,7 @@ export function renderModelPrice(
           <p>
             {cacheTokens > 0 && !image && !webSearch && !fileSearch
               ? i18next.t(
-                  '输入 {{nonCacheInput}} tokens / 1M tokens * ${{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * ${{cachePrice}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} = ${{total}}',
+                  '(输入 {{nonCacheInput}} tokens / 1M tokens * ￥{{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * ${{cachePrice}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}}) * 分组 {{ratio}} = ￥{{total}}',
                   {
                     nonCacheInput: inputTokens - cacheTokens,
                     cacheInput: cacheTokens,
@@ -430,7 +430,7 @@ export function renderModelPrice(
                 )
               : image && imageOutputTokens > 0 && !webSearch && !fileSearch
                 ? i18next.t(
-                    '输入 {{nonImageInput}} tokens + 图片输入 {{imageInput}} tokens * {{imageRatio}} / 1M tokens * ${{price}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} = ${{total}}',
+                    '(输入 {{nonImageInput}} tokens + 图片输入 {{imageInput}} tokens * {{imageRatio}} / 1M tokens * ￥{{price}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}}) * 分组 {{ratio}} = ￥{{total}}',
                     {
                       nonImageInput: inputTokens - imageOutputTokens,
                       imageInput: imageOutputTokens,
@@ -444,7 +444,7 @@ export function renderModelPrice(
                   )
                 : webSearch && webSearchCallCount > 0 && !image && !fileSearch
                   ? i18next.t(
-                      '输入 {{input}} tokens / 1M tokens * ${{price}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} + Web搜索 {{webSearchCallCount}}次 / 1K 次 * ${{webSearchPrice}} * {{ratio}} = ${{total}}',
+                      '(输入 {{input}} tokens / 1M tokens * ￥{{price}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}} * 分组 {{ratio}} + Web搜索 {{webSearchCallCount}}次 / 1K 次 * ${{webSearchPrice}}) * {{ratio}} = ￥{{total}}',
                       {
                         input: inputTokens,
                         price: inputRatioPrice,
@@ -461,7 +461,7 @@ export function renderModelPrice(
                       !image &&
                       !webSearch
                     ? i18next.t(
-                        '输入 {{input}} tokens / 1M tokens * ${{price}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} + 文件搜索 {{fileSearchCallCount}}次 / 1K 次 * ${{fileSearchPrice}} * {{ratio}}= ${{total}}',
+                        '(输入 {{input}} tokens / 1M tokens * ￥{{price}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}} * 分组 {{ratio}} + 文件搜索 {{fileSearchCallCount}}次 / 1K 次 * ${{fileSearchPrice}}) * {{ratio}}= ￥{{total}}',
                         {
                           input: inputTokens,
                           price: inputRatioPrice,
@@ -479,7 +479,7 @@ export function renderModelPrice(
                         fileSearchCallCount > 0 &&
                         !image
                       ? i18next.t(
-                          '输入 {{input}} tokens / 1M tokens * ${{price}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} + Web搜索 {{webSearchCallCount}}次 / 1K 次 * ${{webSearchPrice}} * {{ratio}}+ 文件搜索 {{fileSearchCallCount}}次 / 1K 次 * ${{fileSearchPrice}} * {{ratio}}= ${{total}}',
+                          '(输入 {{input}} tokens / 1M tokens * ￥{{price}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}} * 分组 {{ratio}} + Web搜索 {{webSearchCallCount}}次 / 1K 次 * ${{webSearchPrice}} * {{ratio}}+ 文件搜索 {{fileSearchCallCount}}次 / 1K 次 * ${{fileSearchPrice}}) * {{ratio}}= ${{total}}',
                           {
                             input: inputTokens,
                             price: inputRatioPrice,
@@ -494,7 +494,7 @@ export function renderModelPrice(
                           },
                         )
                       : i18next.t(
-                          '输入 {{input}} tokens / 1M tokens * ${{price}} + 输出 {{completion}} tokens / 1M tokens * ${{compPrice}} * 分组 {{ratio}} = ${{total}}',
+                          '(输入 {{input}} tokens / 1M tokens * ￥{{price}} + 输出 {{completion}} tokens / 1M tokens * ￥{{compPrice}}) * 分组 {{ratio}} = ￥{{total}}',
                           {
                             input: inputTokens,
                             price: inputRatioPrice,
@@ -1067,7 +1067,7 @@ export function renderClaudeLogContent(
   const ratioLabel = false ? i18next.t('专属倍率') : i18next.t('分组倍率');
 
   if (modelPrice !== -1) {
-    return i18next.t('模型价格 ${{price}}，{{ratioType}} {{ratio}}', {
+    return i18next.t('模型价格 ￥{{price}}，{{ratioType}} {{ratio}}', {
       price: modelPrice,
       ratioType: ratioLabel,
       ratio: groupRatio,

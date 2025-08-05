@@ -865,6 +865,26 @@ const ModelPricing = ({onInitialize}) => {
       title: () => (
           <div className="flex items-center gap-1 whitespace-nowrap">
             <span className="flex-shrink-0">{t('模型价格')}</span>
+
+            <Popover
+                content={
+                  <div style={{ padding: 8 }}>
+                    {t('源头底价直供，价格透明，稳定可用，点击相应分组即可查看对应模型的价格明细。例如：￥0.38 / 1M 表示每百万输入Token的费用为人民币0.38元。')}<br/>
+                  </div>
+                }
+                position='top'
+                style={{
+                  backgroundColor: 'var(--semi-color-bg-2)',
+                  borderColor: 'var(--semi-color-border)',
+                  color: 'var(--semi-color-text-0)',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                }}
+            >
+              <IconHelpCircle
+                  className="cursor-pointer"
+              />
+            </Popover>
           </div>
       ),
       dataIndex: 'model_price',
@@ -1340,14 +1360,14 @@ const ModelPricing = ({onInitialize}) => {
               {/*  />*/}
               {/*</div>*/}
 
-              <div className="mb-4">
-                <Banner
-                    type="info"
-                    fullMode={false}
-                    description={<div>{t('按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 × 补全倍率）/ 500000 ')}</div>}
-                    closeIcon={null}
-                />
-              </div>
+              {/*<div className="mb-4">*/}
+              {/*  <Banner*/}
+              {/*      type="info"*/}
+              {/*      fullMode={false}*/}
+              {/*      description={<div>{t('按量计费费用 = 分组倍率 × 模型倍率 × （提示token数 + 补全token数 × 补全倍率）/ 500000 ')}</div>}*/}
+              {/*      closeIcon={null}*/}
+              {/*  />*/}
+              {/*</div>*/}
 
               {/* 供应商导航栏 */}
               <div className="provider-section mb-4">
