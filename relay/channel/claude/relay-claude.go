@@ -504,7 +504,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 
 		// 检查错误信息中是否包含敏感关键词
 		errorMessage := claudeResponse.Error.Message
-		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") ||
+		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") || strings.Contains(errorMessage, "无可用") ||
 			strings.Contains(errorMessage, "poe") || strings.Contains(errorMessage, "tenclock") || strings.Contains(errorMessage, "服务超时") ||
 			strings.Contains(errorMessage, "额度") || strings.Contains(errorMessage, "credit") || strings.Contains(errorMessage, "enough") {
 			errorMessage = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
@@ -634,7 +634,7 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 
 		// 检查错误信息中是否包含敏感关键词
 		errorMessage := claudeResponse.Error.Message
-		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") ||
+		if strings.Contains(errorMessage, "quota") || strings.Contains(errorMessage, "配额") || strings.Contains(errorMessage, "非流") || strings.Contains(errorMessage, "无可用") ||
 			strings.Contains(errorMessage, "poe") || strings.Contains(errorMessage, "tenclock") || strings.Contains(errorMessage, "服务超时") ||
 			strings.Contains(errorMessage, "额度") || strings.Contains(errorMessage, "credit") || strings.Contains(errorMessage, "enough") {
 			errorMessage = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"

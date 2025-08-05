@@ -165,7 +165,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (errWithStatu
 	}
 
 	if strings.Contains(upstreamMessage, "quota") || strings.Contains(upstreamMessage, "配额") || strings.Contains(upstreamMessage, "非流") ||
-		strings.Contains(upstreamMessage, "poe") || strings.Contains(upstreamMessage, "tenclock") || strings.Contains(upstreamMessage, "服务超时") ||
+		strings.Contains(upstreamMessage, "poe") || strings.Contains(upstreamMessage, "tenclock") || strings.Contains(upstreamMessage, "服务超时") || strings.Contains(upstreamMessage, "无可用") ||
 		strings.Contains(upstreamMessage, "额度") || strings.Contains(upstreamMessage, "credit") || strings.Contains(upstreamMessage, "enough") {
 		errWithStatusCode.Error.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
 	} else {
