@@ -8,6 +8,7 @@ import (
 	"one-api/common"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -63,8 +64,15 @@ func CompleteOrder(outTradeNo string) error {
 	// 查询订单（支持状态为0或999的订单）
 	var order OrderInfo
 	if err := DB.Where("out_trade_no = ? AND (status = ? OR status = ?)", outTradeNo, 0, 999).First(&order).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.SysLog(fmt.Sprintf("订单不存在或已处理: %s", outTradeNo))
+			return errors.New("订单不存在或已被处理")
+		}
 		return errors.New("订单未找到: " + err.Error())
 	}
+
+	common.SysLog(fmt.Sprintf("开始处理订单: %s, 用户ID: %d, 支付金额: %.2f, 到账金额: %.2f", 
+		outTradeNo, order.UserId, order.PayAmount, order.GetAmount))
 
 	user, err := GetUserById(order.UserId, true)
 	if err != nil {
@@ -78,17 +86,22 @@ func CompleteOrder(outTradeNo string) error {
 	}
 	defer tx.Rollback()
 
-	// 更新用户额度
-	user.Quota += (int)(order.GetAmount * common.QuotaPerUnit)
+	// 更新用户额度 - 使用decimal精确计算
+	dAmount := decimal.NewFromFloat(order.GetAmount)
+	dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+	quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
+	
+	user.Quota += quotaToAdd
 	user.PayCount++
 	if err := tx.Save(&user).Error; err != nil {
+		common.SysLog(fmt.Sprintf("更新用户额度失败: 订单=%s, 用户ID=%d, 错误=%v", outTradeNo, user.Id, err))
 		return errors.New("订单失败: " + err.Error())
 	}
 
 	// 处理邀请充值返利：用户前三次充值时给邀请者返利
 	if user.InviterId > 0 && user.PayCount <= 3000000 {
-		// 计算返利额度：充值额度的2%
-		commissionQuota := int(float64(order.PayAmount*common.QuotaPerUnit) * 0.02)
+		// 计算返利额度：使用实际增加的额度的比例
+		commissionQuota := int(float64(quotaToAdd) * 0.02)
 
 		// 给邀请者分配返利
 		if commissionQuota > 0 {
@@ -116,12 +129,15 @@ func CompleteOrder(outTradeNo string) error {
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
+		common.SysLog(fmt.Sprintf("事务提交失败: 订单=%s, 错误=%v", outTradeNo, err))
 		return err
 	}
 
+	common.SysLog(fmt.Sprintf("订单完成成功: %s, 用户ID: %d, 增加额度: %d", outTradeNo, order.UserId, quotaToAdd))
+
 	// 记录用户充值日志
 	RecordLog(order.UserId, LogTypeTopup,
-		fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%v", int(order.GetAmount), int(order.PayAmount)))
+		fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, common.LogQuota(quotaToAdd), order.PayAmount))
 
 	return nil
 }

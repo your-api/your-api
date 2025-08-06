@@ -215,7 +215,7 @@ func EpayNotify(c *gin.Context) {
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
 		topUp := model.GetTopUpByTradeNo(verifyInfo.ServiceTradeNo)
 		if topUp == nil {
-			log.Printf("易支付回调未找到订单: %v", verifyInfo)
+			log.Printf("易支付回调未找到订单: 订单号=%s, 详情=%+v", verifyInfo.ServiceTradeNo, verifyInfo)
 			return
 		}
 		if topUp.Status == "pending" {
@@ -231,7 +231,7 @@ func EpayNotify(c *gin.Context) {
 			topUp.Status = "success"
 			err := tx.Save(topUp).Error
 			if err != nil {
-				log.Printf("易支付回调更新订单失败: %v", topUp)
+				log.Printf("易支付回调更新订单失败: 订单号=%s, 错误=%v, 详情=%+v", topUp.TradeNo, err, topUp)
 				return
 			}
 
@@ -254,7 +254,7 @@ func EpayNotify(c *gin.Context) {
 				"pay_count": user.PayCount,
 			}).Error
 			if err != nil {
-				log.Printf("易支付回调更新用户失败: %v", topUp)
+				log.Printf("易支付回调更新用户失败: 订单号=%s, 错误=%v, 详情=%+v", topUp.TradeNo, err, topUp)
 				return
 			}
 
@@ -286,8 +286,8 @@ func EpayNotify(c *gin.Context) {
 				return
 			}
 
-			log.Printf("易支付回调更新用户成功 %v", topUp)
-			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", common.LogQuota(quotaToAdd), topUp.Money))
+			log.Printf("易支付回调更新用户成功 订单号: %s, 用户ID: %d, 增加额度: %d, 支付金额: %f", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money)
+			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%f", topUp.TradeNo, common.LogQuota(quotaToAdd), topUp.Money))
 		}
 	} else {
 		log.Printf("易支付异常回调: %v", verifyInfo)

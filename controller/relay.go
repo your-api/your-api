@@ -716,6 +716,199 @@ func RelayClaudeC2(c *gin.Context) {
 	RelayClaude(c)
 }
 
+func RelayClaudeOp(c *gin.Context) {
+	// 获取原始请求体并修改模型名称
+	rawBody, err := common.GetRequestBody(c)
+	if err != nil {
+		common.LogError(c, fmt.Sprintf("获取请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "无效的请求",
+			},
+			StatusCode: http.StatusBadRequest,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 解析 JSON 以修改模型名称
+	var requestBody map[string]interface{}
+	if err := json.Unmarshal(rawBody, &requestBody); err != nil {
+		common.LogError(c, fmt.Sprintf("解析请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "无效的JSON格式",
+			},
+			StatusCode: http.StatusBadRequest,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 强制设置模型为 cc:claude-code
+	targetModel := "claude-opus-4-1-20250805"
+	requestBody["model"] = targetModel
+
+	// 重新序列化请求体
+	modifiedBody, err := json.Marshal(requestBody)
+	if err != nil {
+		common.LogError(c, fmt.Sprintf("序列化请求体失败: %s", err.Error()))
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: "处理请求失败",
+			},
+			StatusCode: http.StatusInternalServerError,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 重置请求体
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(modifiedBody))
+
+	// 手动设置渠道相关信息（模拟 Distribute 中间件的行为）
+	// 获取用户基础分组（通过TokenAuth中间件已设置）
+	userGroup := c.GetString(constant2.ContextKeyUserGroup)
+	if userGroup == "" {
+		// 如果从上下文中获取不到，尝试从用户缓存中重新获取
+		userId := c.GetInt("id")
+		if userId > 0 {
+			if userCache, cacheErr := model.GetUserCache(userId); cacheErr == nil {
+				userGroup = userCache.Group
+			}
+		}
+		// 如果仍然为空，使用默认分组
+		if userGroup == "" {
+			userGroup = "default"
+		}
+	}
+
+	// 获取令牌分组
+	tokenGroup := c.GetString("token_group")
+
+	if tokenGroup != "" {
+		// 检查用户是否可以使用这个令牌分组
+		if _, ok := setting.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+			claudeErr := &dto.ClaudeErrorWithStatusCode{
+				Error: dto.ClaudeError{
+					Message: fmt.Sprintf("令牌分组 %s 已被禁用", tokenGroup),
+				},
+				StatusCode: http.StatusForbidden,
+			}
+			requestId := c.GetString(common.RequestIdKey)
+			claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+			c.JSON(claudeErr.StatusCode, gin.H{
+				"error": claudeErr.Error,
+			})
+			return
+		}
+		// 检查分组是否存在于分组比例中
+		if !setting.ContainsGroupRatio(tokenGroup) {
+			claudeErr := &dto.ClaudeErrorWithStatusCode{
+				Error: dto.ClaudeError{
+					Message: fmt.Sprintf("分组 %s 已被弃用", tokenGroup),
+				},
+				StatusCode: http.StatusForbidden,
+			}
+			requestId := c.GetString(common.RequestIdKey)
+			claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+			c.JSON(claudeErr.StatusCode, gin.H{
+				"error": claudeErr.Error,
+			})
+			return
+		}
+		userGroup = tokenGroup
+	}
+
+	group := userGroup
+	c.Set("group", group)
+
+	// 添加调试信息
+	//groupRatio := setting.GetGroupRatio(group)
+	//common.LogInfo(c, fmt.Sprintf("K2 Debug - 最终使用分组: %s, 分组倍率: %.2f, 目标模型: %s", group, groupRatio, targetModel))
+
+	// 检查令牌模型限制
+	modelLimitEnable := c.GetBool("token_model_limit_enabled")
+	if modelLimitEnable {
+		s, ok := c.Get("token_model_limit")
+		var tokenModelLimit map[string]bool
+		if ok {
+			tokenModelLimit = s.(map[string]bool)
+		} else {
+			tokenModelLimit = map[string]bool{}
+		}
+		if tokenModelLimit != nil {
+			if _, ok := tokenModelLimit[targetModel]; !ok {
+				claudeErr := &dto.ClaudeErrorWithStatusCode{
+					Error: dto.ClaudeError{
+						Message: fmt.Sprintf("该令牌无权访问模型 %s", targetModel),
+					},
+					StatusCode: http.StatusForbidden,
+				}
+				requestId := c.GetString(common.RequestIdKey)
+				claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+				c.JSON(claudeErr.StatusCode, gin.H{
+					"error": claudeErr.Error,
+				})
+				return
+			}
+		} else {
+			// token model limit is empty, all models are not allowed
+			claudeErr := &dto.ClaudeErrorWithStatusCode{
+				Error: dto.ClaudeError{
+					Message: "该令牌无权访问任何模型",
+				},
+				StatusCode: http.StatusForbidden,
+			}
+			requestId := c.GetString(common.RequestIdKey)
+			claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+			c.JSON(claudeErr.StatusCode, gin.H{
+				"error": claudeErr.Error,
+			})
+			return
+		}
+	}
+
+	// 选择适合目标模型的渠道
+	channel, err := model.CacheGetRandomSatisfiedChannel(group, targetModel, 0)
+	if err != nil {
+		common.LogError(c, err.Error())
+		claudeErr := &dto.ClaudeErrorWithStatusCode{
+			Error: dto.ClaudeError{
+				Message: fmt.Sprintf("当前分组 %s 下对于模型 %s 无可用渠道", group, targetModel),
+			},
+			StatusCode: http.StatusServiceUnavailable,
+		}
+		requestId := c.GetString(common.RequestIdKey)
+		claudeErr.Error.Message = common.MessageWithRequestId(claudeErr.Error.Message, requestId)
+		c.JSON(claudeErr.StatusCode, gin.H{
+			"error": claudeErr.Error,
+		})
+		return
+	}
+
+	// 设置请求开始时间（模拟 Distribute 中间件的行为）
+	c.Set(constant2.ContextKeyRequestStartTime, time.Now())
+
+	// 设置渠道相关的上下文信息
+	middleware.SetupContextForSelectedChannel(c, channel, targetModel)
+
+	// 调用原有的 Claude 处理逻辑
+	RelayClaude(c)
+}
+
 func RelayClaudeQwen(c *gin.Context) {
 	// 获取原始请求体并修改模型名称
 	rawBody, err := common.GetRequestBody(c)

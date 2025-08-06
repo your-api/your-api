@@ -33,7 +33,7 @@ const EditToken = (props) => {
     name: '默认未命名令牌',
     remain_quota: isEdit ? 0 : 500000,
     expired_time: -1,
-    unlimited_quota: false,
+    unlimited_quota: true,
     model_limits_enabled: false,
     model_limits: [],
     allow_ips: '',
