@@ -202,8 +202,13 @@ func ClaudePassthroughWithRetry(c *gin.Context, relayInfo *relaycommon.RelayInfo
 		}
 
 		// 第一次请求时添加渠道ID到使用记录
+		// 但要检查是否已经记录过（避免外层已经记录的情况）
 		if i == 0 {
-			addUsedChannel(c, channel.Id)
+			useChannel := c.GetStringSlice("use_channel")
+			if len(useChannel) == 0 {
+				// 只有在还没有记录时才记录
+				addUsedChannel(c, channel.Id)
+			}
 		}
 
 		// 记录重试信息
