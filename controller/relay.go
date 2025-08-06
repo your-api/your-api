@@ -1311,21 +1311,21 @@ func RelayClaudeGlm(c *gin.Context) {
 }
 
 func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *dto.OpenAIErrorWithStatusCode {
-	addUsedChannel(c, channel.Id)
+	// 不在这里记录渠道，由调用方处理
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relayHandler(c, relayMode)
 }
 
 func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *model.Channel) *dto.OpenAIErrorWithStatusCode {
-	addUsedChannel(c, channel.Id)
+	// 不在这里记录渠道，由调用方处理
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.WssHelper(c, ws)
 }
 
 func claudeRequest(c *gin.Context, channel *model.Channel) *dto.ClaudeErrorWithStatusCode {
-	addUsedChannel(c, channel.Id)
+	// 不在这里记录渠道，由调用方处理
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.ClaudeHelper(c)
