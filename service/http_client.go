@@ -43,8 +43,8 @@ func initHTTPClients() {
 			MaxIdleConnsPerHost:   200, // 优化：增加每个主机的最大空闲连接数
 			MaxConnsPerHost:       200, // 优化：增加每个主机的最大连接数
 			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   15 * time.Second, // 优化：TLS握手超时15秒
-			ResponseHeaderTimeout: 60 * time.Second, // 优化：响应头超时60秒
+			TLSHandshakeTimeout:   30 * time.Second,   // 优化：TLS握手超时15秒
+			ResponseHeaderTimeout: 2400 * time.Second, // 优化：响应头超时60秒
 			ExpectContinueTimeout: 1 * time.Second,
 			DisableCompression:    false,     // 启用压缩
 			WriteBufferSize:       64 * 1024, // 优化：64KB写缓冲区
@@ -80,8 +80,11 @@ func initHTTPClients() {
 			MaxIdleConnsPerHost:   100,
 			MaxConnsPerHost:       100, // 优化：限制并发连接
 			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   30 * time.Second,  // 优化：平衡的TLS超时
-			ResponseHeaderTimeout: 180 * time.Second, // 优化：3分钟响应头超时
+			TLSHandshakeTimeout:   30 * time.Second,   // 优化：TLS握手超时15秒
+			ResponseHeaderTimeout: 2400 * time.Second, // 优化：响应头超时60秒
+			// ResponseHeaderTimeout 不设置或设置为0，让总的Timeout控制超时
+			// 对于非流式长时间请求，服务器可能需要很长时间处理才返回响应头
+			// ResponseHeaderTimeout: 0, // 不限制响应头超时，由总Timeout控制
 			ExpectContinueTimeout: 1 * time.Second,
 			DisableCompression:    false,     // 启用压缩
 			WriteBufferSize:       64 * 1024, // 优化：64KB写缓冲区
