@@ -55,6 +55,17 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	
+	// 检查是否是透传模式（通过 User-Agent 判断）
+	userAgent := c.Request.Header.Get("User-Agent")
+	isPassthrough := strings.Contains(strings.ToLower(userAgent), "cli")
+	
+	if isPassthrough {
+		// 透传模式：只透传 User-Agent
+		req.Set("User-Agent", userAgent)
+	}
+	
+	// 设置必要的认证和版本头
 	req.Set("x-api-key", info.ApiKey)
 	anthropicVersion := c.Request.Header.Get("anthropic-version")
 	if anthropicVersion == "" {

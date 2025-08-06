@@ -210,7 +210,7 @@ func GenRelayInfo(c *gin.Context) *RelayInfo {
 		Group:             group,
 		TokenUnlimited:    tokenUnlimited,
 		StartTime:         startTime,
-		FirstResponseTime: startTime.Add(-time.Second),
+		FirstResponseTime: time.Time{}, // 初始化为零值，实际收到响应时再设置
 		OriginModelName:   c.GetString("original_model"),
 		UpstreamModelName: c.GetString("original_model"),
 		//RecodeModelName:   c.GetString("original_model"),

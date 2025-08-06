@@ -201,6 +201,11 @@ func ClaudePassthroughWithRetry(c *gin.Context, relayInfo *relaycommon.RelayInfo
 			break
 		}
 
+		// 第一次请求时添加渠道ID到使用记录
+		if i == 0 {
+			addUsedChannel(c, channel.Id)
+		}
+
 		// 记录重试信息
 		if i > 0 {
 			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
@@ -250,10 +255,9 @@ func ClaudePassthroughWithRetry(c *gin.Context, relayInfo *relaycommon.RelayInfo
 	return claudeError
 }
 
-// ClaudePassthroughRequest 执行单次透传请求，不做任何修改，但保持计费功能
+// ClaudePassthroughRequest 执行单次透传请求，只修改模型名，其他完全透传
 func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, channel *model.Channel) (claudeError *dto.ClaudeErrorWithStatusCode) {
-	// 记录使用的渠道
-	addUsedChannel(c, channel.Id)
+	// 不在这里记录使用的渠道，已经在 getChannel 或主循环中记录过了
 	
 	// 读取原始请求体
 	requestBody, err := common.GetRequestBody(c)
@@ -261,41 +265,58 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 		return service.ClaudeErrorWrapperLocal(err, "read_request_body_failed", http.StatusBadRequest)
 	}
 
-	// 解析请求以获取基本信息（用于计费，但不修改请求）
-	var textRequest dto.ClaudeRequest
-	if err := json.Unmarshal(requestBody, &textRequest); err != nil {
-		return service.ClaudeErrorWrapperLocal(err, "invalid_claude_request", http.StatusBadRequest)
+	// 解析请求体为 map 以便修改模型名，同时保留所有其他字段
+	var requestMap map[string]interface{}
+	if err := json.Unmarshal(requestBody, &requestMap); err != nil {
+		return service.ClaudeErrorWrapperLocal(err, "invalid_json_request", http.StatusBadRequest)
 	}
 	
 	// 基础验证
-	if textRequest.Messages == nil || len(textRequest.Messages) == 0 {
+	messages, hasMessages := requestMap["messages"]
+	if !hasMessages || messages == nil {
 		return service.ClaudeErrorWrapperLocal(errors.New("field messages is required"), "invalid_claude_request", http.StatusBadRequest)
 	}
-	if textRequest.Model == "" {
+	
+	originalModel, hasModel := requestMap["model"].(string)
+	if !hasModel || originalModel == "" {
 		return service.ClaudeErrorWrapperLocal(errors.New("field model is required"), "invalid_claude_request", http.StatusBadRequest)
 	}
 	
-	// 设置流模式标志
-	if textRequest.Stream {
+	// 设置流模式标志（用于内部处理）
+	if stream, ok := requestMap["stream"].(bool); ok && stream {
 		relayInfo.IsStream = true
 	}
 
-	// 模型映射（用于计费，不修改请求体中的模型名）
+	// 模型映射（修改请求体中的模型名）
 	err = helper.ModelMappedHelper(c, relayInfo)
 	if err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "model_mapped_error", http.StatusInternalServerError)
 	}
+	
+	// 如果模型被映射了，更新请求体中的模型名
+	if relayInfo.IsModelMapped && relayInfo.UpstreamModelName != originalModel {
+		requestMap["model"] = relayInfo.UpstreamModelName
+	}
 
+	// 为了计费，创建一个临时的 ClaudeRequest 结构体
+	var textRequest dto.ClaudeRequest
+	tempBody, _ := json.Marshal(requestMap)
+	json.Unmarshal(tempBody, &textRequest)
+	
 	// 计算 prompt tokens（用于计费）
 	promptTokens, err := getClaudePromptTokens(&textRequest, relayInfo)
 	if err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "count_token_messages_failed", http.StatusInternalServerError)
 	}
 
-	// 获取价格信息
-	maxTokensForPricing := int(textRequest.MaxTokens)
+	// 获取价格信息 - 使用请求中的实际 max_tokens，不设置默认值
+	maxTokensForPricing := 0
+	if maxTokens, ok := requestMap["max_tokens"].(float64); ok {
+		maxTokensForPricing = int(maxTokens)
+	}
 	if maxTokensForPricing == 0 {
-		maxTokensForPricing = model_setting.GetClaudeSettings().GetDefaultMaxTokens(textRequest.Model)
+		// 只用于计费，不修改请求
+		maxTokensForPricing = model_setting.GetClaudeSettings().GetDefaultMaxTokens(originalModel)
 	}
 	priceData, err := helper.ModelPriceHelper(c, relayInfo, promptTokens, maxTokensForPricing)
 	if err != nil {
@@ -322,11 +343,17 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	}
 	adaptor.Init(relayInfo)
 
-	// 直接使用原始请求体，不做任何修改
-	bodyReader := bytes.NewBuffer(requestBody)
+	// 将修改后的请求体（仅模型名可能被修改）序列化
+	modifiedBody, err := json.Marshal(requestMap)
+	if err != nil {
+		return service.ClaudeErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
+	}
 	
-	// 重置请求体，确保每次重试都使用原始请求体
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	// 使用修改后的请求体
+	bodyReader := bytes.NewBuffer(modifiedBody)
+	
+	// 重置请求体，确保每次重试都使用修改后的请求体
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(modifiedBody))
 
 	// 执行请求
 	statusCodeMappingStr := c.GetString("status_code_mapping")
@@ -522,7 +549,11 @@ func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*m
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("获取重试渠道失败: %s", err.Error()))
 	}
+	// 只在重试时设置新的渠道上下文
+	// 第一次（retryCount==0）时已经有了渠道信息，不需要再设置
 	middleware.SetupContextForSelectedChannel(c, channel, originalModel)
+	// 添加渠道ID到使用记录
+	addUsedChannel(c, channel.Id)
 	return channel, nil
 }
 

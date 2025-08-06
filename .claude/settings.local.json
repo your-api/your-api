@@ -3,7 +3,8 @@
     "allow": [
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(go build:*)"
     ],
     "deny": []
   }

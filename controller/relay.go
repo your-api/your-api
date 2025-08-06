@@ -124,6 +124,11 @@ func Relay(c *gin.Context) {
 			break
 		}
 
+		// 第一次请求时添加渠道ID到使用记录
+		if i == 0 {
+			addUsedChannel(c, channel.Id)
+		}
+
 		// 记录重试信息
 		if i > 0 {
 			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
@@ -208,6 +213,11 @@ func WssRelay(c *gin.Context) {
 			break
 		}
 
+		// 第一次请求时添加渠道ID到使用记录
+		if i == 0 {
+			addUsedChannel(c, channel.Id)
+		}
+
 		// 记录重试信息
 		if i > 0 {
 			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
@@ -272,6 +282,11 @@ func RelayClaude(c *gin.Context) {
 				StatusCode: http.StatusInternalServerError,
 			}
 			break
+		}
+
+		// 第一次请求时添加渠道ID到使用记录
+		if i == 0 {
+			addUsedChannel(c, channel.Id)
 		}
 
 		// 记录重试信息
@@ -1340,7 +1355,11 @@ func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*m
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("获取重试渠道失败: %s", err.Error()))
 	}
+	// 只在重试时设置新的渠道上下文
+	// 第一次（retryCount==0）时已经有了渠道信息，不需要再设置
 	middleware.SetupContextForSelectedChannel(c, channel, originalModel)
+	// 添加渠道ID到使用记录
+	addUsedChannel(c, channel.Id)
 	return channel, nil
 }
 
