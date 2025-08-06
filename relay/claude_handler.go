@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -35,6 +36,12 @@ func getAndValidateClaudeRequest(c *gin.Context) (textRequest *dto.ClaudeRequest
 func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 
 	relayInfo := relaycommon.GenRelayInfoClaude(c)
+
+	// 检查 User-Agent 是否包含 "cli"，如果包含则完全透传
+	userAgent := c.Request.Header.Get("User-Agent")
+	if strings.Contains(strings.ToLower(userAgent), "cli") {
+		return ClaudePassthroughHelper(c, relayInfo)
+	}
 
 	// get & validate textRequest 获取并验证文本请求
 	textRequest, err := getAndValidateClaudeRequest(c)
@@ -160,4 +167,120 @@ func getClaudePromptTokens(textRequest *dto.ClaudeRequest, info *relaycommon.Rel
 	}
 	info.PromptTokens = promptTokens
 	return promptTokens, err
+}
+
+// ClaudePassthroughHelper 完全透传 Claude 请求，不做任何修改
+func ClaudePassthroughHelper(c *gin.Context, relayInfo *relaycommon.RelayInfo) (claudeError *dto.ClaudeErrorWithStatusCode) {
+	// 读取原始请求体
+	requestBody, err := common.GetRequestBody(c)
+	if err != nil {
+		return service.ClaudeErrorWrapperLocal(err, "read_request_body_failed", http.StatusBadRequest)
+	}
+
+	// 尝试解析请求以获取基本信息（仅用于记录，不修改）
+	var textRequest dto.ClaudeRequest
+	json.Unmarshal(requestBody, &textRequest)
+	
+	// 设置流模式标志
+	if textRequest.Stream {
+		relayInfo.IsStream = true
+	}
+
+	// 获取适配器
+	adaptor := GetAdaptor(relayInfo.ApiType)
+	if adaptor == nil {
+		return service.ClaudeErrorWrapperLocal(fmt.Errorf("invalid api type: %d", relayInfo.ApiType), "invalid_api_type", http.StatusBadRequest)
+	}
+	adaptor.Init(relayInfo)
+
+	// 直接使用原始请求体，不做任何修改
+	bodyReader := bytes.NewBuffer(requestBody)
+
+	// 执行请求
+	statusCodeMappingStr := c.GetString("status_code_mapping")
+	var httpResp *http.Response
+	resp, err := adaptor.DoRequest(c, relayInfo, bodyReader)
+	if err != nil {
+		return service.ClaudeErrorWrapperLocal(err, "do_request_failed", http.StatusInternalServerError)
+	}
+
+	if resp != nil {
+		httpResp = resp.(*http.Response)
+		relayInfo.IsStream = relayInfo.IsStream || strings.HasPrefix(httpResp.Header.Get("Content-Type"), "text/event-stream")
+		if httpResp.StatusCode != http.StatusOK {
+			openaiErr := service.RelayErrorHandler(httpResp, false)
+			service.ResetStatusCode(openaiErr, statusCodeMappingStr)
+			return service.OpenAIErrorToClaudeError(openaiErr)
+		}
+	}
+
+	// 处理响应
+	if relayInfo.IsStream {
+		// 流式响应：直接透传
+		return ClaudePassthroughStreamHandler(c, httpResp, relayInfo)
+	} else {
+		// 非流式响应：直接透传
+		return ClaudePassthroughHandler(c, httpResp, relayInfo)
+	}
+}
+
+// ClaudePassthroughStreamHandler 透传流式响应
+func ClaudePassthroughStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) *dto.ClaudeErrorWithStatusCode {
+	defer resp.Body.Close()
+	
+	// 设置响应头
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	
+	// 开始响应
+	c.Writer.WriteHeader(http.StatusOK)
+	c.Writer.Flush()
+	
+	// 直接透传流数据
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Split(bufio.ScanLines)
+	
+	for scanner.Scan() {
+		line := scanner.Text()
+		// 直接写入原始数据
+		c.Writer.Write([]byte(line + "\n"))
+		if line == "" || strings.HasPrefix(line, "data:") {
+			// 刷新缓冲区以确保数据立即发送
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+	}
+	
+	if err := scanner.Err(); err != nil {
+		common.LogError(c, fmt.Sprintf("stream scanner error: %v", err))
+	}
+	
+	return nil
+}
+
+// ClaudePassthroughHandler 透传非流式响应
+func ClaudePassthroughHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) *dto.ClaudeErrorWithStatusCode {
+	defer resp.Body.Close()
+	
+	// 读取响应体
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return service.ClaudeErrorWrapperLocal(err, "read_response_body_failed", http.StatusInternalServerError)
+	}
+	
+	// 设置响应头
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.WriteHeader(http.StatusOK)
+	
+	// 直接写入原始响应
+	_, err = c.Writer.Write(responseBody)
+	if err != nil {
+		common.LogError(c, fmt.Sprintf("write response failed: %v", err))
+	}
+	
+	return nil
 }
