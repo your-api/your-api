@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"one-api/common"
 	"one-api/dto"
+	"one-api/middleware"
+	"one-api/model"
 	relaycommon "one-api/relay/common"
 	"one-api/relay/helper"
 	"one-api/service"
@@ -38,10 +40,10 @@ func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 
 	relayInfo := relaycommon.GenRelayInfoClaude(c)
 
-	// 检查 User-Agent 是否包含 "cli"，如果包含则完全透传
+	// 检查 User-Agent 是否包含 "cli"，如果包含则使用透传模式的重试逻辑
 	userAgent := c.Request.Header.Get("User-Agent")
 	if strings.Contains(strings.ToLower(userAgent), "cli") {
-		return ClaudePassthroughHelper(c, relayInfo)
+		return ClaudePassthroughWithRetry(c, relayInfo)
 	}
 
 	// get & validate textRequest 获取并验证文本请求
@@ -170,8 +172,89 @@ func getClaudePromptTokens(textRequest *dto.ClaudeRequest, info *relaycommon.Rel
 	return promptTokens, err
 }
 
-// ClaudePassthroughHelper 完全透传 Claude 请求，不做任何修改，但保持计费功能
-func ClaudePassthroughHelper(c *gin.Context, relayInfo *relaycommon.RelayInfo) (claudeError *dto.ClaudeErrorWithStatusCode) {
+// ClaudePassthroughWithRetry 透传模式的重试逻辑，类似于 RelayClaude
+func ClaudePassthroughWithRetry(c *gin.Context, relayInfo *relaycommon.RelayInfo) (claudeError *dto.ClaudeErrorWithStatusCode) {
+	requestId := c.GetString(common.RequestIdKey)
+	group := c.GetString("group")
+	originalModel := c.GetString("original_model")
+
+	// 使用新的重试配置
+	maxRetries := common.GetEffectiveMaxRetryTimes()
+
+	for i := 0; i <= maxRetries; i++ {
+		c.Set("retry_times", i) // 设置重试次数到上下文中
+		if i == maxRetries {
+			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
+		} else {
+			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
+		}
+
+		channel, err := getChannel(c, group, originalModel, i)
+		if err != nil {
+			common.LogError(c, err.Error())
+			claudeError = &dto.ClaudeErrorWithStatusCode{
+				Error: dto.ClaudeError{
+					Message: fmt.Sprintf("获取渠道失败: %s", err.Error()),
+				},
+				StatusCode: http.StatusInternalServerError,
+			}
+			break
+		}
+
+		// 记录重试信息
+		if i > 0 {
+			common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, maxRetries-i))
+		}
+
+		claudeError = ClaudePassthroughRequest(c, relayInfo, channel)
+
+		if claudeError == nil {
+			return // 成功处理请求，直接返回
+		}
+
+		// 转换为OpenAIError进行处理
+		openaiErr := &dto.OpenAIErrorWithStatusCode{
+			Error: dto.OpenAIError{
+				Message: claudeError.Error.Message,
+				Type:    "claude_error",
+			},
+			StatusCode: claudeError.StatusCode,
+		}
+
+		go processChannelError(c, channel.Id, channel.Type, channel.Name, channel.GetAutoBan(), openaiErr)
+
+		// 可以在这里添加 shouldRetry 逻辑，类似原来的 RelayClaude
+	}
+
+	useChannel := c.GetStringSlice("use_channel")
+	if len(useChannel) > 1 {
+		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
+		common.LogInfo(c, retryLogStr)
+	}
+
+	if claudeError != nil {
+		if claudeError.StatusCode == http.StatusTooManyRequests {
+			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeError.Error.Message))
+			claudeError.Error.Message = "当前分组上游负载已饱和，请稍后再试"
+		} else if !claudeError.LocalError {
+			// 透传模式保持原始错误信息，不进行过滤
+			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", claudeError.StatusCode, claudeError.Error.Message))
+		}
+
+		claudeError.Error.Message = common.MessageWithRequestId(claudeError.Error.Message, requestId)
+		c.JSON(claudeError.StatusCode, gin.H{
+			"error": claudeError.Error,
+		})
+	}
+
+	return claudeError
+}
+
+// ClaudePassthroughRequest 执行单次透传请求，不做任何修改，但保持计费功能
+func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, channel *model.Channel) (claudeError *dto.ClaudeErrorWithStatusCode) {
+	// 记录使用的渠道
+	addUsedChannel(c, channel.Id)
+	
 	// 读取原始请求体
 	requestBody, err := common.GetRequestBody(c)
 	if err != nil {
@@ -241,6 +324,9 @@ func ClaudePassthroughHelper(c *gin.Context, relayInfo *relaycommon.RelayInfo) (
 
 	// 直接使用原始请求体，不做任何修改
 	bodyReader := bytes.NewBuffer(requestBody)
+	
+	// 重置请求体，确保每次重试都使用原始请求体
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 
 	// 执行请求
 	statusCodeMappingStr := c.GetString("status_code_mapping")
@@ -408,4 +494,43 @@ func ClaudePassthroughHandler(c *gin.Context, resp *http.Response, info *relayco
 	}
 	
 	return usage, nil
+}
+
+// 以下是从 controller/relay.go 复制的辅助函数，用于支持重试功能
+
+func addUsedChannel(c *gin.Context, channelId int) {
+	useChannel := c.GetStringSlice("use_channel")
+	useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
+	c.Set("use_channel", useChannel)
+}
+
+func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*model.Channel, error) {
+	if retryCount == 0 {
+		autoBan := c.GetBool("auto_ban")
+		autoBanInt := 1
+		if !autoBan {
+			autoBanInt = 0
+		}
+		return &model.Channel{
+			Id:      c.GetInt("channel_id"),
+			Type:    c.GetInt("channel_type"),
+			Name:    c.GetString("channel_name"),
+			AutoBan: &autoBanInt,
+		}, nil
+	}
+	channel, err := model.CacheGetRandomSatisfiedChannel(group, originalModel, retryCount)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("获取重试渠道失败: %s", err.Error()))
+	}
+	middleware.SetupContextForSelectedChannel(c, channel, originalModel)
+	return channel, nil
+}
+
+func processChannelError(c *gin.Context, channelId int, channelType int, channelName string, autoBan bool, err *dto.OpenAIErrorWithStatusCode) {
+	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
+	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
+	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d): %s", channelId, err.StatusCode, err.Error.Message))
+	if service.ShouldDisableChannel(channelType, err) && autoBan {
+		service.DisableChannel(channelId, channelName, err.Error.Message)
+	}
 }
