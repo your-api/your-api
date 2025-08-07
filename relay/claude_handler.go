@@ -41,10 +41,10 @@ func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 	relayInfo := relaycommon.GenRelayInfoClaude(c)
 
 	// 检查 User-Agent 是否包含 "cli"，如果包含则使用透传模式的重试逻辑
-	userAgent := c.Request.Header.Get("User-Agent")
-	if strings.Contains(strings.ToLower(userAgent), "cli") {
-		return ClaudePassthroughWithRetry(c, relayInfo)
-	}
+	//userAgent := c.Request.Header.Get("User-Agent")
+	//if strings.Contains(strings.ToLower(userAgent), "cli") {
+	//	return ClaudePassthroughWithRetry(c, relayInfo)
+	//}
 
 	// get & validate textRequest 获取并验证文本请求
 	textRequest, err := getAndValidateClaudeRequest(c)
@@ -263,7 +263,7 @@ func ClaudePassthroughWithRetry(c *gin.Context, relayInfo *relaycommon.RelayInfo
 // ClaudePassthroughRequest 执行单次透传请求，只修改模型名，其他完全透传
 func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, channel *model.Channel) (claudeError *dto.ClaudeErrorWithStatusCode) {
 	// 不在这里记录使用的渠道，已经在 getChannel 或主循环中记录过了
-	
+
 	// 读取原始请求体
 	requestBody, err := common.GetRequestBody(c)
 	if err != nil {
@@ -275,18 +275,18 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	if err := json.Unmarshal(requestBody, &requestMap); err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "invalid_json_request", http.StatusBadRequest)
 	}
-	
+
 	// 基础验证
 	messages, hasMessages := requestMap["messages"]
 	if !hasMessages || messages == nil {
 		return service.ClaudeErrorWrapperLocal(errors.New("field messages is required"), "invalid_claude_request", http.StatusBadRequest)
 	}
-	
+
 	originalModel, hasModel := requestMap["model"].(string)
 	if !hasModel || originalModel == "" {
 		return service.ClaudeErrorWrapperLocal(errors.New("field model is required"), "invalid_claude_request", http.StatusBadRequest)
 	}
-	
+
 	// 设置流模式标志（用于内部处理）
 	if stream, ok := requestMap["stream"].(bool); ok && stream {
 		relayInfo.IsStream = true
@@ -297,7 +297,7 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	if err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "model_mapped_error", http.StatusInternalServerError)
 	}
-	
+
 	// 如果模型被映射了，更新请求体中的模型名
 	if relayInfo.IsModelMapped && relayInfo.UpstreamModelName != originalModel {
 		requestMap["model"] = relayInfo.UpstreamModelName
@@ -307,7 +307,7 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	var textRequest dto.ClaudeRequest
 	tempBody, _ := json.Marshal(requestMap)
 	json.Unmarshal(tempBody, &textRequest)
-	
+
 	// 计算 prompt tokens（用于计费）
 	promptTokens, err := getClaudePromptTokens(&textRequest, relayInfo)
 	if err != nil {
@@ -333,7 +333,7 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	if openaiErr != nil {
 		return service.OpenAIErrorToClaudeError(openaiErr)
 	}
-	
+
 	// 确保在函数结束时处理配额
 	defer func() {
 		if claudeError != nil {
@@ -353,10 +353,10 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 	if err != nil {
 		return service.ClaudeErrorWrapperLocal(err, "json_marshal_failed", http.StatusInternalServerError)
 	}
-	
+
 	// 使用修改后的请求体
 	bodyReader := bytes.NewBuffer(modifiedBody)
-	
+
 	// 重置请求体，确保每次重试都使用修改后的请求体
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(modifiedBody))
 
@@ -370,12 +370,12 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 
 	if resp != nil {
 		httpResp = resp.(*http.Response)
-		
+
 		// 设置首次响应时间（用于日志记录）
 		if relayInfo.FirstResponseTime.IsZero() {
 			relayInfo.FirstResponseTime = time.Now()
 		}
-		
+
 		relayInfo.IsStream = relayInfo.IsStream || strings.HasPrefix(httpResp.Header.Get("Content-Type"), "text/event-stream")
 		if httpResp.StatusCode != http.StatusOK {
 			openaiErr := service.RelayErrorHandler(httpResp, false)
@@ -406,28 +406,28 @@ func ClaudePassthroughRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo, 
 // ClaudePassthroughStreamHandler 透传流式响应并收集 usage 信息
 func ClaudePassthroughStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *dto.ClaudeErrorWithStatusCode) {
 	defer resp.Body.Close()
-	
+
 	usage := &dto.Usage{}
 	var responseText strings.Builder
-	
+
 	// 设置响应头
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
-	
+
 	// 开始响应
 	c.Writer.WriteHeader(http.StatusOK)
 	c.Writer.Flush()
-	
+
 	// 透传流数据并收集 usage 信息
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// 尝试解析 usage 信息（但不修改数据）
 		if strings.HasPrefix(line, "data: ") {
 			dataStr := strings.TrimPrefix(line, "data: ")
@@ -450,7 +450,7 @@ func ClaudePassthroughStreamHandler(c *gin.Context, resp *http.Response, info *r
 				}
 			}
 		}
-		
+
 		// 直接写入原始数据
 		c.Writer.Write([]byte(line + "\n"))
 		if line == "" || strings.HasPrefix(line, "data:") {
@@ -460,11 +460,11 @@ func ClaudePassthroughStreamHandler(c *gin.Context, resp *http.Response, info *r
 			}
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		common.LogError(c, fmt.Sprintf("stream scanner error: %v", err))
 	}
-	
+
 	// 如果没有获取到 usage 信息，尝试从响应文本估算
 	if usage.CompletionTokens == 0 && responseText.Len() > 0 {
 		estimatedUsage, _ := service.ResponseText2Usage(responseText.String(), info.UpstreamModelName, usage.PromptTokens)
@@ -473,20 +473,20 @@ func ClaudePassthroughStreamHandler(c *gin.Context, resp *http.Response, info *r
 			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 		}
 	}
-	
+
 	return usage, nil
 }
 
 // ClaudePassthroughHandler 透传非流式响应并收集 usage 信息
 func ClaudePassthroughHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *dto.ClaudeErrorWithStatusCode) {
 	defer resp.Body.Close()
-	
+
 	// 读取响应体
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, service.ClaudeErrorWrapperLocal(err, "read_response_body_failed", http.StatusInternalServerError)
 	}
-	
+
 	// 解析响应以获取 usage 信息（但不修改响应）
 	var claudeResponse dto.ClaudeResponse
 	usage := &dto.Usage{}
@@ -496,7 +496,7 @@ func ClaudePassthroughHandler(c *gin.Context, resp *http.Response, info *relayco
 		usage.TotalTokens = claudeResponse.Usage.InputTokens + claudeResponse.Usage.OutputTokens
 		usage.PromptTokensDetails.CachedTokens = claudeResponse.Usage.CacheReadInputTokens
 		usage.PromptTokensDetails.CachedCreationTokens = claudeResponse.Usage.CacheCreationInputTokens
-		
+
 		// 如果没有 usage 信息，尝试从内容估算
 		if usage.CompletionTokens == 0 && len(claudeResponse.Content) > 0 {
 			var responseText strings.Builder
@@ -514,17 +514,17 @@ func ClaudePassthroughHandler(c *gin.Context, resp *http.Response, info *relayco
 			}
 		}
 	}
-	
+
 	// 设置响应头
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(http.StatusOK)
-	
+
 	// 直接写入原始响应
 	_, err = c.Writer.Write(responseBody)
 	if err != nil {
 		common.LogError(c, fmt.Sprintf("write response failed: %v", err))
 	}
-	
+
 	return usage, nil
 }
 
