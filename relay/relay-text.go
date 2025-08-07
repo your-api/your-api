@@ -148,8 +148,11 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	if openaiErr != nil {
 		return openaiErr
 	}
+	
+	// 确保在任何错误情况下都返还预扣费
+	needReturnQuota := true
 	defer func() {
-		if openaiErr != nil {
+		if needReturnQuota && preConsumedQuota > 0 {
 			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 		}
 	}()
@@ -252,6 +255,14 @@ func TextHelper(c *gin.Context) (openaiErr *dto.OpenAIErrorWithStatusCode) {
 	} else {
 		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
 	}
+	
+	// 标记预扣费已正常消费
+	requestId := c.GetString(common.RequestIdKey)
+	if requestId != "" && preConsumedQuota > 0 {
+		model.MarkAsConsumed(requestId)
+	}
+	
+	needReturnQuota = false // 成功消费，不需要返还预扣费
 	return nil
 }
 
@@ -336,12 +347,24 @@ func preConsumeQuota(c *gin.Context, preConsumedQuota int, relayInfo *relaycommo
 		if err != nil {
 			return 0, 0, service.OpenAIErrorWrapperLocal(err, "decrease_user_quota_failed", http.StatusInternalServerError)
 		}
+		
+		// 记录预扣费到追踪器
+		requestId := c.GetString(common.RequestIdKey)
+		if requestId != "" {
+			model.RecordPreConsume(requestId, relayInfo.UserId, relayInfo.TokenId, preConsumedQuota)
+		}
 	}
 	return preConsumedQuota, userQuota, nil
 }
 
 func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, userQuota int, preConsumedQuota int) {
 	if preConsumedQuota != 0 {
+		// 标记预扣费已返还
+		requestId := c.GetString(common.RequestIdKey)
+		if requestId != "" {
+			model.MarkAsReturned(requestId)
+		}
+		
 		gopool.Go(func() {
 			relayInfoCopy := *relayInfo
 

@@ -80,8 +80,11 @@ func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 	if openaiErr != nil {
 		return service.OpenAIErrorToClaudeError(openaiErr)
 	}
+	
+	// 确保在任何错误情况下都返还预扣费
+	needReturnQuota := true
 	defer func() {
-		if openaiErr != nil {
+		if needReturnQuota && preConsumedQuota > 0 {
 			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 		}
 	}()
@@ -158,6 +161,7 @@ func ClaudeHelper(c *gin.Context) (claudeError *dto.ClaudeErrorWithStatusCode) {
 		return service.OpenAIErrorToClaudeError(openaiErr)
 	}
 	service.PostClaudeConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	needReturnQuota = false // 成功消费，不需要返还预扣费
 	return nil
 }
 

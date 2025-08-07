@@ -103,6 +103,9 @@ func getAndValidImageRequest(c *gin.Context, info *relaycommon.RelayInfo) (*dto.
 
 func ImageHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 	relayInfo := relaycommon.GenRelayInfo(c)
+	
+	// 在函数开始处声明，确保整个函数都能访问
+	needReturnQuota := false
 
 	imageRequest, err := getAndValidImageRequest(c, relayInfo)
 	if err != nil {
@@ -133,8 +136,11 @@ func ImageHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 		if openaiErr != nil {
 			return openaiErr
 		}
+
+		// 确保在任何错误情况下都返还预扣费
+		needReturnQuota = true
 		defer func() {
-			if openaiErr != nil {
+			if needReturnQuota && preConsumedQuota > 0 {
 				returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 			}
 		}()
@@ -236,5 +242,11 @@ func ImageHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 
 	logContent := fmt.Sprintf("大小 %s, 品质 %s", imageRequest.Size, quality)
 	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, logContent)
+
+	// 成功消费，不需要返还预扣费（只在使用预扣费的情况下）
+	if !priceData.UsePrice {
+		needReturnQuota = false
+	}
+
 	return nil
 }

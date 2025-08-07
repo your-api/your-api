@@ -61,8 +61,11 @@ func RerankHelper(c *gin.Context, relayMode int) (openaiErr *dto.OpenAIErrorWith
 	if openaiErr != nil {
 		return openaiErr
 	}
+	
+	// 确保在任何错误情况下都返还预扣费
+	needReturnQuota := true
 	defer func() {
-		if openaiErr != nil {
+		if needReturnQuota && preConsumedQuota > 0 {
 			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 		}
 	}()
@@ -106,5 +109,6 @@ func RerankHelper(c *gin.Context, relayMode int) (openaiErr *dto.OpenAIErrorWith
 		return openaiErr
 	}
 	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	needReturnQuota = false // 成功消费，不需要返还预扣费
 	return nil
 }
