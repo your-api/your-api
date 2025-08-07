@@ -101,7 +101,11 @@ func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo
 
 func ProcessStreamResponse(streamResponse dto.ChatCompletionsStreamResponse, responseTextBuilder *strings.Builder, toolCount *int) error {
 	for _, choice := range streamResponse.Choices {
-		responseTextBuilder.WriteString(choice.Delta.GetContentString())
+		// 过滤掉"Thinking..."开头的内容，不参与token计费
+		content := choice.Delta.GetContentString()
+		if !strings.HasPrefix(content, "Thinking...") {
+			responseTextBuilder.WriteString(content)
+		}
 		responseTextBuilder.WriteString(choice.Delta.GetReasoningContent())
 		if choice.Delta.ToolCalls != nil {
 			if len(choice.Delta.ToolCalls) > *toolCount {
@@ -148,7 +152,11 @@ func processChatCompletions(streamResp string, streamItems []string, responseTex
 	// 批量处理所有响应
 	for _, streamResponse := range streamResponses {
 		for _, choice := range streamResponse.Choices {
-			responseTextBuilder.WriteString(choice.Delta.GetContentString())
+			// 过滤掉"Thinking..."开头的内容，不参与token计费
+			content := choice.Delta.GetContentString()
+			if !strings.HasPrefix(content, "Thinking...") {
+				responseTextBuilder.WriteString(content)
+			}
 			responseTextBuilder.WriteString(choice.Delta.GetReasoningContent())
 			if choice.Delta.ToolCalls != nil {
 				if len(choice.Delta.ToolCalls) > *toolCount {

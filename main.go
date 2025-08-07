@@ -97,6 +97,9 @@ func main() {
 	// Initialize options
 	model.InitOptionMap()
 
+	// Initialize pre-consumed quota tracker
+	model.InitPreConsumedQuotaTracker()
+
 	service.InitTokenEncoders()
 
 	if common.RedisEnabled {

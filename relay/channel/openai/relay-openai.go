@@ -28,6 +28,19 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
+	// 解析响应以检查是否是"Thinking..."消息
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := common.DecodeJsonStr(data, &streamResponse); err == nil {
+		// 检查是否是"Thinking..."消息，如果是则不发送给调用方
+		if len(streamResponse.Choices) > 0 && streamResponse.Choices[0].Delta.GetContentString() != "" {
+			content := streamResponse.Choices[0].Delta.GetContentString()
+			if strings.HasPrefix(content, "Thinking...") {
+				// 不发送给调用方，直接返回
+				return nil
+			}
+		}
+	}
+
 	if !forceFormat && !thinkToContent {
 		return helper.StringData(c, data)
 	}
