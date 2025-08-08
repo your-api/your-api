@@ -24,6 +24,13 @@ func SetRelayRouter(router *gin.Engine) {
 	{
 		playgroundRouter.POST("/chat/completions", controller.Playground)
 	}
+	
+	// Token counting endpoint without authentication
+	publicV1Router := router.Group("/v1")
+	{
+		publicV1Router.POST("/messages/count_tokens", controller.CountMessageTokens)
+	}
+	
 	relayV1Router := router.Group("/v1")
 	relayV1Router.Use(middleware.TokenAuth())
 	relayV1Router.Use(middleware.ModelRequestRateLimit())
@@ -39,7 +46,6 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter := relayV1Router.Group("")
 		httpRouter.Use(middleware.Distribute())
 		httpRouter.POST("/messages", controller.RelayClaude)
-		httpRouter.POST("/messages/count_tokens", controller.CountMessageTokens)  // New endpoint for token counting
 		httpRouter.POST("/completions", controller.Relay)
 		httpRouter.POST("/chat/completions", controller.Relay)
 		httpRouter.POST("/edits", controller.Relay)

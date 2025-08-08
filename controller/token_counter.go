@@ -58,21 +58,7 @@ func CountMessageTokens(c *gin.Context) {
 		return
 	}
 
-	// Get API key from token
-	tokenId := c.GetInt("token_id")
-	token, err := model.GetTokenById(tokenId)
-	if err != nil || token == nil {
-		c.JSON(http.StatusUnauthorized, dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "Invalid token",
-				Type:    "authentication_error",
-				Code:    "invalid_token",
-			},
-			StatusCode: http.StatusUnauthorized,
-		})
-		return
-	}
-
+	// Skip authentication - direct call without token check
 	// Get a Claude channel to use its API key
 	// We need at least one Claude channel configured
 	channels, err := model.GetAllChannels(0, 0, true, false)
