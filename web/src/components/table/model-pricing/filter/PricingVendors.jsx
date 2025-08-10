@@ -73,7 +73,7 @@ const PricingVendors = ({ filterVendor, setFilterVendor, models = [], allModels 
         value: 'all',
         label: t('全部供应商'),
         tagCount: getVendorCount('all'),
-        disabled: models.length === 0
+        disabled: false  // 改为始终可点击
       }
     ];
 
@@ -86,7 +86,7 @@ const PricingVendors = ({ filterVendor, setFilterVendor, models = [], allModels 
         label: vendor,
         icon: icon ? getLobeHubIcon(icon, 16) : null,
         tagCount: count,
-        disabled: count === 0
+        disabled: false  // 改为始终可点击
       });
     });
 
@@ -97,7 +97,7 @@ const PricingVendors = ({ filterVendor, setFilterVendor, models = [], allModels 
         value: 'unknown',
         label: t('未知供应商'),
         tagCount: count,
-        disabled: count === 0
+        disabled: false  // 改为始终可点击
       });
     }
 

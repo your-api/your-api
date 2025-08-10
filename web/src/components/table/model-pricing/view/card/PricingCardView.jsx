@@ -126,7 +126,40 @@ const PricingCardView = ({
       displayPrice,
       currency
     });
-    return formatPriceInfo(priceData, t);
+    const formattedPrice = formatPriceInfo(priceData, t);
+    
+    // 如果返回的是字符串，直接显示
+    if (typeof formattedPrice === 'string') {
+      return <span className="text-gray-600">{formattedPrice}</span>;
+    }
+    
+    // 如果返回的是对象，根据类型渲染
+    if (formattedPrice && typeof formattedPrice === 'object') {
+      if (formattedPrice.type === 'usage') {
+        return (
+          <>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">{formattedPrice.inputLabel}:</span>
+              <span className="font-medium text-blue-600">{formattedPrice.input}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-500">{formattedPrice.outputLabel}:</span>
+              <span className="font-medium text-green-600">{formattedPrice.output}</span>
+            </div>
+          </>
+        );
+      }
+      if (formattedPrice.type === 'count') {
+        return (
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500">{formattedPrice.label}:</span>
+            <span className="font-medium text-purple-600">{formattedPrice.price}</span>
+          </div>
+        );
+      }
+    }
+    
+    return null;
   };
 
   // 渲染标签

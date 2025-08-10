@@ -32,9 +32,9 @@ const PricingQuotaTypes = ({ filterQuotaType, setFilterQuotaType, models = [], l
   const qtyCount = (type) => models.filter(m => type === 'all' ? true : m.quota_type === type).length;
 
   const items = [
-    { value: 'all', label: t('全部类型'), tagCount: qtyCount('all') },
-    { value: 0, label: t('按量计费'), tagCount: qtyCount(0) },
-    { value: 1, label: t('按次计费'), tagCount: qtyCount(1) },
+    { value: 'all', label: t('全部类型'), tagCount: qtyCount('all'), disabled: false },
+    { value: 0, label: t('按量计费'), tagCount: qtyCount(0), disabled: false },
+    { value: 1, label: t('按次计费'), tagCount: qtyCount(1), disabled: false },
   ];
 
   return (

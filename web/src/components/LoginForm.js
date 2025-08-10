@@ -179,7 +179,7 @@ const LoginForm = () => {
           setUserData(data);
           updateAPI();
           showSuccess(t('登录成功！'));
-          navigate('/token');
+          navigate('/console/token');
         } else if (status === 'expired') {
           clearInterval(qrCheckTimerRef.current);
           setQrStatus('expired');

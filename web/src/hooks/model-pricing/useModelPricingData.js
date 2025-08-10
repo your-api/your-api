@@ -40,9 +40,9 @@ export const useModelPricingData = () => {
   const [filterVendor, setFilterVendor] = useState('all'); // 供应商筛选: 'all' | 'unknown' | string
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('CNY');
   const [showWithRecharge, setShowWithRecharge] = useState(false);
-  const [tokenUnit, setTokenUnit] = useState('M');
+  const [tokenUnit, setTokenUnit] = useState('K');
   const [models, setModels] = useState([]);
   const [vendorsMap, setVendorsMap] = useState({});
   const [loading, setLoading] = useState(true);

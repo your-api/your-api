@@ -54,19 +54,22 @@ const ModelPricingTable = ({
         tokenUnit,
         displayPrice,
         currency
-      }) : { inputPrice: '-', outputPrice: '-', price: '-' };
+      }) : { inputPrice: 0, outputPrice: 0, price: 0 };
 
       // 获取分组倍率
       const groupRatioValue = groupRatio && groupRatio[group] ? groupRatio[group] : 1;
+      
+      // 获取货币符号
+      const currencySymbol = currency === 'CNY' ? '￥' : '$';
 
       return {
         key: group,
         group: group,
         ratio: groupRatioValue,
         billingType: modelData?.quota_type === 0 ? t('按量计费') : t('按次计费'),
-        inputPrice: modelData?.quota_type === 0 ? priceData.inputPrice : '-',
-        outputPrice: modelData?.quota_type === 0 ? (priceData.completionPrice || priceData.outputPrice) : '-',
-        fixedPrice: modelData?.quota_type === 1 ? priceData.price : '-',
+        inputPrice: modelData?.quota_type === 0 ? `${currencySymbol}${(priceData.inputPrice || 0).toFixed(5)}` : '-',
+        outputPrice: modelData?.quota_type === 0 ? `${currencySymbol}${(priceData.outputPrice || 0).toFixed(5)}` : '-',
+        fixedPrice: modelData?.quota_type === 1 ? `${currencySymbol}${(priceData.price || 0).toFixed(4)}` : '-',
       };
     });
 

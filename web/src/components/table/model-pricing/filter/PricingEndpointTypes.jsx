@@ -61,14 +61,14 @@ const PricingEndpointTypes = ({ filterEndpointType, setFilterEndpointType, model
   const availableEndpointTypes = getAllEndpointTypes();
 
   const items = [
-    { value: 'all', label: t('全部端点'), tagCount: getEndpointTypeCount('all'), disabled: models.length === 0 },
+    { value: 'all', label: t('全部端点'), tagCount: getEndpointTypeCount('all'), disabled: false },
     ...availableEndpointTypes.map(endpointType => {
       const count = getEndpointTypeCount(endpointType);
       return ({
         value: endpointType,
         label: getEndpointTypeLabel(endpointType),
         tagCount: count,
-        disabled: count === 0
+        disabled: false  // 改为始终可点击
       });
     })
   ];

@@ -133,7 +133,7 @@ const SelectableButtonGroup = ({
   const contentElement = showSkeleton ? renderSkeletonButtons() : (
     <Row gutter={[8, 8]} style={{ lineHeight: '32px', ...style }} ref={contentRef}>
       {items.map((item) => {
-        const isDisabled = item.disabled || (typeof item.tagCount === 'number' && item.tagCount === 0);
+        const isDisabled = item.disabled === true;  // 只根据显式的 disabled 属性判断
         const isActive = Array.isArray(activeValue)
           ? activeValue.includes(item.value)
           : activeValue === item.value;
@@ -157,24 +157,58 @@ const SelectableButtonGroup = ({
                     checked={isActive}
                     onChange={() => onChange(item.value)}
                     disabled={isDisabled}
-                    style={{ pointerEvents: 'auto' }}
+                    style={{ pointerEvents: 'auto', transform: 'scale(0.85)' }}
                   />
                 }
-                style={{ width: '100%', cursor: 'default' }}
+                style={{ 
+                  width: '100%', 
+                  cursor: 'default',
+                  height: '40px',
+                  whiteSpace: 'normal',
+                  textAlign: 'left',
+                  justifyContent: 'flex-start',
+                  padding: '4px 6px',
+                  fontSize: '11px',
+                  overflow: 'hidden'
+                }}
               >
-                {item.icon && (
-                  <span style={{ marginRight: 4 }}>{item.icon}</span>
-                )}
-                <span style={{ marginRight: item.tagCount !== undefined ? 4 : 0 }}>{item.label}</span>
-                {item.tagCount !== undefined && (
-                  <Tag
-                    color='white'
-                    shape="circle"
-                    size="small"
-                  >
-                    {item.tagCount}
-                  </Tag>
-                )}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  minWidth: 0
+                }}>
+                  {item.icon && (
+                    <span style={{ marginRight: 3, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+                  )}
+                  <span style={{ 
+                    marginRight: item.tagCount !== undefined ? 4 : 0,
+                    wordBreak: 'break-word',
+                    lineHeight: '1.3',
+                    flex: 1,
+                    fontSize: '11px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>{item.label}</span>
+                  {item.tagCount !== undefined && (
+                    <Tag
+                      color='white'
+                      shape="circle"
+                      size="small"
+                      style={{ 
+                        marginLeft: '4px', 
+                        flexShrink: 0,
+                        transform: 'scale(0.8)',
+                        fontSize: '10px'
+                      }}
+                    >
+                      {item.tagCount}
+                    </Tag>
+                  )}
+                </div>
               </Button>
             </Col>
           );
@@ -194,18 +228,51 @@ const SelectableButtonGroup = ({
               type={isActive ? 'primary' : 'tertiary'}
               icon={item.icon}
               disabled={isDisabled}
-              style={{ width: '100%' }}
+              style={{ 
+                width: '100%',
+                height: '40px',
+                whiteSpace: 'normal',
+                textAlign: 'left',
+                justifyContent: 'flex-start',
+                padding: '4px 6px',
+                fontSize: '11px',
+                overflow: 'hidden'
+              }}
             >
-              <span style={{ marginRight: item.tagCount !== undefined ? 4 : 0 }}>{item.label}</span>
-              {item.tagCount !== undefined && (
-                <Tag
-                  color='white'
-                  shape="circle"
-                  size="small"
-                >
-                  {item.tagCount}
-                </Tag>
-              )}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                minWidth: 0
+              }}>
+                <span style={{ 
+                  marginRight: item.tagCount !== undefined ? 4 : 0,
+                  wordBreak: 'break-word',
+                  lineHeight: '1.3',
+                  fontSize: '11px',
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical'
+                }}>{item.label}</span>
+                {item.tagCount !== undefined && (
+                  <Tag
+                    color='white'
+                    shape="circle"
+                    size="small"
+                    style={{ 
+                      marginLeft: '4px', 
+                      flexShrink: 0,
+                      transform: 'scale(0.8)',
+                      fontSize: '10px'
+                    }}
+                  >
+                    {item.tagCount}
+                  </Tag>
+                )}
+              </div>
             </Button>
           </Col>
         );

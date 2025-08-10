@@ -52,7 +52,7 @@ const PricingGroups = ({ filterGroup, setFilterGroup, usableGroup = {}, groupRat
       value: g,
       label: g === 'all' ? t('全部分组') : g,
       tagCount: ratioDisplay,
-      disabled: modelCount === 0
+      disabled: false  // 改为始终可点击
     };
   });
 

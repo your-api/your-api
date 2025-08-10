@@ -332,17 +332,107 @@ export function resetPricingFilters() {
   };
 }
 
-export function calculateModelPrice(model, amount = 1000000) {
-  // Calculate model price based on amount
-  const basePrice = model.price || 0;
-  return (basePrice * amount) / 1000000;
+export function calculateModelPrice(params) {
+  // 处理旧的调用方式兼容性
+  if (typeof params === 'object' && !params.record) {
+    // 新的调用方式，params是一个包含record的对象
+    const model = arguments[0];
+    const amount = arguments[1] || 1000000;
+    const basePrice = model.price || 0;
+    return (basePrice * amount) / 1000000;
+  }
+  
+  const { record, selectedGroup, groupRatio, tokenUnit = 'K', displayPrice, currency = 'CNY' } = params;
+  
+  if (!record) return null;
+  
+  // 获取分组倍率，默认为1
+  let currentGroupRatio = 1;
+  if (selectedGroup && groupRatio) {
+    // 如果selectedGroup是'default'或其他特定分组，使用对应的倍率
+    currentGroupRatio = groupRatio[selectedGroup] || 1;
+  }
+  
+  // 将tokenUnit转换为数值
+  const tokenUnitValue = tokenUnit === 'M' ? 1000000 : 1000;
+  
+  // 按量计费 (quota_type === 0)
+  if (record.quota_type === 0) {
+    const modelRatio = parseFloat(record.model_ratio) || 0;
+    const completionRatio = parseFloat(record.completion_ratio) || 1;
+    
+    // 计算价格
+    // 基础价格：1倍率 = $2/1M tokens = $0.002/1K tokens (无汇率转换，1:1)
+    const baseRatePerMillion = 2; // 2元/百万tokens
+    const baseRatePerThousand = 0.002; // 0.002元/千tokens
+    
+    let inputPrice, outputPrice;
+    
+    if (tokenUnitValue === 1000000) {
+      // 每百万 tokens 的价格
+      inputPrice = modelRatio * currentGroupRatio * baseRatePerMillion;
+      outputPrice = modelRatio * completionRatio * currentGroupRatio * baseRatePerMillion;
+    } else {
+      // 每千 tokens 的价格
+      inputPrice = modelRatio * currentGroupRatio * baseRatePerThousand;
+      outputPrice = modelRatio * completionRatio * currentGroupRatio * baseRatePerThousand;
+    }
+    
+    return {
+      type: 'usage',
+      inputPrice: inputPrice || 0,
+      outputPrice: outputPrice || 0,
+      currency,
+      tokenUnit: tokenUnitValue
+    };
+  }
+  
+  // 按次计费 (quota_type === 1)
+  if (record.quota_type === 1) {
+    const price = (parseFloat(record.model_price) || 0) * currentGroupRatio;
+    return {
+      type: 'count',
+      price: price || 0,
+      currency
+    };
+  }
+  
+  return null;
 }
 
-export function formatPriceInfo(price) {
-  // Format price for display
-  if (typeof price === 'number') {
-    return `$${price.toFixed(4)}`;
+export function formatPriceInfo(priceData, t) {
+  // 处理旧的调用方式兼容性
+  if (typeof priceData === 'number') {
+    return `$${priceData.toFixed(4)}`;
   }
+  
+  if (!priceData) return '$0.0000';
+  
+  // 处理新的价格数据格式
+  if (typeof priceData === 'object' && priceData.type) {
+    const currencySymbol = priceData.currency === 'CNY' ? '￥' : '$';
+    const unitLabel = priceData.tokenUnit === 1000000 ? '/M' : '/K';
+    
+    if (priceData.type === 'usage') {
+      // 返回格式化的字符串，让组件自己渲染
+      return {
+        type: 'usage',
+        input: `${currencySymbol}${priceData.inputPrice.toFixed(4)}${unitLabel}`,
+        output: `${currencySymbol}${priceData.outputPrice.toFixed(4)}${unitLabel}`,
+        inputLabel: t ? t('提示') : '提示',
+        outputLabel: t ? t('补全') : '补全'
+      };
+    }
+    
+    if (priceData.type === 'count') {
+      return {
+        type: 'count',
+        price: `${currencySymbol}${priceData.price.toFixed(4)}`,
+        label: t ? t('每次') : '每次'
+      };
+    }
+  }
+  
   return '$0.0000';
 }
 

@@ -305,6 +305,87 @@ body > #root > div:not(.topnav) {
 }
 
 /* ==================== 组件特定样式 ==================== */
+/* 模型定价侧边栏按钮样式修复 */
+.pricing-sidebar .semi-button {
+  display: flex !important;
+  align-items: center !important;
+  transition: all 0.2s ease !important;
+  height: 40px !important;
+  overflow: hidden !important;
+}
+
+.pricing-sidebar .semi-button-content {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 3px;
+  font-size: 11px !important;
+  overflow: hidden !important;
+}
+
+.pricing-sidebar .semi-button .semi-button-content > span {
+  display: inline-block;
+}
+
+.pricing-sidebar .semi-button .semi-icon {
+  font-size: 14px !important;
+  min-width: 14px !important;
+}
+
+/* 优化侧边栏按钮组的视觉效果 */
+.pricing-sidebar .semi-col {
+  margin-bottom: 4px;
+}
+
+.pricing-sidebar .semi-button.semi-button-tertiary.semi-button-theme-outline {
+  border-color: #e5e7eb !important;
+  background: #ffffff !important;
+}
+
+.pricing-sidebar .semi-button.semi-button-tertiary.semi-button-theme-outline:hover {
+  border-color: #d1d5db !important;
+  background: #f9fafb !important;
+}
+
+.pricing-sidebar .semi-button.semi-button-primary.semi-button-theme-light {
+  background: rgba(74, 85, 104, 0.1) !important;
+  border-color: rgba(74, 85, 104, 0.25) !important;
+  color: #2d3748 !important;
+  font-weight: 500 !important;
+}
+
+.pricing-sidebar .semi-tag {
+  font-size: 10px !important;
+  padding: 0 5px !important;
+  height: 14px !important;
+  line-height: 14px !important;
+  min-width: 18px !important;
+  text-align: center !important;
+}
+
+/* 确保按钮内容垂直居中 */
+.pricing-sidebar .semi-button > div {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+/* 模型定价表格特殊样式 */
+.model-table .semi-table-tbody .semi-table-row .semi-table-row-cell {
+  word-break: break-word !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  vertical-align: top !important;
+}
+
+.model-table .semi-table {
+  table-layout: auto !important;
+}
+
+.model-table .semi-table-row td {
+  max-width: 350px !important;
+}
+
 /* 修复 Semi Design 按钮样式被 Tailwind 重置的问题 */
 .semi-button {
   border-width: 1px !important;
@@ -314,6 +395,23 @@ body > #root > div:not(.topnav) {
   min-height: 32px !important; /* 最小高度 */
   font-weight: 500 !important; /* 字体稍微加粗 */
   transition: all 0.2s ease !important;
+}
+
+/* 覆盖Semi的CSS变量，使用灰色调 */
+:root {
+  --semi-color-primary: #4a5568 !important;
+  --semi-color-primary-hover: #2d3748 !important;
+  --semi-color-primary-active: #1a202c !important;
+  --semi-color-primary-light-default: rgba(74, 85, 104, 0.1) !important;
+  --semi-color-primary-light-hover: rgba(74, 85, 104, 0.2) !important;
+  --semi-color-primary-light-active: rgba(74, 85, 104, 0.3) !important;
+  --semi-color-danger: #9ca3af !important;
+  --semi-color-danger-hover: #6b7280 !important;
+  --semi-color-danger-active: #4b5563 !important;
+  --semi-color-danger-light-default: rgba(156, 163, 175, 0.1) !important;
+  --semi-color-danger-light-hover: rgba(156, 163, 175, 0.2) !important;
+  --semi-color-warning: #9ca3af !important;
+  --semi-color-warning-hover: #6b7280 !important;
 }
 
 .semi-button-size-large {
@@ -329,16 +427,16 @@ body > #root > div:not(.topnav) {
 }
 
 .semi-button-primary {
-  background-color: var(--semi-color-primary) !important;
-  border-color: var(--semi-color-primary) !important;
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
   color: var(--semi-color-white) !important;
 }
 
 .semi-button-primary:hover:not(:disabled) {
-  background-color: var(--semi-color-primary-hover) !important;
-  border-color: var(--semi-color-primary-hover) !important;
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 2px 8px rgba(0, 100, 250, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(74, 85, 104, 0.2) !important;
 }
 
 .semi-button-secondary {
@@ -363,44 +461,44 @@ body > #root > div:not(.topnav) {
 }
 
 .semi-button-danger {
-  background-color: var(--semi-color-danger) !important;
-  border-color: var(--semi-color-danger) !important;
+  background-color: #9ca3af !important;
+  border-color: #9ca3af !important;
   color: var(--semi-color-white) !important;
 }
 
 .semi-button-danger:hover:not(:disabled) {
-  background-color: var(--semi-color-danger-hover) !important;
-  border-color: var(--semi-color-danger-hover) !important;
+  background-color: #6b7280 !important;
+  border-color: #6b7280 !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 2px 8px rgba(250, 100, 100, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.2) !important;
 }
 
 .semi-button-warning {
-  background-color: var(--semi-color-warning) !important;
-  border-color: var(--semi-color-warning) !important;
+  background-color: #9ca3af !important;
+  border-color: #9ca3af !important;
   color: var(--semi-color-white) !important;
 }
 
 .semi-button-theme-solid.semi-button-primary {
-  background-color: var(--semi-color-primary) !important;
-  border-color: var(--semi-color-primary) !important;
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
   color: var(--semi-color-white) !important;
 }
 
 .semi-button-theme-light.semi-button-primary {
-  background-color: var(--semi-color-primary-light-default) !important;
+  background-color: rgba(74, 85, 104, 0.1) !important;
   border-color: transparent !important;
-  color: var(--semi-color-primary) !important;
+  color: #4a5568 !important;
 }
 
 .semi-button-theme-light.semi-button-primary:hover:not(:disabled) {
-  background-color: var(--semi-color-primary-light-hover) !important;
+  background-color: rgba(74, 85, 104, 0.2) !important;
 }
 
 .semi-button-theme-borderless.semi-button-primary {
   background-color: transparent !important;
   border-color: transparent !important;
-  color: var(--semi-color-primary) !important;
+  color: #4a5568 !important;
   padding: 6px 12px !important;
 }
 
@@ -410,12 +508,12 @@ body > #root > div:not(.topnav) {
 
 .semi-button-theme-outline.semi-button-primary {
   background-color: transparent !important;
-  border-color: var(--semi-color-primary) !important;
-  color: var(--semi-color-primary) !important;
+  border-color: #4a5568 !important;
+  color: #4a5568 !important;
 }
 
 .semi-button-theme-outline.semi-button-primary:hover:not(:disabled) {
-  background-color: var(--semi-color-primary-light-default) !important;
+  background-color: rgba(74, 85, 104, 0.1) !important;
 }
 
 /* 按钮组内的按钮不需要外边距 */
@@ -429,6 +527,40 @@ body > #root > div:not(.topnav) {
 .semi-space-align-end .semi-button,
 .semi-space-align-baseline .semi-button {
   margin: 0 !important;
+}
+
+/* 额外的危险按钮样式覆盖 */
+.semi-button-danger.semi-button-theme-solid,
+.semi-button-danger.semi-button-theme-light,
+.semi-button-danger.semi-button-theme-borderless,
+.semi-button-danger.semi-button-theme-outline,
+button[type="danger"],
+.semi-button[type="danger"] {
+  background-color: #9ca3af !important;
+  border-color: #9ca3af !important;
+  color: var(--semi-color-white) !important;
+}
+
+.semi-button-danger.semi-button-theme-solid:hover,
+.semi-button-danger.semi-button-theme-light:hover,
+.semi-button-danger.semi-button-theme-borderless:hover,
+.semi-button-danger.semi-button-theme-outline:hover,
+button[type="danger"]:hover,
+.semi-button[type="danger"]:hover {
+  background-color: #6b7280 !important;
+  border-color: #6b7280 !important;
+}
+
+/* 侧边栏和导航的颜色调整 */
+.sidebar-nav-item:hover {
+  background-color: rgba(74, 85, 104, 0.08);
+  color: #4a5568;
+}
+
+.sidebar-nav-item-selected {
+  background-color: rgba(74, 85, 104, 0.12);
+  color: #4a5568;
+  font-weight: 500;
 }
 
 /* 修复输入框样式 */

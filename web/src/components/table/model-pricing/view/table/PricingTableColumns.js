@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Tag, Space, Tooltip } from '@douyinfe/semi-ui';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
-import { renderModelTag, stringToColor, calculateModelPrice, getLobeHubIcon } from '../../../../../helpers';
+import { renderModelTag, stringToColor, calculateModelPrice, formatPriceInfo, getLobeHubIcon } from '../../../../../helpers';
 import { renderLimitedItems, renderDescription } from '../../../../common/ui/RenderUtils';
 
 function renderQuotaType(type, t) {
@@ -198,25 +198,38 @@ export const getPricingTableColumns = ({
         displayPrice,
         currency
       });
-
-      if (priceData.isPerToken) {
-        return (
-          <div className="space-y-1">
-            <div className="text-gray-700">
-              {t('提示')} {priceData.inputPrice} / 1{priceData.unitLabel} tokens
-            </div>
-            <div className="text-gray-700">
-              {t('补全')} {priceData.completionPrice} / 1{priceData.unitLabel} tokens
-            </div>
-          </div>
-        );
-      } else {
-        return (
-          <div className="text-gray-700">
-            {t('模型价格')}：{priceData.price}
-          </div>
-        );
+      
+      const formattedPrice = formatPriceInfo(priceData, t);
+      
+      // 如果返回的是字符串，直接显示
+      if (typeof formattedPrice === 'string') {
+        return <div className="text-gray-700">{formattedPrice}</div>;
       }
+      
+      // 如果返回的是对象，根据类型渲染
+      if (formattedPrice && typeof formattedPrice === 'object') {
+        if (formattedPrice.type === 'usage') {
+          return (
+            <div className="space-y-1">
+              <div className="text-gray-700">
+                {formattedPrice.inputLabel} {formattedPrice.input}
+              </div>
+              <div className="text-gray-700">
+                {formattedPrice.outputLabel} {formattedPrice.output}
+              </div>
+            </div>
+          );
+        }
+        if (formattedPrice.type === 'count') {
+          return (
+            <div className="text-gray-700">
+              {formattedPrice.label}：{formattedPrice.price}
+            </div>
+          );
+        }
+      }
+      
+      return null;
     },
   };
 
