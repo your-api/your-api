@@ -406,14 +406,14 @@ export function calculateModelPrice(params) {
 export function formatPriceInfo(priceData, t) {
   // 处理旧的调用方式兼容性
   if (typeof priceData === 'number') {
-    return `$${priceData.toFixed(4)}`;
+    return `￥${priceData.toFixed(4)}`;
   }
   
-  if (!priceData) return '$0.0000';
+  if (!priceData) return '￥0.0000';
   
   // 处理新的价格数据格式
   if (typeof priceData === 'object' && priceData.type) {
-    const currencySymbol = priceData.currency === 'CNY' ? '￥' : '$';
+    const currencySymbol = priceData.currency === 'CNY' ? '￥' : '￥';
     const unitLabel = priceData.tokenUnit === 1000000 ? '/M' : '/K';
     
     if (priceData.type === 'usage') {
@@ -436,7 +436,7 @@ export function formatPriceInfo(priceData, t) {
     }
   }
   
-  return '$0.0000';
+  return '￥0.0000';
 }
 
 // Add missing message helpers
