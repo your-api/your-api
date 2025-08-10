@@ -1,3 +1,22 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Banner,
@@ -6,29 +25,27 @@ import {
   Form,
   Row,
   Spin,
-  Collapse,
-  Modal, Input,
+  Modal,
 } from '@douyinfe/semi-ui';
 import {
   compareObjects,
   API,
   showError,
   showSuccess,
-  showWarning, verifyJSON,
+  showWarning,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
-import {updateTypingList} from "../../../store/setting/providers.js";
 
 export default function GeneralSettings(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [showQuotaWarning, setShowQuotaWarning] = useState(false);
-  const [imageReadProxy, setImageReadProxy] = useState("");
   const [inputs, setInputs] = useState({
     TopUpLink: '',
     'general_setting.docs_link': '',
     QuotaPerUnit: '',
     RetryTimes: '',
+    USDExchangeRate: '',
     DisplayInCurrencyEnabled: false,
     DisplayTokenStatEnabled: false,
     DefaultCollapseSidebar: false,
@@ -79,79 +96,6 @@ export default function GeneralSettings(props) {
       });
   }
 
-
-  function saveImageReadProxy() {
-    setLoading(true);
-
-    if (!imageReadProxy) {
-      // Only proceed to the second API call if the first one succeeds
-      return API.put('/api/option/', {
-        key: "ImageReadProxy",
-        value: imageReadProxy
-      }).then(saveRes => {
-        const { success, message } = saveRes.data;
-        if (!success) {
-          throw new Error(message || '保存失败');
-        }
-        showSuccess(t('保存成功'));
-      }).finally(
-        () => {
-            setLoading(false);
-        }
-      );
-
-
-    }
-
-    return API.get('/api/channel/test_proxy', {
-      params: { proxy: imageReadProxy }
-    })
-        .then(testRes => {
-          if (!testRes.data.success) {
-            throw new Error(testRes.data.message || '代理测试失败');
-          }
-
-          // Only proceed to the second API call if the first one succeeds
-          return API.put('/api/option/', {
-            key: "ImageReadProxy",
-            value: imageReadProxy
-          });
-        })
-        .then(saveRes => {
-          const { success, message } = saveRes.data;
-          if (!success) {
-            throw new Error(message || '保存失败');
-          }
-          showSuccess(t('保存成功'));
-        })
-        .catch(error => {
-          const errorMsg = error.message || '未知错误';
-          showError(t('操作失败: 代理IP测试失败') );
-          console.error("保存失败:", error);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-  }
-
-  useEffect(() => {
-    setLoading(true);
-    API.get('/api/option/getImageReadProxy')
-      .then((res) => {
-        if (res.data.success) {
-          setImageReadProxy(res.data.data);
-        } else {
-          showError(t('获取图片请求代理IP失败: ') + res.data.message);
-        }
-      })
-      .catch((error) => {
-        showError(t('获取图片请求代理IP失败: ') + error.message);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
-
   useEffect(() => {
     const currentInputs = {};
     for (let key in props.options) {
@@ -167,10 +111,6 @@ export default function GeneralSettings(props) {
   return (
     <>
       <Spin spinning={loading}>
-        <Banner
-          type='warning'
-          description={t('聊天链接功能已经弃用，请使用下方聊天设置功能')}
-        />
         <Form
           values={inputs}
           getFormApi={(formAPI) => (refForm.current = formAPI)}
@@ -207,6 +147,16 @@ export default function GeneralSettings(props) {
                   onChange={handleFieldChange('QuotaPerUnit')}
                   showClear
                   onClick={() => setShowQuotaWarning(true)}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Input
+                  field={'USDExchangeRate'}
+                  label={t('美元汇率（非充值汇率，仅用于定价页面换算）')}
+                  initValue={''}
+                  placeholder={t('美元汇率')}
+                  onChange={handleFieldChange('USDExchangeRate')}
+                  showClear
                 />
               </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
@@ -283,53 +233,6 @@ export default function GeneralSettings(props) {
           </Form.Section>
         </Form>
       </Spin>
-
-      <div style={{ marginBottom: 15 }}>
-        <h4 style={{ marginBottom: 8 }}>{t('图片请求代理设置(防止暴露源站IP)-优先级小于worker代理')}</h4>
-        <Input
-            name='proxy'
-            placeholder={t('使用代理IP调用该渠道,例如http://user:user@127.0.0.1:2000')}
-            onChange={(value) => {
-              setImageReadProxy(value)
-            }}
-            value={imageReadProxy}
-
-            addonAfter={
-              <Button
-                  type='primary'
-                  size="small"
-                  onClick={async () => {
-                    if (!imageReadProxy) {
-                      showWarning(t('请先输入代理地址'));
-                      return;
-                    }
-                    setLoading(true);
-                    try {
-                      const res = await API.get('/api/channel/test_proxy', {
-                        params: { proxy: imageReadProxy }
-                      });
-                      if (res.data.success) {
-                        showSuccess(t('代理连接测试成功') + res.data.message);
-                      } else {
-                        showError(t('代理连接测试失败: ') + res.data.message);
-                      }
-                    } catch (error) {
-                      showError(t('代理连接测试失败: ') + error.message);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-              >
-                {t('测试代理')}
-              </Button>
-            }
-        />
-      </div>
-      <Row>
-        <Button size='default' onClick={saveImageReadProxy}>
-          {t('保存图片请求代理设置')}
-        </Button>
-      </Row>
 
       <Modal
         title={t('警告')}

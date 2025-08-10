@@ -3,15 +3,16 @@ package ali
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"one-api/common"
 	"one-api/dto"
 	"one-api/relay/helper"
-	"one-api/service"
 	"strings"
+
+	"one-api/types"
+
+	"github.com/gin-gonic/gin"
 )
 
 // https://help.aliyun.com/document_detail/613695.html?spm=a2c4g.2399480.0.0.1adb778fAdzP9w#341800c0f8w0r
@@ -28,9 +29,6 @@ func requestOpenAI2Ali(request dto.GeneralOpenAIRequest) *dto.GeneralOpenAIReque
 }
 
 func embeddingRequestOpenAI2Ali(request dto.EmbeddingRequest) *AliEmbeddingRequest {
-	if request.Model == "" {
-		request.Model = "text-embedding-v1"
-	}
 	return &AliEmbeddingRequest{
 		Model: request.Model,
 		Input: struct {
@@ -41,68 +39,53 @@ func embeddingRequestOpenAI2Ali(request dto.EmbeddingRequest) *AliEmbeddingReque
 	}
 }
 
-func aliEmbeddingHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	var aliResponse AliEmbeddingResponse
-	err := json.NewDecoder(resp.Body).Decode(&aliResponse)
+func aliEmbeddingHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, *dto.Usage) {
+	var fullTextResponse dto.FlexibleEmbeddingResponse
+	err := json.NewDecoder(resp.Body).Decode(&fullTextResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError), nil
 	}
 
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
+	common.CloseResponseBodyGracefully(resp)
 
-	if aliResponse.Code != "" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: aliResponse.Message,
-				Type:    aliResponse.Code,
-				Param:   aliResponse.RequestId,
-				Code:    aliResponse.Code,
-			},
-			StatusCode: resp.StatusCode,
-		}, nil
+	model := c.GetString("model")
+	if model == "" {
+		model = "text-embedding-v4"
 	}
-
-	fullTextResponse := embeddingResponseAli2OpenAI(&aliResponse)
 	jsonResponse, err := json.Marshal(fullTextResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = c.Writer.Write(jsonResponse)
+	c.Writer.Write(jsonResponse)
 	return nil, &fullTextResponse.Usage
 }
 
-func embeddingResponseAli2OpenAI(response *AliEmbeddingResponse) *dto.OpenAIEmbeddingResponse {
+func embeddingResponseAli2OpenAI(response *AliEmbeddingResponse, model string) *dto.OpenAIEmbeddingResponse {
 	openAIEmbeddingResponse := dto.OpenAIEmbeddingResponse{
 		Object: "list",
 		Data:   make([]dto.OpenAIEmbeddingResponseItem, 0, len(response.Output.Embeddings)),
-		Model:  "text-embedding-v1",
+		Model:  model,
 		Usage:  dto.Usage{TotalTokens: response.Usage.TotalTokens},
 	}
 
 	for _, item := range response.Output.Embeddings {
-		var embedding dto.FlexibleEmbedding
-		embedding.UnmarshalJSON([]byte(fmt.Sprintf("%v", item.Embedding)))
 		openAIEmbeddingResponse.Data = append(openAIEmbeddingResponse.Data, dto.OpenAIEmbeddingResponseItem{
 			Object:    `embedding`,
 			Index:     item.TextIndex,
-			Embedding: embedding,
+			Embedding: item.Embedding,
 		})
 	}
 	return &openAIEmbeddingResponse
 }
 
 func responseAli2OpenAI(response *AliResponse) *dto.OpenAITextResponse {
-	content, _ := json.Marshal(response.Output.Text)
 	choice := dto.OpenAITextResponseChoice{
 		Index: 0,
 		Message: dto.Message{
 			Role:    "assistant",
-			Content: content,
+			Content: response.Output.Text,
 		},
 		FinishReason: response.Output.FinishReason,
 	}
@@ -137,7 +120,7 @@ func streamResponseAli2OpenAI(aliResponse *AliResponse) *dto.ChatCompletionsStre
 	return &response
 }
 
-func aliStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func aliStreamHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, *dto.Usage) {
 	var usage dto.Usage
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
@@ -188,42 +171,33 @@ func aliStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWith
 			return false
 		}
 	})
-	err := resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
+	common.CloseResponseBodyGracefully(resp)
 	return nil, &usage
 }
 
-func aliHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func aliHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, *dto.Usage) {
 	var aliResponse AliResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError), nil
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
+	common.CloseResponseBodyGracefully(resp)
 	err = json.Unmarshal(responseBody, &aliResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError), nil
 	}
 	if aliResponse.Code != "" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: aliResponse.Message,
-				Type:    aliResponse.Code,
-				Param:   aliResponse.RequestId,
-				Code:    aliResponse.Code,
-			},
-			StatusCode: resp.StatusCode,
-		}, nil
+		return types.WithOpenAIError(types.OpenAIError{
+			Message: aliResponse.Message,
+			Type:    "ali_error",
+			Param:   aliResponse.RequestId,
+			Code:    aliResponse.Code,
+		}, resp.StatusCode), nil
 	}
 	fullTextResponse := responseAli2OpenAI(&aliResponse)
-	jsonResponse, err := json.Marshal(fullTextResponse)
+	jsonResponse, err := common.Marshal(fullTextResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)

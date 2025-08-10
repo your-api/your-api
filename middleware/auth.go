@@ -1,14 +1,18 @@
 package middleware
 
 import (
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"net/http"
 	"one-api/common"
+	"one-api/constant"
 	"one-api/model"
+	"one-api/setting"
+	"one-api/setting/ratio_setting"
 	"strconv"
 	"strings"
-	"fmt"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 )
 
 func validUserInfo(username string, role int) bool {
@@ -29,55 +33,6 @@ func authHelper(c *gin.Context, minRole int) {
 	id := session.Get("id")
 	status := session.Get("status")
 	useAccessToken := false
-	
-	// 如果内存session中没有用户信息，尝试从Redis恢复
-	if username == nil {
-		common.SysLog("memory session is empty, trying to recover from Redis")
-		// 尝试从Redis恢复session
-		if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
-			// 成功从Redis恢复session，写入内存session
-			session.Set("id", sessionData.ID)
-			session.Set("username", sessionData.Username)
-			session.Set("role", sessionData.Role)
-			session.Set("status", sessionData.Status)
-			session.Set("group", sessionData.Group)
-			err = session.Save()
-			if err != nil {
-				common.SysError("failed to save recovered session to memory: " + err.Error())
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"success": false,
-					"message": "session恢复失败，请重新登录",
-				})
-				c.Abort()
-				return
-			}
-			
-			// 更新局部变量
-			username = sessionData.Username
-			role = sessionData.Role
-			id = sessionData.ID
-			status = sessionData.Status
-			
-			// 更新Redis中的session数据，记录最新的访问时间
-			model.SyncSessionToRedis(c, sessionData.ID, sessionData.Username, sessionData.Role, sessionData.Status, sessionData.Group)
-			
-			common.SysLog(fmt.Sprintf("session recovered from Redis for user: %s", sessionData.Username))
-		} else {
-			if err != nil {
-				common.SysLog("failed to recover session from Redis: " + err.Error())
-			} else {
-				common.SysLog("no session found in Redis")
-			}
-		}
-	} else {
-		if common.DebugEnabled {
-			common.SysLog(fmt.Sprintf("using existing memory session for user: %s", username.(string)))
-		}
-		// 移除频繁的session刷新，只在session恢复时才需要同步
-		// 正常情况下session已经在Redis中，不需要每次都刷新
-	}
-	
-	// 如果仍然没有用户信息，检查access token
 	if username == nil {
 		// Check access token
 		accessToken := c.Request.Header.Get("Authorization")
@@ -113,11 +68,7 @@ func authHelper(c *gin.Context, minRole int) {
 			c.Abort()
 			return
 		}
-	} else {
-		// 移除频繁的session刷新，只在session恢复时才需要同步
-		// 正常情况下session已经在Redis中，不需要每次都刷新
 	}
-	
 	// get header New-Api-User
 	apiUserIdStr := c.Request.Header.Get("New-Api-User")
 	if apiUserIdStr == "" {
@@ -174,7 +125,20 @@ func authHelper(c *gin.Context, minRole int) {
 	c.Set("role", role)
 	c.Set("id", id)
 	c.Set("group", session.Get("group"))
+	c.Set("user_group", session.Get("group"))
 	c.Set("use_access_token", useAccessToken)
+
+	//userCache, err := model.GetUserCache(id.(int))
+	//if err != nil {
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"success": false,
+	//		"message": err.Error(),
+	//	})
+	//	c.Abort()
+	//	return
+	//}
+	//userCache.WriteContext(c)
+
 	c.Next()
 }
 
@@ -236,6 +200,18 @@ func TokenAuth() func(c *gin.Context) {
 				c.Request.Header.Set("Authorization", "Bearer "+key)
 			}
 		}
+		// gemini api 从query中获取key
+		if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
+			skKey := c.Query("key")
+			if skKey != "" {
+				c.Request.Header.Set("Authorization", "Bearer "+skKey)
+			}
+			// 从x-goog-api-key header中获取key
+			xGoogKey := c.Request.Header.Get("x-goog-api-key")
+			if xGoogKey != "" {
+				c.Request.Header.Set("Authorization", "Bearer "+xGoogKey)
+			}
+		}
 		key := c.Request.Header.Get("Authorization")
 		parts := make([]string, 0)
 		key = strings.TrimPrefix(key, "Bearer ")
@@ -261,6 +237,16 @@ func TokenAuth() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())
 			return
 		}
+
+		allowIpsMap := token.GetIpLimitsMap()
+		if len(allowIpsMap) != 0 {
+			clientIp := c.ClientIP()
+			if _, ok := allowIpsMap[clientIp]; !ok {
+				abortWithOpenAiMessage(c, http.StatusForbidden, "您的 IP 不在令牌允许访问的列表中")
+				return
+			}
+		}
+
 		userCache, err := model.GetUserCache(token.UserId)
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusInternalServerError, err.Error())
@@ -274,30 +260,59 @@ func TokenAuth() func(c *gin.Context) {
 
 		userCache.WriteContext(c)
 
-		c.Set("id", token.UserId)
-		c.Set("token_id", token.Id)
-		c.Set("token_key", token.Key)
-		c.Set("token_name", token.Name)
-		c.Set("token_unlimited_quota", token.UnlimitedQuota)
-		if !token.UnlimitedQuota {
-			c.Set("token_quota", token.RemainQuota)
-		}
-		if token.ModelLimitsEnabled {
-			c.Set("token_model_limit_enabled", true)
-			c.Set("token_model_limit", token.GetModelLimitsMap())
-		} else {
-			c.Set("token_model_limit_enabled", false)
-		}
-		c.Set("allow_ips", token.GetIpLimitsMap())
-		c.Set("token_group", token.Group)
-		if len(parts) > 1 {
-			if model.IsAdmin(token.UserId) {
-				c.Set("specific_channel_id", parts[1])
-			} else {
-				abortWithOpenAiMessage(c, http.StatusForbidden, "普通用户不支持指定渠道")
+		userGroup := userCache.Group
+		tokenGroup := token.Group
+		if tokenGroup != "" {
+			// check common.UserUsableGroups[userGroup]
+			if _, ok := setting.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("令牌分组 %s 已被禁用", tokenGroup))
 				return
 			}
+			// check group in common.GroupRatio
+			if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+				if tokenGroup != "auto" {
+					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
+					return
+				}
+			}
+			userGroup = tokenGroup
+		}
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+
+		err = SetupContextForToken(c, token, parts...)
+		if err != nil {
+			return
 		}
 		c.Next()
 	}
+}
+
+func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) error {
+	if token == nil {
+		return fmt.Errorf("token is nil")
+	}
+	c.Set("id", token.UserId)
+	c.Set("token_id", token.Id)
+	c.Set("token_key", token.Key)
+	c.Set("token_name", token.Name)
+	c.Set("token_unlimited_quota", token.UnlimitedQuota)
+	if !token.UnlimitedQuota {
+		c.Set("token_quota", token.RemainQuota)
+	}
+	if token.ModelLimitsEnabled {
+		c.Set("token_model_limit_enabled", true)
+		c.Set("token_model_limit", token.GetModelLimitsMap())
+	} else {
+		c.Set("token_model_limit_enabled", false)
+	}
+	c.Set("token_group", token.Group)
+	if len(parts) > 1 {
+		if model.IsAdmin(token.UserId) {
+			c.Set("specific_channel_id", parts[1])
+		} else {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "普通用户不支持指定渠道")
+			return fmt.Errorf("普通用户不支持指定渠道")
+		}
+	}
+	return nil
 }

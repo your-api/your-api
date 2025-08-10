@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"one-api/common"
+	"one-api/dto"
 	"strconv"
 	"strings"
 
@@ -23,8 +24,6 @@ type User struct {
 	Role             int            `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
-	Phone            string         `json:"phone" gorm:"index" validate:"max=11"`
-	PhoneCode        string         `json:"phone_code" gorm:"-:all"` // this field is only for Phone verification, don't save it to database!
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
@@ -37,17 +36,14 @@ type User struct {
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
 	AffCode          string         `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
 	AffCount         int            `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
-	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`                 // 邀请剩余额度
-	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"`       // 邀请历史额度
-	PayCount         int            `json:"pay_count" gorm:"type:int;default:0;column:pay_count"`                 // 用户充值的次数，用于前几次奖励使用
-	RewardQuota      int            `json:"reward_quota" gorm:"type:int;default:0;column:reward_quota"`           // 邀请新用户充值奖励的额度
-	WithdrawedQuota  int            `json:"withdrawed_quota" gorm:"type:int;default:0;column:withdraw_quota"`     // 已提现的额度
-	WithdrawingQuota int            `json:"withdrawing_quota" gorm:"type:int;default:0;column:withdrawing_quota"` // 邀请新用户充值奖励的提现额度
+	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
+	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
-	RegisterIP       string         `json:"register_ip" gorm:"type:varchar(45);column:register_ip"`               // 注册IP地址
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
+	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
+	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -74,14 +70,18 @@ func (user *User) SetAccessToken(token string) {
 	user.AccessToken = &token
 }
 
-func (user *User) GetSetting() map[string]interface{} {
-	if user.Setting == "" {
-		return nil
+func (user *User) GetSetting() dto.UserSetting {
+	setting := dto.UserSetting{}
+	if user.Setting != "" {
+		err := json.Unmarshal([]byte(user.Setting), &setting)
+		if err != nil {
+			common.SysError("failed to unmarshal setting: " + err.Error())
+		}
 	}
-	return common.StrToMap(user.Setting)
+	return setting
 }
 
-func (user *User) SetSetting(setting map[string]interface{}) {
+func (user *User) SetSetting(setting dto.UserSetting) {
 	settingBytes, err := json.Marshal(setting)
 	if err != nil {
 		common.SysError("failed to marshal setting: " + err.Error())
@@ -120,7 +120,7 @@ func GetMaxUserId() int {
 	return user.Id
 }
 
-func GetAllUsers(startIdx int, num int) (users []*User, total int64, err error) {
+func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()
 	if tx.Error != nil {
@@ -140,7 +140,7 @@ func GetAllUsers(startIdx int, num int) (users []*User, total int64, err error) 
 	}
 
 	// Get paginated users within same transaction
-	err = tx.Unscoped().Order("id desc").Limit(num).Offset(startIdx).Omit("password").Find(&users).Error
+	err = tx.Unscoped().Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Omit("password").Find(&users).Error
 	if err != nil {
 		tx.Rollback()
 		return nil, 0, err
@@ -154,7 +154,7 @@ func GetAllUsers(startIdx int, num int) (users []*User, total int64, err error) 
 	return users, total, nil
 }
 
-func SearchUsers(keyword string, group string, inviteCode string, startIdx int, num int) ([]*User, int64, error) {
+func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -173,41 +173,30 @@ func SearchUsers(keyword string, group string, inviteCode string, startIdx int, 
 	// 构建基础查询
 	query := tx.Unscoped().Model(&User{})
 
-	// 如果有邀请码搜索，优先使用邀请码搜索
-	if inviteCode != "" {
-		query = query.Where("aff_code LIKE ?", "%"+inviteCode+"%")
-		if group != "" {
-			query = query.Where("`group` = ?", group)
-		}
-	} else if keyword != "" {
-		// 构建搜索条件
-		likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR register_ip LIKE ?"
+	// 构建搜索条件
+	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
 
-		// 尝试将关键字转换为整数ID
-		keywordInt, err := strconv.Atoi(keyword)
-		if err == nil {
-			// 如果是数字，同时搜索ID和其他字段
-			likeCondition = "id = ? OR " + likeCondition
-			if group != "" {
-				query = query.Where("("+likeCondition+") AND `group` = ?",
-					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
-			} else {
-				query = query.Where(likeCondition,
-					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-			}
+	// 尝试将关键字转换为整数ID
+	keywordInt, err := strconv.Atoi(keyword)
+	if err == nil {
+		// 如果是数字，同时搜索ID和其他字段
+		likeCondition = "id = ? OR " + likeCondition
+		if group != "" {
+			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
 		} else {
-			// 非数字关键字，只搜索字符串字段
-			if group != "" {
-				query = query.Where("("+likeCondition+") AND `group` = ?",
-					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
-			} else {
-				query = query.Where(likeCondition,
-					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-			}
+			query = query.Where(likeCondition,
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 		}
-	} else if group != "" {
-		// 只有分组搜索
-		query = query.Where("`group` = ?", group)
+	} else {
+		// 非数字关键字，只搜索字符串字段
+		if group != "" {
+			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+		} else {
+			query = query.Where(likeCondition,
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+		}
 	}
 
 	// 获取总数
@@ -319,105 +308,6 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 	return tx.Commit().Error
 }
 
-// TransferWithdrawingQuotaToQuota 将邀请充值返利待使用收益转移到余额
-func (user *User) TransferWithdrawingQuotaToQuota(quota int) error {
-	// 检查quota是否小于最小额度
-	if float64(quota) < common.QuotaPerUnit {
-		return fmt.Errorf("转移额度最小为%s！", common.LogQuota(int(common.QuotaPerUnit)))
-	}
-
-	// 开始数据库事务
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	defer tx.Rollback() // 确保在函数退出时事务能回滚
-
-	// 加锁查询用户以确保数据一致性
-	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
-	if err != nil {
-		return err
-	}
-
-	// 计算待使用收益（RewardQuota - WithdrawedQuota）
-	availableQuota := user.RewardQuota - user.WithdrawedQuota
-	if availableQuota < quota {
-		return errors.New("邀请充值返利待使用收益不足！")
-	}
-
-	// 增加已提现额度，减少待使用收益，增加用户余额
-	user.WithdrawedQuota += quota
-	user.Quota += quota
-
-	// 保存用户状态
-	if err := tx.Save(user).Error; err != nil {
-		return err
-	}
-
-	// 提交事务
-	return tx.Commit().Error
-}
-
-// WithdrawCommissionQuota 申请提现邀请充值返利额度
-func (user *User) WithdrawCommissionQuota(quota int, alipayAccount, contact string) error {
-	// 检查quota是否达到最小提现额度（十块钱）
-	minWithdrawQuota := int(common.QuotaPerUnit * 10) // 10块钱
-	if quota < minWithdrawQuota {
-		return fmt.Errorf("提现额度最小为%s！", common.LogQuota(minWithdrawQuota))
-	}
-
-	// 检查必填信息
-	if alipayAccount == "" {
-		return errors.New("支付宝账号不能为空！")
-	}
-	if contact == "" {
-		return errors.New("联系方式不能为空！")
-	}
-
-	// 开始数据库事务
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	defer tx.Rollback() // 确保在函数退出时事务能回滚
-
-	// 加锁查询用户以确保数据一致性
-	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
-	if err != nil {
-		return err
-	}
-
-	// 计算可提现金额（RewardQuota - WithdrawedQuota - WithdrawingQuota）
-	availableQuota := user.RewardQuota - user.WithdrawedQuota - user.WithdrawingQuota
-	if availableQuota < quota {
-		return errors.New("可提现金额不足！")
-	}
-
-	// 检查是否有待处理的提现申请
-	hasPending, err := IsUserHasPendingWithdraw(user.Id)
-	if err != nil {
-		return err
-	}
-	if hasPending {
-		return errors.New("您还有待处理的提现申请，请等待处理完成后再申请！")
-	}
-
-	// 创建提现申请记录
-	_, err = CreateWithdrawHistory(user.Id, quota, alipayAccount, contact)
-	if err != nil {
-		return err
-	}
-
-	// 增加正在提现的额度
-	user.WithdrawingQuota += quota
-	if err := tx.Save(user).Error; err != nil {
-		return err
-	}
-
-	// 提交事务
-	return tx.Commit().Error
-}
-
 func (user *User) Insert(inviterId int) error {
 	var err error
 	if user.Password != "" {
@@ -483,6 +373,7 @@ func (user *User) Edit(updatePassword bool) error {
 		"display_name": newUser.DisplayName,
 		"group":        newUser.Group,
 		"quota":        newUser.Quota,
+		"remark":       newUser.Remark,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
@@ -591,10 +482,6 @@ func IsEmailAlreadyTaken(email string) bool {
 	return DB.Unscoped().Where("email = ?", email).Find(&User{}).RowsAffected == 1
 }
 
-func IsPhoneAlreadyTaken(phone string) bool {
-	return DB.Unscoped().Where("phone = ?", phone).Find(&User{}).RowsAffected == 1
-}
-
 func IsWeChatIdAlreadyTaken(wechatId string) bool {
 	return DB.Unscoped().Where("wechat_id = ?", wechatId).Find(&User{}).RowsAffected == 1
 }
@@ -611,17 +498,6 @@ func IsTelegramIdAlreadyTaken(telegramId string) bool {
 	return DB.Unscoped().Where("telegram_id = ?", telegramId).Find(&User{}).RowsAffected == 1
 }
 
-func (user *User) FillUserByPhone() error {
-	if user.Phone == "" {
-		return errors.New("手机号为空！")
-	}
-	err := DB.Where(User{Phone: user.Phone}).First(user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return errors.New("该手机号未注册")
-	}
-	return nil
-}
-
 func ResetUserPasswordByEmail(email string, password string) error {
 	if email == "" || password == "" {
 		return errors.New("邮箱地址或密码为空！")
@@ -631,18 +507,6 @@ func ResetUserPasswordByEmail(email string, password string) error {
 		return err
 	}
 	err = DB.Model(&User{}).Where("email = ?", email).Update("password", hashedPassword).Error
-	return err
-}
-
-func ResetUserPasswordByPhone(phone string, password string) error {
-	if phone == "" || password == "" {
-		return errors.New("手机号或密码为空！")
-	}
-	hashedPassword, err := common.Password2Hash(password)
-	if err != nil {
-		return err
-	}
-	err = DB.Model(&User{}).Where("phone = ?", phone).Update("password", hashedPassword).Error
 	return err
 }
 
@@ -759,7 +623,7 @@ func GetUserGroup(id int, fromDB bool) (group string, err error) {
 		// Don't return error - fall through to DB
 	}
 	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select(groupCol).Find(&group).Error
+	err = DB.Model(&User{}).Where("id = ?", id).Select(commonGroupCol).Find(&group).Error
 	if err != nil {
 		return "", err
 	}
@@ -768,7 +632,7 @@ func GetUserGroup(id int, fromDB bool) (group string, err error) {
 }
 
 // GetUserSetting gets setting from Redis first, falls back to DB if needed
-func GetUserSetting(id int, fromDB bool) (settingMap map[string]interface{}, err error) {
+func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error) {
 	var setting string
 	defer func() {
 		// Update Redis cache asynchronously on successful DB read
@@ -790,10 +654,12 @@ func GetUserSetting(id int, fromDB bool) (settingMap map[string]interface{}, err
 	fromDB = true
 	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&setting).Error
 	if err != nil {
-		return map[string]interface{}{}, err
+		return settingMap, err
 	}
-
-	return common.StrToMap(setting), nil
+	userBase := &UserBase{
+		Setting: setting,
+	}
+	return userBase.GetSetting(), nil
 }
 
 func IncreaseUserQuota(id int, quota int, db bool) (err error) {

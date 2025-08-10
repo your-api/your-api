@@ -12,7 +12,8 @@ RUN apt-get update \
 
 WORKDIR /build
 
-COPY web/package.json web/package-lock.json* ./
+COPY web/package.json .
+COPY web/bun.lock .
 RUN bun install
 
 COPY web/ ./

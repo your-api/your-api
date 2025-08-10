@@ -126,10 +126,7 @@ func OidcAuth(c *gin.Context) {
 	code := c.Query("code")
 	oidcUser, err := getOidcUserInfoByCode(code)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	user := model.User{
@@ -196,10 +193,7 @@ func OidcBind(c *gin.Context) {
 	code := c.Query("code")
 	oidcUser, err := getOidcUserInfoByCode(code)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	user := model.User{
@@ -218,19 +212,13 @@ func OidcBind(c *gin.Context) {
 	user.Id = id.(int)
 	err = user.FillUserById()
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	user.OidcId = oidcUser.OpenID
 	err = user.Update(false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

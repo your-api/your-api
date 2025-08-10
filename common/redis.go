@@ -16,6 +16,10 @@ import (
 var RDB *redis.Client
 var RedisEnabled = true
 
+func RedisKeyCacheSeconds() int {
+	return SyncFrequency
+}
+
 // InitRedisClient This function is called after init()
 func InitRedisClient() (err error) {
 	if os.Getenv("REDIS_CONN_STRING") == "" {
@@ -92,12 +96,12 @@ func RedisDel(key string) error {
 	return RDB.Del(ctx, key).Err()
 }
 
-func RedisHDelObj(key string) error {
+func RedisDelKey(key string) error {
 	if DebugEnabled {
-		SysLog(fmt.Sprintf("Redis HDEL: key=%s", key))
+		SysLog(fmt.Sprintf("Redis DEL Key: key=%s", key))
 	}
 	ctx := context.Background()
-	return RDB.HDel(ctx, key).Err()
+	return RDB.Del(ctx, key).Err()
 }
 
 func RedisHSetObj(key string, obj interface{}, expiration time.Duration) error {
@@ -141,7 +145,11 @@ func RedisHSetObj(key string, obj interface{}, expiration time.Duration) error {
 
 	txn := RDB.TxPipeline()
 	txn.HSet(ctx, key, data)
-	txn.Expire(ctx, key, expiration)
+
+	// 只有在 expiration 大于 0 时才设置过期时间
+	if expiration > 0 {
+		txn.Expire(ctx, key, expiration)
+	}
 
 	_, err := txn.Exec(ctx)
 	if err != nil {

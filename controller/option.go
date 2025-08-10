@@ -6,82 +6,13 @@ import (
 	"one-api/common"
 	"one-api/model"
 	"one-api/setting"
-	"one-api/setting/operation_setting"
+	"one-api/setting/console_setting"
+	"one-api/setting/ratio_setting"
 	"one-api/setting/system_setting"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
-
-func GetProviders(c *gin.Context) {
-	providers := operation_setting.GetProviders()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    providers,
-	})
-	return
-}
-
-func GetCustomNavLinks(c *gin.Context) {
-	custemNavLinks := operation_setting.GetCustomNavLinks()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    custemNavLinks,
-	})
-	return
-}
-
-func GetDiscountTiers(c *gin.Context) {
-	disCountTiers := operation_setting.GetDiscountTiers()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    disCountTiers,
-	})
-	return
-}
-
-func GetAdvantages(c *gin.Context) {
-	advantages := operation_setting.GetAdvantages()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    advantages,
-	})
-	return
-}
-
-func GetTypingList(c *gin.Context) {
-	typingList := operation_setting.GetTypingList()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    typingList,
-	})
-	return
-}
-
-func GetModelDescriptions(c *gin.Context) {
-	typingList := operation_setting.GetModelDescriptions()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    typingList,
-	})
-	return
-}
-
-func GetImageReadProxy(c *gin.Context) {
-	imageReadProxy := operation_setting.GetImageReadProxy()
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    imageReadProxy,
-	})
-	return
-}
 
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
@@ -173,7 +104,7 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	case "GroupRatio":
-		err = setting.CheckGroupRatio(option.Value)
+		err = ratio_setting.CheckGroupRatio(option.Value)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -190,14 +121,46 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
-
+	case "console_setting.api_info":
+		err = console_setting.ValidateConsoleSettings(option.Value, "ApiInfo")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "console_setting.announcements":
+		err = console_setting.ValidateConsoleSettings(option.Value, "Announcements")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "console_setting.faq":
+		err = console_setting.ValidateConsoleSettings(option.Value, "FAQ")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "console_setting.uptime_kuma_groups":
+		err = console_setting.ValidateConsoleSettings(option.Value, "UptimeKumaGroups")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 	}
 	err = model.UpdateOption(option.Key, option.Value)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

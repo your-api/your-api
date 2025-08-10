@@ -14,6 +14,8 @@ type Midjourney struct {
 	StartTime   int64  `json:"start_time" gorm:"index"`
 	FinishTime  int64  `json:"finish_time" gorm:"index"`
 	ImageUrl    string `json:"image_url"`
+	VideoUrl    string `json:"video_url"`
+	VideoUrls   string `json:"video_urls"`
 	Status      string `json:"status" gorm:"type:varchar(20);index"`
 	Progress    string `json:"progress" gorm:"type:varchar(30);index"`
 	FailReason  string `json:"fail_reason"`
@@ -165,4 +167,41 @@ func MjBulkUpdateByTaskIds(taskIDs []int, params map[string]any) error {
 	return DB.Model(&Midjourney{}).
 		Where("id in (?)", taskIDs).
 		Updates(params).Error
+}
+
+// CountAllTasks returns total midjourney tasks for admin query
+func CountAllTasks(queryParams TaskQueryParams) int64 {
+	var total int64
+	query := DB.Model(&Midjourney{})
+	if queryParams.ChannelID != "" {
+		query = query.Where("channel_id = ?", queryParams.ChannelID)
+	}
+	if queryParams.MjID != "" {
+		query = query.Where("mj_id = ?", queryParams.MjID)
+	}
+	if queryParams.StartTimestamp != "" {
+		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
+	}
+	if queryParams.EndTimestamp != "" {
+		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
+	}
+	_ = query.Count(&total).Error
+	return total
+}
+
+// CountAllUserTask returns total midjourney tasks for user
+func CountAllUserTask(userId int, queryParams TaskQueryParams) int64 {
+	var total int64
+	query := DB.Model(&Midjourney{}).Where("user_id = ?", userId)
+	if queryParams.MjID != "" {
+		query = query.Where("mj_id = ?", queryParams.MjID)
+	}
+	if queryParams.StartTimestamp != "" {
+		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)
+	}
+	if queryParams.EndTimestamp != "" {
+		query = query.Where("submit_time <= ?", queryParams.EndTimestamp)
+	}
+	_ = query.Count(&total).Error
+	return total
 }

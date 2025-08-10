@@ -100,16 +100,14 @@ func RequestEpay(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "error", "data": "充值金额过低"})
 		return
 	}
-	payType := "wxpay"
-	if req.PaymentMethod == "zfb" {
-		payType = "alipay"
+
+	if !setting.ContainsPayMethod(req.PaymentMethod) {
+		c.JSON(200, gin.H{"message": "error", "data": "支付方式不存在"})
+		return
 	}
-	if req.PaymentMethod == "wx" {
-		req.PaymentMethod = "wxpay"
-		payType = "wxpay"
-	}
+
 	callBackAddress := service.GetCallbackAddress()
-	returnUrl, _ := url.Parse(setting.ServerAddress + "/log")
+	returnUrl, _ := url.Parse(setting.ServerAddress + "/console/log")
 	notifyUrl, _ := url.Parse(callBackAddress + "/api/user/epay/notify")
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)
@@ -119,7 +117,7 @@ func RequestEpay(c *gin.Context) {
 		return
 	}
 	uri, params, err := client.Purchase(&epay.PurchaseArgs{
-		Type:           payType,
+		Type:           req.PaymentMethod,
 		ServiceTradeNo: tradeNo,
 		Name:           fmt.Sprintf("TUC%d", req.Amount),
 		Money:          strconv.FormatFloat(payMoney, 'f', 2, 64),

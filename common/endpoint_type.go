@@ -1,87 +1,92 @@
 package common
 
-// EndpointType 端点类型定义
-type EndpointType string
-
-const (
-	EndpointTypeOpenAI          EndpointType = "openai"
-	EndpointTypeOpenAIResponse  EndpointType = "openai-response"
-	EndpointTypeAnthropic       EndpointType = "anthropic"
-	EndpointTypeGemini          EndpointType = "gemini"
-	EndpointTypeJinaRerank      EndpointType = "jina-rerank"
-	EndpointTypeImageGeneration EndpointType = "image-generation"
-	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"
-	//EndpointTypeSuno           EndpointType = "suno-proxy"
-	//EndpointTypeKling          EndpointType = "kling"
-	//EndpointTypeJimeng         EndpointType = "jimeng"
-)
+import "one-api/constant"
 
 // GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
-func GetEndpointTypesByChannelType(channelType int, modelName string) []EndpointType {
+func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
+	var endpointTypes []constant.EndpointType
 	switch channelType {
-	case ChannelTypeOpenAI:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeAzure:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeAnthropic:
-		return []EndpointType{EndpointTypeAnthropic, EndpointTypeOpenAI}
-	case ChannelTypeGemini:
-		return []EndpointType{EndpointTypeGemini, EndpointTypeOpenAI}
-	case ChannelTypeJina:
+	case constant.ChannelTypeOpenAI:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeAzure:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeAnthropic:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeAnthropic, constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeGemini:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeGemini, constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeJina:
 		// Jina 支持重排序和嵌入
-		return []EndpointType{EndpointTypeJinaRerank, EndpointTypeOpenAI}
-	case ChannelTypeBaidu, ChannelTypeBaiduV2:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeZhipu, ChannelTypeZhipu_v4:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeAli:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeXunfei:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeTencent:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeOllama:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypePerplexity:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeAws:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeCohere:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeDify:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeSiliconFlow:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeVertexAi:
-		return []EndpointType{EndpointTypeGemini, EndpointTypeOpenAI}
-	case ChannelTypeMistral:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeDeepSeek:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeMokaAI:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeVolcEngine:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeOpenRouter:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeXinference:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeXai:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeCoze:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeMoonshot:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeLingYiWanWu:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypeMiniMax:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelType360:
-		return []EndpointType{EndpointTypeOpenAI}
-	case ChannelTypePaLM:
-		return []EndpointType{EndpointTypeGemini, EndpointTypeOpenAI}
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeJinaRerank, constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeBaidu, constant.ChannelTypeBaiduV2:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeZhipu, constant.ChannelTypeZhipu_v4:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeAli:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeXunfei:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeTencent:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeOllama:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypePerplexity:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeAws:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeAnthropic, constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeCohere:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeDify:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeSiliconFlow:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeVertexAi:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeGemini, constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeMistral:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeDeepSeek:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeMokaAI:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeVolcEngine:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeOpenRouter:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeXinference:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeXai:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeCoze:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeMoonshot:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeLingYiWanWu:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypeMiniMax:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelType360:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+	case constant.ChannelTypePaLM:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeGemini, constant.EndpointTypeOpenAI}
+	//case constant.ChannelTypeMidjourney, constant.ChannelTypeMidjourneyPlus:
+	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeMidjourney}
+	//case constant.ChannelTypeSunoAPI:
+	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeSuno}
+	//case constant.ChannelTypeKling:
+	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeKling}
+	//case constant.ChannelTypeJimeng:
+	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeJimeng}
 	default:
 		// 默认支持 OpenAI 端点
-		return []EndpointType{EndpointTypeOpenAI}
+		if IsOpenAIResponseOnlyModel(modelName) {
+			endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIResponse}
+		} else {
+			endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
+		}
 	}
-} 
+	
+	if IsImageGenerationModel(modelName) {
+		// add to first
+		endpointTypes = append([]constant.EndpointType{constant.EndpointTypeImageGeneration}, endpointTypes...)
+	}
+	return endpointTypes
+}

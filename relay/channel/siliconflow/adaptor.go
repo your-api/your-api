@@ -10,6 +10,7 @@ import (
 	"one-api/relay/channel/openai"
 	relaycommon "one-api/relay/common"
 	"one-api/relay/constant"
+	"one-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,20 +18,24 @@ import (
 type Adaptor struct {
 }
 
-func (a *Adaptor) ConvertClaudeRequest(*gin.Context, *relaycommon.RelayInfo, *dto.ClaudeRequest) (any, error) {
+func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
 	//TODO implement me
-	panic("implement me")
-	return nil, nil
+	return nil, errors.New("not implemented")
+}
+
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
+	adaptor := openai.Adaptor{}
+	return adaptor.ConvertClaudeRequest(c, info, req)
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
 	//TODO implement me
-	return nil, errors.New("not implemented")
+	return nil, errors.New("not supported")
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	adaptor := openai.Adaptor{}
+	return adaptor.ConvertImageRequest(c, info, request)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -46,7 +51,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	} else if info.RelayMode == constant.RelayModeCompletions {
 		return fmt.Sprintf("%s/v1/completions", info.BaseUrl), nil
 	}
-	return "", errors.New("invalid relay mode")
+	return fmt.Sprintf("%s/v1/chat/completions", info.BaseUrl), nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
@@ -76,20 +81,23 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	return request, nil
 }
 
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	switch info.RelayMode {
 	case constant.RelayModeRerank:
-		err, usage = siliconflowRerankHandler(c, resp)
+		usage, err = siliconflowRerankHandler(c, info, resp)
+	case constant.RelayModeEmbeddings:
+		usage, err = openai.OpenaiHandler(c, info, resp)
 	case constant.RelayModeCompletions:
 		fallthrough
 	case constant.RelayModeChatCompletions:
+		fallthrough
+	default:
 		if info.IsStream {
-			err, usage = openai.OaiStreamHandler(c, resp, info)
+			usage, err = openai.OaiStreamHandler(c, info, resp)
 		} else {
-			err, usage = openai.OpenaiHandler(c, resp, info)
+			usage, err = openai.OpenaiHandler(c, info, resp)
 		}
-	case constant.RelayModeEmbeddings:
-		err, usage = openai.OpenaiEmbeddingHandler(c, resp, info)
+
 	}
 	return
 }

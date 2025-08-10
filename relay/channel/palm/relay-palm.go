@@ -2,55 +2,32 @@ package palm
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
+	relaycommon "one-api/relay/common"
 	"one-api/relay/helper"
 	"one-api/service"
+	"one-api/types"
+
+	"github.com/gin-gonic/gin"
 )
 
 // https://developers.generativeai.google/api/rest/generativelanguage/models/generateMessage#request-body
 // https://developers.generativeai.google/api/rest/generativelanguage/models/generateMessage#response-body
-
-func requestOpenAI2PaLM(textRequest dto.GeneralOpenAIRequest) *PaLMChatRequest {
-	palmRequest := PaLMChatRequest{
-		Prompt: PaLMPrompt{
-			Messages: make([]PaLMChatMessage, 0, len(textRequest.Messages)),
-		},
-		Temperature:    textRequest.Temperature,
-		CandidateCount: textRequest.N,
-		TopP:           textRequest.TopP,
-		TopK:           textRequest.MaxTokens,
-	}
-	for _, message := range textRequest.Messages {
-		palmMessage := PaLMChatMessage{
-			Content: message.StringContent(),
-		}
-		if message.Role == "user" {
-			palmMessage.Author = "0"
-		} else {
-			palmMessage.Author = "1"
-		}
-		palmRequest.Prompt.Messages = append(palmRequest.Prompt.Messages, palmMessage)
-	}
-	return &palmRequest
-}
 
 func responsePaLM2OpenAI(response *PaLMChatResponse) *dto.OpenAITextResponse {
 	fullTextResponse := dto.OpenAITextResponse{
 		Choices: make([]dto.OpenAITextResponseChoice, 0, len(response.Candidates)),
 	}
 	for i, candidate := range response.Candidates {
-		content, _ := json.Marshal(candidate.Content)
 		choice := dto.OpenAITextResponseChoice{
 			Index: i,
 			Message: dto.Message{
 				Role:    "assistant",
-				Content: content,
+				Content: candidate.Content,
 			},
 			FinishReason: "stop",
 		}
@@ -72,9 +49,9 @@ func streamResponsePaLM2OpenAI(palmResponse *PaLMChatResponse) *dto.ChatCompleti
 	return &response
 }
 
-func palmStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWithStatusCode, string) {
+func palmStreamHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, string) {
 	responseText := ""
-	responseId := fmt.Sprintf("chatcmpl-%s", common.GetUUID())
+	responseId := helper.GetResponseID(c)
 	createdTime := common.GetTimestamp()
 	dataChan := make(chan string)
 	stopChan := make(chan bool)
@@ -85,12 +62,7 @@ func palmStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWit
 			stopChan <- true
 			return
 		}
-		err = resp.Body.Close()
-		if err != nil {
-			common.SysError("error closing stream response: " + err.Error())
-			stopChan <- true
-			return
-		}
+		common.CloseResponseBodyGracefully(resp)
 		var palmResponse PaLMChatResponse
 		err = json.Unmarshal(responseBody, &palmResponse)
 		if err != nil {
@@ -124,52 +96,43 @@ func palmStreamHandler(c *gin.Context, resp *http.Response) (*dto.OpenAIErrorWit
 			return false
 		}
 	})
-	err := resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), ""
-	}
+	common.CloseResponseBodyGracefully(resp)
 	return nil, responseText
 }
 
-func palmHandler(c *gin.Context, resp *http.Response, promptTokens int, model string) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func palmHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
+	common.CloseResponseBodyGracefully(resp)
 	var palmResponse PaLMChatResponse
 	err = json.Unmarshal(responseBody, &palmResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 	if palmResponse.Error.Code != 0 || len(palmResponse.Candidates) == 0 {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: palmResponse.Error.Message,
-				Type:    palmResponse.Error.Status,
-				Param:   "",
-				Code:    palmResponse.Error.Code,
-			},
-			StatusCode: resp.StatusCode,
-		}, nil
+		return nil, types.WithOpenAIError(types.OpenAIError{
+			Message: palmResponse.Error.Message,
+			Type:    palmResponse.Error.Status,
+			Param:   "",
+			Code:    palmResponse.Error.Code,
+		}, resp.StatusCode)
 	}
 	fullTextResponse := responsePaLM2OpenAI(&palmResponse)
-	completionTokens, _ := service.CountTextToken(palmResponse.Candidates[0].Content, model)
+	completionTokens := service.CountTextToken(palmResponse.Candidates[0].Content, info.UpstreamModelName)
 	usage := dto.Usage{
-		PromptTokens:     promptTokens,
+		PromptTokens:     info.PromptTokens,
 		CompletionTokens: completionTokens,
-		TotalTokens:      promptTokens + completionTokens,
+		TotalTokens:      info.PromptTokens + completionTokens,
 	}
 	fullTextResponse.Usage = usage
-	jsonResponse, err := json.Marshal(fullTextResponse)
+	jsonResponse, err := common.Marshal(fullTextResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = c.Writer.Write(jsonResponse)
-	return nil, &usage
+	common.IOCopyBytesGracefully(c, resp, jsonResponse)
+	return &usage, nil
 }

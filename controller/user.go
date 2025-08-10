@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"one-api/common"
+	"one-api/dto"
 	"one-api/model"
 	"one-api/setting"
 	"strconv"
@@ -20,11 +21,6 @@ import (
 
 type LoginRequest struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type PhoneLoginRequest struct {
-	Phone    string `json:"phone"`
 	Password string `json:"password"`
 }
 
@@ -66,57 +62,28 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
-	setupLogin(&user, c)
-}
-
-func PhoneLogin(c *gin.Context) {
-	var phoneLoginRequest PhoneLoginRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&phoneLoginRequest)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "无效的参数",
-			"success": false,
-		})
-		return
-	}
 	
-	phone := phoneLoginRequest.Phone
-	password := phoneLoginRequest.Password
-	
-	if phone == "" || password == "" {
+	// 检查是否启用2FA
+	if model.IsTwoFAEnabled(user.Id) {
+		// 设置pending session，等待2FA验证
+		session := sessions.Default(c)
+		session.Set("pending_username", user.Username)
+		session.Set("pending_user_id", user.Id)
+		err := session.Save()
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "无法保存会话信息，请重试",
+				"success": false,
+			})
+			return
+		}
+		
 		c.JSON(http.StatusOK, gin.H{
-			"message": "请输入手机号和密码",
-			"success": false,
-		})
-		return
-	}
-
-	// 验证手机号格式
-	if len(phone) != 11 || phone[:1] != "1" {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "手机号格式不正确",
-			"success": false,
-		})
-		return
-	}
-
-	// 查找用户
-	user := model.User{Phone: phone}
-	err = user.FillUserByPhone()
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "手机号或密码错误",
-			"success": false,
-		})
-		return
-	}
-
-	// 验证密码
-	okay := common.ValidatePasswordAndHash(password, user.Password)
-	if !okay || user.Status != common.UserStatusEnabled {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "手机号或密码错误，或用户已被封禁",
-			"success": false,
+			"message": "请输入两步验证码",
+			"success": true,
+			"data": map[string]interface{}{
+				"require_2fa": true,
+			},
 		})
 		return
 	}
@@ -140,10 +107,6 @@ func setupLogin(user *model.User, c *gin.Context) {
 		})
 		return
 	}
-	
-	// 同步session到Redis缓存，实现永不过期的登录态
-	model.SyncSessionToRedis(c, user.Id, user.Username, user.Role, user.Status, user.Group)
-	
 	cleanUser := model.User{
 		Id:          user.Id,
 		Username:    user.Username,
@@ -160,9 +123,6 @@ func setupLogin(user *model.User, c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
-	// 先删除Redis缓存中的session
-	model.DeleteSessionCacheFromContext(c)
-	
 	session := sessions.Default(c)
 	session.Clear()
 	err := session.Save()
@@ -210,32 +170,21 @@ func Register(c *gin.Context) {
 		})
 		return
 	}
-	// 验证邮箱或手机号
-	if user.Email != "" && user.VerificationCode != "" {
-		// 邮箱注册验证
+	if common.EmailVerificationEnabled {
+		if user.Email == "" || user.VerificationCode == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "管理员开启了邮箱验证，请输入邮箱地址和验证码",
+			})
+			return
+		}
 		if !common.VerifyCodeWithKey(user.Email, user.VerificationCode, common.EmailVerificationPurpose) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "邮箱验证码错误或已过期",
+				"message": "验证码错误或已过期",
 			})
 			return
 		}
-	} else if user.Phone != "" && user.PhoneCode != "" {
-		// 手机号注册验证
-		if !common.VerifyCodeWithKey(user.Phone, user.PhoneCode, common.PhoneVerificationPurpose) {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "手机验证码错误或已过期",
-			})
-			return
-		}
-	} else if common.EmailVerificationEnabled {
-		// 如果启用了邮箱验证但没有提供验证信息
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "请提供邮箱或手机号及对应的验证码",
-		})
-		return
 	}
 	exist, err := model.CheckUserExistOrDeleted(user.Username, user.Email)
 	if err != nil {
@@ -260,19 +209,12 @@ func Register(c *gin.Context) {
 		Password:    user.Password,
 		DisplayName: user.Username,
 		InviterId:   inviterId,
-		RegisterIP:  common.GetClientIP(c), // 记录注册IP
 	}
-	if user.Email != "" {
+	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	if user.Phone != "" {
-		cleanUser.Phone = user.Phone
-	}
 	if err := cleanUser.Insert(inviterId); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
@@ -308,6 +250,9 @@ func Register(c *gin.Context) {
 			UnlimitedQuota:     true,
 			ModelLimitsEnabled: false,
 		}
+		if setting.DefaultUseAutoGroup {
+			token.Group = "auto"
+		}
 		if err := token.Insert(); err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -325,84 +270,45 @@ func Register(c *gin.Context) {
 }
 
 func GetAllUsers(c *gin.Context) {
-	p, _ := strconv.Atoi(c.Query("p"))
-	pageSize, _ := strconv.Atoi(c.Query("page_size"))
-	if p < 1 {
-		p = 1
-	}
-	if pageSize < 0 {
-		pageSize = common.ItemsPerPage
-	}
-	users, total, err := model.GetAllUsers((p-1)*pageSize, pageSize)
+	pageInfo := common.GetPageQuery(c)
+	users, total, err := model.GetAllUsers(pageInfo)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"items":     users,
-			"total":     total,
-			"page":      p,
-			"page_size": pageSize,
-		},
-	})
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(users)
+
+	common.ApiSuccess(c, pageInfo)
 	return
 }
 
 func SearchUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
 	group := c.Query("group")
-	inviteCode := c.Query("invite_code")
-	p, _ := strconv.Atoi(c.Query("p"))
-	pageSize, _ := strconv.Atoi(c.Query("page_size"))
-	if p < 1 {
-		p = 1
-	}
-	if pageSize < 0 {
-		pageSize = common.ItemsPerPage
-	}
-	startIdx := (p - 1) * pageSize
-	users, total, err := model.SearchUsers(keyword, group, inviteCode, startIdx, pageSize)
+	pageInfo := common.GetPageQuery(c)
+	users, total, err := model.SearchUsers(keyword, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"items":     users,
-			"total":     total,
-			"page":      p,
-			"page_size": pageSize,
-		},
-	})
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(users)
+	common.ApiSuccess(c, pageInfo)
 	return
 }
 
 func GetUser(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	user, err := model.GetUserById(id, false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	myRole := c.GetInt("role")
@@ -425,10 +331,7 @@ func GenerateAccessToken(c *gin.Context) {
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, true)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	// get rand int 28-32
@@ -453,10 +356,7 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 
 	if err := user.Update(false); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
@@ -476,18 +376,12 @@ func TransferAffQuota(c *gin.Context) {
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, true)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	tran := TransferAffQuotaRequest{}
 	if err := c.ShouldBindJSON(&tran); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	err = user.TransferAffQuotaToQuota(tran.Quota)
@@ -504,131 +398,11 @@ func TransferAffQuota(c *gin.Context) {
 	})
 }
 
-// TransferCommissionQuota 邀请充值返利划转
-type TransferCommissionQuotaRequest struct {
-	Quota int `json:"quota" binding:"required"`
-}
-
-func TransferCommissionQuota(c *gin.Context) {
-	id := c.GetInt("id")
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	var req TransferCommissionQuotaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	err = user.TransferWithdrawingQuotaToQuota(req.Quota)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "划转失败 " + err.Error(),
-		})
-		return
-	}
-	
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "划转成功",
-	})
-}
-
-// WithdrawCommissionQuota 邀请充值返利提现申请
-type WithdrawCommissionQuotaRequest struct {
-	Quota         int    `json:"quota" binding:"required"`
-	AlipayAccount string `json:"alipay_account" binding:"required"`
-	Contact       string `json:"contact" binding:"required"`
-}
-
-func WithdrawCommissionQuota(c *gin.Context) {
-	id := c.GetInt("id")
-	user, err := model.GetUserById(id, true)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	var req WithdrawCommissionQuotaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	err = user.WithdrawCommissionQuota(req.Quota, req.AlipayAccount, req.Contact)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "提现申请失败 " + err.Error(),
-		})
-		return
-	}
-	
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "提现申请已提交，请等待管理员审核",
-	})
-}
-
-// GetWithdrawStatus 获取用户提现状态
-func GetWithdrawStatus(c *gin.Context) {
-	id := c.GetInt("id")
-	
-	// 获取正在提现的额度
-	pendingQuota, err := model.GetUserPendingWithdrawQuota(id)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	// 获取用户的提现记录
-	withdraws, total, err := model.GetUserWithdrawHistories(id, 0, 10)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"pending_quota": pendingQuota,
-			"withdraws":     withdraws,
-			"total":         total,
-		},
-	})
-}
-
 func GetAffCode(c *gin.Context) {
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, true)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	if user.AffCode == "" {
@@ -653,72 +427,12 @@ func GetSelf(c *gin.Context) {
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    user,
-	})
-	return
-}
+	// Hide admin remarks: set to empty to trigger omitempty tag, ensuring the remark field is not included in JSON returned to regular users
+	user.Remark = ""
 
-// GetSelfForRecovery 专门用于恢复localStorage中的用户信息
-// 只依赖session，不需要New-API-User头部验证
-func GetSelfForRecovery(c *gin.Context) {
-	session := sessions.Default(c)
-	username := session.Get("username")
-	id := session.Get("id")
-	
-	// 如果内存session中没有用户信息，尝试从Redis恢复
-	if username == nil {
-		if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
-			// 成功从Redis恢复session，写入内存session
-			session.Set("id", sessionData.ID)
-			session.Set("username", sessionData.Username)
-			session.Set("role", sessionData.Role)
-			session.Set("status", sessionData.Status)
-			session.Set("group", sessionData.Group)
-			err = session.Save()
-			if err != nil {
-				c.JSON(http.StatusOK, gin.H{
-					"success": false,
-					"message": "session恢复失败",
-				})
-				return
-			}
-			
-			// 更新局部变量
-			username = sessionData.Username
-			id = sessionData.ID
-			
-			common.SysLog(fmt.Sprintf("session recovered from Redis for user: %s", sessionData.Username))
-		}
-	}
-	
-	// 如果仍然没有用户信息，返回未登录
-	if username == nil || id == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "未登录或登录已过期",
-		})
-		return
-	}
-	
-	// 构造用户信息返回
-	user, err := model.GetUserById(id.(int), false)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -734,16 +448,13 @@ func GetUserModels(c *gin.Context) {
 	}
 	user, err := model.GetUserCache(id)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	groups := setting.GetUserUsableGroups(user.Group)
 	var models []string
 	for group := range groups {
-		for _, g := range model.GetGroupModels(group) {
+		for _, g := range model.GetGroupEnabledModels(group) {
 			if !common.StringsContains(models, g) {
 				models = append(models, g)
 			}
@@ -779,10 +490,7 @@ func UpdateUser(c *gin.Context) {
 	}
 	originUser, err := model.GetUserById(updatedUser.Id, false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	myRole := c.GetInt("role")
@@ -805,10 +513,7 @@ func UpdateUser(c *gin.Context) {
 	}
 	updatePassword := updatedUser.Password != ""
 	if err := updatedUser.Edit(updatePassword); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	if originUser.Quota != updatedUser.Quota {
@@ -847,7 +552,6 @@ func UpdateSelf(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
-		RegisterIP:  common.GetClientIP(c), // 记录创建者IP
 	}
 	if user.Password == "$I_LOVE_U" {
 		user.Password = "" // rollback to what it should be
@@ -855,17 +559,11 @@ func UpdateSelf(c *gin.Context) {
 	}
 	updatePassword, err := checkUpdatePassword(user.OriginalPassword, user.Password, cleanUser.Id)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	if err := cleanUser.Update(updatePassword); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
@@ -896,18 +594,12 @@ func checkUpdatePassword(originalPassword string, newPassword string, userId int
 func DeleteUser(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	originUser, err := model.GetUserById(id, false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	myRole := c.GetInt("role")
@@ -942,10 +634,7 @@ func DeleteSelf(c *gin.Context) {
 
 	err := model.DeleteUserById(id)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -989,13 +678,9 @@ func CreateUser(c *gin.Context) {
 		Username:    user.Username,
 		Password:    user.Password,
 		DisplayName: user.DisplayName,
-		RegisterIP:  common.GetClientIP(c), // 记录创建者IP
 	}
 	if err := cleanUser.Insert(0); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
@@ -1105,10 +790,7 @@ func ManageUser(c *gin.Context) {
 	}
 
 	if err := user.Update(false); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	clearUser := model.User{
@@ -1140,94 +822,16 @@ func EmailBind(c *gin.Context) {
 	}
 	err := user.FillUserById()
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	user.Email = email
 	// no need to check if this email already taken, because we have used verification code to check it
 	err = user.Update(false)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
-	return
-}
-
-func PhoneBind(c *gin.Context) {
-	var req struct {
-		Phone string `json:"phone"`
-		Code  string `json:"code"`
-	}
-	
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "无效的参数",
-		})
-		return
-	}
-	
-	// 验证手机号格式
-	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "手机号格式不正确",
-		})
-		return
-	}
-	
-	// 验证手机验证码
-	if !common.VerifyCodeWithKey(req.Phone, req.Code, common.PhoneVerificationPurpose) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "验证码错误或已过期",
-		})
-		return
-	}
-	
-	// 检查手机号是否已被其他用户绑定
-	if model.IsPhoneAlreadyTaken(req.Phone) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "该手机号已被其他用户绑定",
-		})
-		return
-	}
-	
-	session := sessions.Default(c)
-	id := session.Get("id")
-	user := model.User{
-		Id: id.(int),
-	}
-	err := user.FillUserById()
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
-	user.Phone = req.Phone
-	err = user.Update(false)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1247,19 +851,13 @@ func TopUp(c *gin.Context) {
 	req := topUpRequest{}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	id := c.GetInt("id")
 	quota, err := model.Redeem(req.Key, id)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -1277,6 +875,7 @@ type UpdateUserSettingRequest struct {
 	WebhookSecret              string  `json:"webhook_secret,omitempty"`
 	NotificationEmail          string  `json:"notification_email,omitempty"`
 	AcceptUnsetModelRatioModel bool    `json:"accept_unset_model_ratio_model"`
+	RecordIpLog                bool    `json:"record_ip_log"`
 }
 
 func UpdateUserSetting(c *gin.Context) {
@@ -1290,7 +889,7 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	// 验证预警类型
-	if req.QuotaWarningType != constant.NotifyTypeEmail && req.QuotaWarningType != constant.NotifyTypeWebhook {
+	if req.QuotaWarningType != dto.NotifyTypeEmail && req.QuotaWarningType != dto.NotifyTypeWebhook {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "无效的预警类型",
@@ -1308,7 +907,7 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	// 如果是webhook类型,验证webhook地址
-	if req.QuotaWarningType == constant.NotifyTypeWebhook {
+	if req.QuotaWarningType == dto.NotifyTypeWebhook {
 		if req.WebhookUrl == "" {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1327,7 +926,7 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 
 	// 如果是邮件类型，验证邮箱地址
-	if req.QuotaWarningType == constant.NotifyTypeEmail && req.NotificationEmail != "" {
+	if req.QuotaWarningType == dto.NotifyTypeEmail && req.NotificationEmail != "" {
 		// 验证邮箱格式
 		if !strings.Contains(req.NotificationEmail, "@") {
 			c.JSON(http.StatusOK, gin.H{
@@ -1341,31 +940,29 @@ func UpdateUserSetting(c *gin.Context) {
 	userId := c.GetInt("id")
 	user, err := model.GetUserById(userId, true)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
 	// 构建设置
-	settings := map[string]interface{}{
-		constant.UserSettingNotifyType:            req.QuotaWarningType,
-		constant.UserSettingQuotaWarningThreshold: req.QuotaWarningThreshold,
-		"accept_unset_model_ratio_model":          req.AcceptUnsetModelRatioModel,
+	settings := dto.UserSetting{
+		NotifyType:            req.QuotaWarningType,
+		QuotaWarningThreshold: req.QuotaWarningThreshold,
+		AcceptUnsetRatioModel: req.AcceptUnsetModelRatioModel,
+		RecordIpLog:           req.RecordIpLog,
 	}
 
 	// 如果是webhook类型,添加webhook相关设置
-	if req.QuotaWarningType == constant.NotifyTypeWebhook {
-		settings[constant.UserSettingWebhookUrl] = req.WebhookUrl
+	if req.QuotaWarningType == dto.NotifyTypeWebhook {
+		settings.WebhookUrl = req.WebhookUrl
 		if req.WebhookSecret != "" {
-			settings[constant.UserSettingWebhookSecret] = req.WebhookSecret
+			settings.WebhookSecret = req.WebhookSecret
 		}
 	}
 
 	// 如果提供了通知邮箱，添加到设置中
-	if req.QuotaWarningType == constant.NotifyTypeEmail && req.NotificationEmail != "" {
-		settings[constant.UserSettingNotificationEmail] = req.NotificationEmail
+	if req.QuotaWarningType == dto.NotifyTypeEmail && req.NotificationEmail != "" {
+		settings.NotificationEmail = req.NotificationEmail
 	}
 
 	// 更新用户设置
@@ -1382,55 +979,4 @@ func UpdateUserSetting(c *gin.Context) {
 		"success": true,
 		"message": "设置已更新",
 	})
-}
-
-// DebugSession 调试session状态的接口
-func DebugSession(c *gin.Context) {
-	session := sessions.Default(c)
-	
-	// 获取内存session信息
-	memorySession := map[string]interface{}{
-		"id":       session.Get("id"),
-		"username": session.Get("username"),
-		"role":     session.Get("role"),
-		"status":   session.Get("status"),
-		"group":    session.Get("group"),
-	}
-	
-	// 尝试获取session ID
-	sessionID := ""
-	if cookie, err := c.Cookie("session"); err == nil && cookie != "" {
-		sessionID = cookie
-	} else if sid := session.ID(); sid != "" {
-		sessionID = sid
-	}
-	
-	// 尝试从Redis获取session
-	var redisSession *model.SessionData
-	var redisError string
-	if sessionData, err := model.GetSessionCacheFromContext(c); err == nil && sessionData != nil {
-		redisSession = sessionData
-	} else if err != nil {
-		redisError = err.Error()
-	}
-	
-	// 获取所有cookies信息
-	cookies := make(map[string]string)
-	for _, cookie := range c.Request.Cookies() {
-		cookies[cookie.Name] = cookie.Value
-	}
-	
-	result := gin.H{
-		"success": true,
-		"data": gin.H{
-			"session_id":     sessionID,
-			"memory_session": memorySession,
-			"redis_session":  redisSession,
-			"redis_error":    redisError,
-			"cookies":        cookies,
-			"redis_enabled":  common.RedisEnabled,
-		},
-	}
-	
-	c.JSON(http.StatusOK, result)
 }

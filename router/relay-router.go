@@ -9,9 +9,9 @@ import (
 )
 
 func SetRelayRouter(router *gin.Engine) {
-	// router.Use(middleware.CORS()) // 已在全局应用，无需重复
+	router.Use(middleware.CORS())
 	router.Use(middleware.DecompressRequestMiddleware())
-	router.Use(middleware.GlobalPanicRecover())
+	router.Use(middleware.StatsMiddleware())
 	// https://platform.openai.com/docs/api-reference/introduction
 	modelsRouter := router.Group("/v1/models")
 	modelsRouter.Use(middleware.TokenAuth())
@@ -20,21 +20,13 @@ func SetRelayRouter(router *gin.Engine) {
 		modelsRouter.GET("/:model", controller.RetrieveModel)
 	}
 	playgroundRouter := router.Group("/pg")
-	playgroundRouter.Use(middleware.UserAuth())
+	playgroundRouter.Use(middleware.UserAuth(), middleware.Distribute())
 	{
 		playgroundRouter.POST("/chat/completions", controller.Playground)
 	}
-	
-	// Token counting endpoint without authentication
-	publicV1Router := router.Group("/v1")
-	{
-		publicV1Router.POST("/messages/count_tokens", controller.CountMessageTokens)
-	}
-	
 	relayV1Router := router.Group("/v1")
 	relayV1Router.Use(middleware.TokenAuth())
 	relayV1Router.Use(middleware.ModelRequestRateLimit())
-	relayV1Router.Use(middleware.RelayPanicRecover())
 	{
 		// WebSocket 路由
 		wsRouter := relayV1Router.Group("")
@@ -71,81 +63,32 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.DELETE("/models/:model", controller.RelayNotImplemented)
 		httpRouter.POST("/moderations", controller.Relay)
 		httpRouter.POST("/rerank", controller.Relay)
-	}
-
-	// K2 路由组，用于处理 /k2/v1/messages 请求
-	k2Router := router.Group("/k2")
-	k2Router.Use(middleware.TokenAuth())
-	k2Router.Use(middleware.ModelRequestRateLimit())
-	k2Router.Use(middleware.RelayPanicRecover())
-	k2Router.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
-	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
-	{
-		k2Router.POST("/v1/messages", controller.RelayClaudeK2)
-	}
-
-	// K2 路由组，用于处理 /k2/v1/messages 请求
-	c2Router := router.Group("/c2")
-	c2Router.Use(middleware.TokenAuth())
-	c2Router.Use(middleware.ModelRequestRateLimit())
-	c2Router.Use(middleware.RelayPanicRecover())
-	c2Router.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
-	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
-	{
-		c2Router.POST("/v1/messages", controller.RelayClaudeC2)
-	}
-
-	// opus4.1 路由组，用于处理 /k2/v1/messages 请求
-	c4Router := router.Group("/opus")
-	c4Router.Use(middleware.TokenAuth())
-	c4Router.Use(middleware.ModelRequestRateLimit())
-	c4Router.Use(middleware.RelayPanicRecover())
-	c4Router.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
-	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
-	{
-		c4Router.POST("/v1/messages", controller.RelayClaudeOp)
-	}
-
-	// K2 路由组，用于处理 /k2/v1/messages 请求
-	qwenRouter := router.Group("/qwen")
-	qwenRouter.Use(middleware.TokenAuth())
-	qwenRouter.Use(middleware.ModelRequestRateLimit())
-	qwenRouter.Use(middleware.RelayPanicRecover())
-	qwenRouter.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
-	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
-	{
-		qwenRouter.POST("/v1/messages", controller.RelayClaudeQwen)
-	}
-
-	// K2 路由组，用于处理 /k2/v1/messages 请求
-	glmRouter := router.Group("/glm")
-	glmRouter.Use(middleware.TokenAuth())
-	glmRouter.Use(middleware.ModelRequestRateLimit())
-	glmRouter.Use(middleware.RelayPanicRecover())
-	glmRouter.Use(middleware.K2ModelTransform()) // 标记这是 K2 请求
-	// 注意：K2 路由不使用 Distribute 中间件，由处理器自己处理渠道选择
-	{
-		glmRouter.POST("/v1/messages", controller.RelayClaudeGlm)
+		httpRouter.POST("/models/*path", controller.Relay)
 	}
 
 	relayMjRouter := router.Group("/mj")
-	relayMjRouter.Use(middleware.RelayPanicRecover())
 	registerMjRouterGroup(relayMjRouter)
 
 	relayMjModeRouter := router.Group("/:mode/mj")
-	relayMjModeRouter.Use(middleware.RelayPanicRecover())
 	registerMjRouterGroup(relayMjModeRouter)
 	//relayMjRouter.Use()
 
 	relaySunoRouter := router.Group("/suno")
 	relaySunoRouter.Use(middleware.TokenAuth(), middleware.Distribute())
-	relaySunoRouter.Use(middleware.RelayPanicRecover())
 	{
 		relaySunoRouter.POST("/submit/:action", controller.RelayTask)
 		relaySunoRouter.POST("/fetch", controller.RelayTask)
 		relaySunoRouter.GET("/fetch/:id", controller.RelayTask)
 	}
 
+	relayGeminiRouter := router.Group("/v1beta")
+	relayGeminiRouter.Use(middleware.TokenAuth())
+	relayGeminiRouter.Use(middleware.ModelRequestRateLimit())
+	relayGeminiRouter.Use(middleware.Distribute())
+	{
+		// Gemini API 路径格式: /v1beta/models/{model_name}:{action}
+		relayGeminiRouter.POST("/models/*path", controller.Relay)
+	}
 }
 
 func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {
@@ -160,6 +103,8 @@ func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {
 		relayMjRouter.POST("/submit/simple-change", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/describe", controller.RelayMidjourney)
 		relayMjRouter.POST("/submit/blend", controller.RelayMidjourney)
+		relayMjRouter.POST("/submit/edits", controller.RelayMidjourney)
+		relayMjRouter.POST("/submit/video", controller.RelayMidjourney)
 		relayMjRouter.POST("/notify", controller.RelayMidjourney)
 		relayMjRouter.GET("/task/:id/fetch", controller.RelayMidjourney)
 		relayMjRouter.GET("/task/:id/image-seed", controller.RelayMidjourney)

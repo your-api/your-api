@@ -12,7 +12,9 @@ import (
 	"one-api/relay/channel/gemini"
 	"one-api/relay/channel/openai"
 	relaycommon "one-api/relay/common"
+	"one-api/relay/constant"
 	"one-api/setting/model_setting"
+	"one-api/types"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +35,7 @@ var claudeModelMap = map[string]string{
 	"claude-3-7-sonnet-20250219": "claude-3-7-sonnet@20250219",
 	"claude-sonnet-4-20250514":   "claude-sonnet-4@20250514",
 	"claude-opus-4-20250514":     "claude-opus-4@20250514",
+	"claude-opus-4-1-20250805":   "claude-opus-4-1@20250805",
 }
 
 const anthropicVersion = "vertex-2023-10-16"
@@ -40,6 +43,11 @@ const anthropicVersion = "vertex-2023-10-16"
 type Adaptor struct {
 	RequestMode        int
 	AccountCredentials Credentials
+}
+
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	geminiAdaptor := gemini.Adaptor{}
+	return geminiAdaptor.ConvertGeminiRequest(c, info, request)
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
@@ -65,10 +73,10 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 	if strings.HasPrefix(info.UpstreamModelName, "claude") {
 		a.RequestMode = RequestModeClaude
-	} else if strings.HasPrefix(info.UpstreamModelName, "gemini") {
-		a.RequestMode = RequestModeGemini
 	} else if strings.Contains(info.UpstreamModelName, "llama") {
 		a.RequestMode = RequestModeLlama
+	} else {
+		a.RequestMode = RequestModeGemini
 	}
 }
 
@@ -81,11 +89,15 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	a.AccountCredentials = *adc
 	suffix := ""
 	if a.RequestMode == RequestModeGemini {
+
 		if model_setting.GetGeminiSettings().ThinkingAdapterEnabled {
-			// suffix -thinking and -nothinking
-			if strings.HasSuffix(info.OriginModelName, "-thinking") {
+			// 新增逻辑：处理 -thinking-<budget> 格式
+			if strings.Contains(info.UpstreamModelName, "-thinking-") {
+				parts := strings.Split(info.UpstreamModelName, "-thinking-")
+				info.UpstreamModelName = parts[0]
+			} else if strings.HasSuffix(info.UpstreamModelName, "-thinking") { // 旧的适配
 				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
-			} else if strings.HasSuffix(info.OriginModelName, "-nothinking") {
+			} else if strings.HasSuffix(info.UpstreamModelName, "-nothinking") {
 				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-nothinking")
 			}
 		}
@@ -95,6 +107,11 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		} else {
 			suffix = "generateContent"
 		}
+
+		if strings.HasPrefix(info.UpstreamModelName, "imagen") {
+			suffix = "predict"
+		}
+
 		if region == "global" {
 			return fmt.Sprintf(
 				"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/%s:%s",
@@ -122,14 +139,23 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		if v, ok := claudeModelMap[info.UpstreamModelName]; ok {
 			model = v
 		}
-		return fmt.Sprintf(
-			"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:%s",
-			region,
-			adc.ProjectID,
-			region,
-			model,
-			suffix,
-		), nil
+		if region == "global" {
+			return fmt.Sprintf(
+				"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/anthropic/models/%s:%s",
+				adc.ProjectID,
+				model,
+				suffix,
+			), nil
+		} else {
+			return fmt.Sprintf(
+				"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:%s",
+				region,
+				adc.ProjectID,
+				region,
+				model,
+				suffix,
+			), nil
+		}
 	} else if a.RequestMode == RequestModeLlama {
 		return fmt.Sprintf(
 			"https://%s-aiplatform.googleapis.com/v1beta1/projects/%s/locations/%s/endpoints/openapi/chat/completions",
@@ -195,24 +221,35 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.IsStream {
 		switch a.RequestMode {
 		case RequestModeClaude:
 			err, usage = claude.ClaudeStreamHandler(c, resp, info, claude.RequestModeMessage)
 		case RequestModeGemini:
-			err, usage = gemini.GeminiChatStreamHandler(c, resp, info)
+			if info.RelayMode == constant.RelayModeGemini {
+				usage, err = gemini.GeminiTextGenerationStreamHandler(c, info, resp)
+			} else {
+				usage, err = gemini.GeminiChatStreamHandler(c, info, resp)
+			}
 		case RequestModeLlama:
-			err, usage = openai.OaiStreamHandler(c, resp, info)
+			usage, err = openai.OaiStreamHandler(c, info, resp)
 		}
 	} else {
 		switch a.RequestMode {
 		case RequestModeClaude:
-			err, usage = claude.ClaudeHandler(c, resp, claude.RequestModeMessage, info)
+			err, usage = claude.ClaudeHandler(c, resp, info, claude.RequestModeMessage)
 		case RequestModeGemini:
-			err, usage = gemini.GeminiChatHandler(c, resp, info)
+			if info.RelayMode == constant.RelayModeGemini {
+				usage, err = gemini.GeminiTextGenerationHandler(c, info, resp)
+			} else {
+				if strings.HasPrefix(info.UpstreamModelName, "imagen") {
+					return gemini.GeminiImageHandler(c, info, resp)
+				}
+				usage, err = gemini.GeminiChatHandler(c, info, resp)
+			}
 		case RequestModeLlama:
-			err, usage = openai.OpenaiHandler(c, resp, info)
+			usage, err = openai.OpenaiHandler(c, info, resp)
 		}
 	}
 	return

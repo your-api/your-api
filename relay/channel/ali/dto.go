@@ -1,5 +1,7 @@
 package ali
 
+import "one-api/dto"
+
 type AliMessage struct {
 	Content string `json:"content"`
 	Role    string `json:"role"`
@@ -96,4 +98,29 @@ type AliImageRequest struct {
 		Scale string `json:"scale,omitempty"`
 	} `json:"parameters,omitempty"`
 	ResponseFormat string `json:"response_format,omitempty"`
+}
+
+type AliRerankParameters struct {
+	TopN            *int  `json:"top_n,omitempty"`
+	ReturnDocuments *bool `json:"return_documents,omitempty"`
+}
+
+type AliRerankInput struct {
+	Query     string `json:"query"`
+	Documents []any  `json:"documents"`
+}
+
+type AliRerankRequest struct {
+	Model      string              `json:"model"`
+	Input      AliRerankInput      `json:"input"`
+	Parameters AliRerankParameters `json:"parameters,omitempty"`
+}
+
+type AliRerankResponse struct {
+	Output struct {
+		Results []dto.RerankResponseResult `json:"results"`
+	} `json:"output"`
+	Usage     AliUsage `json:"usage"`
+	RequestId string   `json:"request_id"`
+	AliError
 }

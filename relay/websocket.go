@@ -1,20 +1,18 @@
 package relay
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-	"net/http"
-	"one-api/common"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
+	"one-api/relay/helper"
 	"one-api/service"
-	"one-api/setting"
-	"one-api/setting/operation_setting"
+	"one-api/types"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
-func WssHelper(c *gin.Context, ws *websocket.Conn) (openaiErr *dto.OpenAIErrorWithStatusCode) {
+func WssHelper(c *gin.Context, ws *websocket.Conn) (newAPIError *types.NewAPIError) {
 	relayInfo := relaycommon.GenRelayInfoWs(c, ws)
 
 	// get & validate textRequest 获取并验证文本请求
@@ -24,71 +22,31 @@ func WssHelper(c *gin.Context, ws *websocket.Conn) (openaiErr *dto.OpenAIErrorWi
 	//	return service.OpenAIErrorWrapperLocal(err, "invalid_text_request", http.StatusBadRequest)
 	//}
 
-	// map model name
-	modelMapping := c.GetString("model_mapping")
-	//isModelMapped := false
-	if modelMapping != "" && modelMapping != "{}" {
-		modelMap := make(map[string]string)
-		err := json.Unmarshal([]byte(modelMapping), &modelMap)
-		if err != nil {
-			return service.OpenAIErrorWrapperLocal(err, "unmarshal_model_mapping_failed", http.StatusInternalServerError)
-		}
-		if modelMap[relayInfo.OriginModelName] != "" {
-			relayInfo.UpstreamModelName = modelMap[relayInfo.OriginModelName]
-			// set upstream model name
-			//isModelMapped = true
-		}
+	err := helper.ModelMappedHelper(c, relayInfo, nil)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
-	//relayInfo.UpstreamModelName = textRequest.Model
-	modelPrice, getModelPriceSuccess := operation_setting.GetModelPrice(relayInfo.UpstreamModelName, false)
-	groupRatio := setting.GetGroupRatio(relayInfo.Group)
 
-	var preConsumedQuota int
-	var ratio float64
-	var modelRatio float64
-	//err := service.SensitiveWordsCheck(textRequest)
-
-	//if constant.ShouldCheckPromptSensitive() {
-	//	err = checkRequestSensitive(textRequest, relayInfo)
-	//	if err != nil {
-	//		return service.OpenAIErrorWrapperLocal(err, "sensitive_words_detected", http.StatusBadRequest)
-	//	}
-	//}
-
-	//promptTokens, err := getWssPromptTokens(realtimeEvent, relayInfo)
-	//// count messages token error 计算promptTokens错误
-	//if err != nil {
-	//	return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
-	//}
-	//
-	if !getModelPriceSuccess {
-		preConsumedTokens := common.PreConsumedQuota
-		//if realtimeEvent.Session.MaxResponseOutputTokens != 0 {
-		//	preConsumedTokens = promptTokens + int(realtimeEvent.Session.MaxResponseOutputTokens)
-		//}
-		modelRatio, _ = operation_setting.GetModelRatio(relayInfo.UpstreamModelName)
-		ratio = modelRatio * groupRatio
-		preConsumedQuota = int(float64(preConsumedTokens) * ratio)
-	} else {
-		preConsumedQuota = int(modelPrice * common.QuotaPerUnit * groupRatio)
-		relayInfo.UsePrice = true
+	priceData, err := helper.ModelPriceHelper(c, relayInfo, 0, 0)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry())
 	}
 
 	// pre-consume quota 预消耗配额
-	preConsumedQuota, userQuota, openaiErr := preConsumeQuota(c, preConsumedQuota, relayInfo)
-	if openaiErr != nil {
-		return openaiErr
+	preConsumedQuota, userQuota, newAPIError := preConsumeQuota(c, priceData.ShouldPreConsumedQuota, relayInfo)
+	if newAPIError != nil {
+		return newAPIError
 	}
 
 	defer func() {
-		if openaiErr != nil {
+		if newAPIError != nil {
 			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 		}
 	}()
 
 	adaptor := GetAdaptor(relayInfo.ApiType)
 	if adaptor == nil {
-		return service.OpenAIErrorWrapperLocal(fmt.Errorf("invalid api type: %d", relayInfo.ApiType), "invalid_api_type", http.StatusBadRequest)
+		return types.NewError(fmt.Errorf("invalid api type: %d", relayInfo.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(relayInfo)
 	//var requestBody io.Reader
@@ -98,7 +56,7 @@ func WssHelper(c *gin.Context, ws *websocket.Conn) (openaiErr *dto.OpenAIErrorWi
 	statusCodeMappingStr := c.GetString("status_code_mapping")
 	resp, err := adaptor.DoRequest(c, relayInfo, nil)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
+		return types.NewError(err, types.ErrorCodeDoRequestFailed)
 	}
 
 	if resp != nil {
@@ -106,13 +64,13 @@ func WssHelper(c *gin.Context, ws *websocket.Conn) (openaiErr *dto.OpenAIErrorWi
 		defer relayInfo.TargetWs.Close()
 	}
 
-	usage, openaiErr := adaptor.DoResponse(c, nil, relayInfo)
-	if openaiErr != nil {
+	usage, newAPIError := adaptor.DoResponse(c, nil, relayInfo)
+	if newAPIError != nil {
 		// reset status code 重置状态码
-		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
-		return openaiErr
+		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+		return newAPIError
 	}
 	service.PostWssConsumeQuota(c, relayInfo, relayInfo.UpstreamModelName, usage.(*dto.RealtimeUsage), preConsumedQuota,
-		userQuota, modelRatio, groupRatio, modelPrice, getModelPriceSuccess, "")
+		userQuota, priceData, "")
 	return nil
 }

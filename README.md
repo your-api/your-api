@@ -180,9 +180,10 @@ docker-compose pull && docker-compose up -d
 
   <img src="./imgs/image-20250516160329904.png" alt="image-20250516160329904" width="400">
 
+也可访问AI生成的DeepWiki:
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
 
-
-# ✨ 主要特性
+## ✨ 主要特性
 
 Your API提供了丰富的功能，详细特性请参考[特性说明](https://docs.newapi.pro/wiki/features-introduction)：
 
@@ -305,6 +306,22 @@ RELAY_TIMEOUT 设置警告
 - 上游API已经完成请求并计费，但本地因超时而未完成计费
 - 造成计费不同步，可能导致系统亏损
 - 建议不设置，除非您知道自己在做什么
+
+- `GENERATE_DEFAULT_TOKEN`：是否为新注册用户生成初始令牌，默认为 `false`
+- `STREAMING_TIMEOUT`：流式回复超时时间，默认120秒
+- `DIFY_DEBUG`：Dify渠道是否输出工作流和节点信息，默认 `true`
+- `FORCE_STREAM_OPTION`：是否覆盖客户端stream_options参数，默认 `true`
+- `GET_MEDIA_TOKEN`：是否统计图片token，默认 `true`
+- `GET_MEDIA_TOKEN_NOT_STREAM`：非流情况下是否统计图片token，默认 `true`
+- `UPDATE_TASK`：是否更新异步任务（Midjourney、Suno），默认 `true`
+- `COHERE_SAFETY_SETTING`：Cohere模型安全设置，可选值为 `NONE`, `CONTEXTUAL`, `STRICT`，默认 `NONE`
+- `GEMINI_VISION_MAX_IMAGE_NUM`：Gemini模型最大图片数量，默认 `16`
+- `MAX_FILE_DOWNLOAD_MB`: 最大文件下载大小，单位MB，默认 `20`
+- `CRYPTO_SECRET`：加密密钥，用于加密数据库内容
+- `AZURE_DEFAULT_API_VERSION`：Azure渠道默认API版本，默认 `2025-04-01-preview`
+- `NOTIFICATION_LIMIT_DURATION_MINUTE`：通知限制持续时间，默认 `10`分钟
+- `NOTIFY_LIMIT_COUNT`：用户通知在指定持续时间内的最大数量，默认 `2`
+- `ERROR_LOG_ENABLED=true`: 是否记录并显示错误日志，默认`false`
 
 ### 📡 渠道管理配置
 
@@ -466,6 +483,9 @@ docker run --name yourapi -d --restart always -p 3000:3000 -e SQL_DSN="root:1234
 
 # 解决 exec format error 问题
 
+其他基于New API的项目：
+- [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon)：New API高性能优化版
+
 如果您在运行 Docker 容器时遇到 `exec /one-api: exec format error` 错误，这通常是由于您的系统架构（如 ARM64）与镜像构建架构（如 AMD64）不匹配导致的。
 
 ## 解决方法
@@ -498,4 +518,24 @@ docker build --build-arg TARGETARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/
 # 在docker-compose.yml中将image改为
 # image: calciumion/new-api:multiarch
 ```
+
+## 🤝 我们信任的合作伙伴
+
+<p align="center">
+  <a href="https://www.cherry-ai.com/" target="_blank"><img
+    src="./docs/images/cherry-studio.svg" alt="Cherry Studio" height="58"
+  /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://bda.pku.edu.cn/" target="_blank"><img
+    src="./docs/images/pku.png" alt="北京大学" height="58"
+  /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank"><img
+    src="./docs/images/ucloud.svg" alt="UCloud 优刻得" height="58"
+  /></a>
+</p>
+
+<p align="center"><em>排名不分先后</em></p>
+
+## 🌟 Star History
 

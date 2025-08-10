@@ -9,12 +9,18 @@ import (
 	"one-api/relay/channel"
 	relaycommon "one-api/relay/common"
 	"one-api/relay/constant"
+	"one-api/types"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Adaptor struct {
+}
+
+func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
+	//TODO implement me
+	return nil, errors.New("not implemented")
 }
 
 func (a *Adaptor) ConvertClaudeRequest(*gin.Context, *relaycommon.RelayInfo, *dto.ClaudeRequest) (any, error) {
@@ -140,15 +146,15 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.IsStream {
-		err, usage = baiduStreamHandler(c, resp)
+		err, usage = baiduStreamHandler(c, info, resp)
 	} else {
 		switch info.RelayMode {
 		case constant.RelayModeEmbeddings:
-			err, usage = baiduEmbeddingHandler(c, resp)
+			err, usage = baiduEmbeddingHandler(c, info, resp)
 		default:
-			err, usage = baiduHandler(c, resp)
+			err, usage = baiduHandler(c, info, resp)
 		}
 	}
 	return

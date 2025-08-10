@@ -193,7 +193,10 @@ To update to a newer version, run:
 docker-compose pull && docker-compose up -d
 ```
 
-# ✨ Key Features
+You can also access the AI-generated DeepWiki:
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+
+## ✨ Key Features
 
 Your API provides a rich set of features. For details, refer to the [Feature Introduction](https://docs.newapi.pro/wiki/features-introduction):
 
@@ -371,6 +374,22 @@ Tiktoken is the tokenizer used by OpenAI to count text tokens. Caching these fil
 | `GEMINI_VERSION`              | Gemini version                       | `v1`                 | `GEMINI_VERSION=v1beta`                    |
 | `DIFY_DEBUG`                  | Output workflow and node info for Dify| `true`              | `DIFY_DEBUG=false`                         |
 
+- `GENERATE_DEFAULT_TOKEN`: Whether to generate initial tokens for newly registered users, default is `false`
+- `STREAMING_TIMEOUT`: Streaming response timeout, default is 120 seconds
+- `DIFY_DEBUG`: Whether to output workflow and node information for Dify channels, default is `true`
+- `FORCE_STREAM_OPTION`: Whether to override client stream_options parameter, default is `true`
+- `GET_MEDIA_TOKEN`: Whether to count image tokens, default is `true`
+- `GET_MEDIA_TOKEN_NOT_STREAM`: Whether to count image tokens in non-streaming cases, default is `true`
+- `UPDATE_TASK`: Whether to update asynchronous tasks (Midjourney, Suno), default is `true`
+- `COHERE_SAFETY_SETTING`: Cohere model safety settings, options are `NONE`, `CONTEXTUAL`, `STRICT`, default is `NONE`
+- `GEMINI_VISION_MAX_IMAGE_NUM`: Maximum number of images for Gemini models, default is `16`
+- `MAX_FILE_DOWNLOAD_MB`: Maximum file download size in MB, default is `20`
+- `CRYPTO_SECRET`: Encryption key used for encrypting database content
+- `AZURE_DEFAULT_API_VERSION`: Azure channel default API version, default is `2025-04-01-preview`
+- `NOTIFICATION_LIMIT_DURATION_MINUTE`: Notification limit duration, default is `10` minutes
+- `NOTIFY_LIMIT_COUNT`: Maximum number of user notifications within the specified duration, default is `2`
+- `ERROR_LOG_ENABLED=true`: Whether to record and display error logs, default is `false`
+
 ### 📨 Other Configuration
 
 | Environment Variable | Description            | Default Value | Example                            |
@@ -474,4 +493,43 @@ For detailed API documentation, refer to [API Docs](https://docs.newapi.pro/api)
 - [Image API](https://docs.newapi.pro/api/openai-image)
 - [Rerank API](https://docs.newapi.pro/api/jinaai-rerank)
 - [Realtime API](https://docs.newapi.pro/api/openai-realtime)
-- [Claude Chat API (Messages)](https://docs.newapi.pro/api/anthropic-chat)
+- [Claude Chat API (messages)](https://docs.newapi.pro/api/anthropic-chat)
+
+## Related Projects
+- [One API](https://github.com/songquanpeng/one-api): Original project
+- [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy): Midjourney interface support
+- [chatnio](https://github.com/Deeptrain-Community/chatnio): Next-generation AI one-stop B/C-end solution
+- [neko-api-key-tool](https://github.com/Calcium-Ion/neko-api-key-tool): Query usage quota with key
+
+Other projects based on New API:
+- [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon): High-performance optimized version of New API
+- [VoAPI](https://github.com/VoAPI/VoAPI): Frontend beautified version based on New API
+
+## Help and Support
+
+If you have any questions, please refer to [Help and Support](https://docs.newapi.pro/support):
+- [Community Interaction](https://docs.newapi.pro/support/community-interaction)
+- [Issue Feedback](https://docs.newapi.pro/support/feedback-issues)
+- [FAQ](https://docs.newapi.pro/support/faq)
+
+## 🤝 Trusted Partners
+
+<p align="center">
+  <a href="https://www.cherry-ai.com/" target="_blank"><img
+    src="./docs/images/cherry-studio.svg" alt="Cherry Studio" height="58"
+  /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://bda.pku.edu.cn/" target="_blank"><img
+    src="./docs/images/pku.png" alt="Peking University" height="58"
+  /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank"><img
+    src="./docs/images/ucloud.svg" alt="UCloud" height="58"
+  /></a>
+</p>
+
+<p align="center"><em>No particular order</em></p>
+
+## 🌟 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)

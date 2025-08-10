@@ -2,7 +2,6 @@ package openai
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -15,7 +14,10 @@ import (
 	"one-api/relay/helper"
 	"one-api/service"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"one-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -28,25 +30,12 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
-	// 解析响应以检查是否是"Thinking..."消息
-	var streamResponse dto.ChatCompletionsStreamResponse
-	if err := common.DecodeJsonStr(data, &streamResponse); err == nil {
-		// 检查是否是"Thinking..."消息，如果是则不发送给调用方
-		if len(streamResponse.Choices) > 0 && streamResponse.Choices[0].Delta.GetContentString() != "" {
-			content := streamResponse.Choices[0].Delta.GetContentString()
-			if strings.HasPrefix(content, "Thinking...") {
-				// 不发送给调用方，直接返回
-				return nil
-			}
-		}
-	}
-
 	if !forceFormat && !thinkToContent {
 		return helper.StringData(c, data)
 	}
 
 	var lastStreamResponse dto.ChatCompletionsStreamResponse
-	if err := common.DecodeJsonStr(data, &lastStreamResponse); err != nil {
+	if err := common.UnmarshalJsonStr(data, &lastStreamResponse); err != nil {
 		return err
 	}
 
@@ -117,241 +106,101 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 	return helper.ObjectData(c, lastStreamResponse)
 }
 
-func OaiStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	if resp == nil || resp.Body == nil {
 		common.LogError(c, "invalid response or response body")
-		return service.OpenAIErrorWrapper(fmt.Errorf("invalid response"), "invalid_response", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(fmt.Errorf("invalid response"), types.ErrorCodeBadResponse, http.StatusInternalServerError)
 	}
 
-	containStreamUsage := false
+	defer common.CloseResponseBodyGracefully(resp)
+
+	model := info.UpstreamModelName
 	var responseId string
 	var createAt int64 = 0
 	var systemFingerprint string
-	model := info.UpstreamModelName
-
+	var containStreamUsage bool
 	var responseTextBuilder strings.Builder
 	var toolCount int
 	var usage = &dto.Usage{}
 	var streamItems []string // store stream items
-	var forceFormat bool
-	var thinkToContent bool
+	var lastStreamData string
 
-	if forceFmt, ok := info.ChannelSetting[constant.ForceFormat].(bool); ok {
-		forceFormat = forceFmt
-	}
-
-	if think2Content, ok := info.ChannelSetting[constant.ChannelSettingThinkingToContent].(bool); ok {
-		thinkToContent = think2Content
-	}
-
-	var (
-		lastStreamData string
-		isEmptyResp    bool
-	)
-
-	helper.StreamScannerHandlerWithDoneCallback(c, resp, info, func(data string) bool {
-		// 立即处理当前数据，而不是延迟处理
-		err := handleStreamFormat(c, info, data, forceFormat, thinkToContent)
-		if err != nil {
-			common.SysError("error handling stream format: " + err.Error())
+	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		if lastStreamData != "" {
+			err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
+			if err != nil {
+				common.SysError("error handling stream format: " + err.Error())
+			}
 		}
-		lastStreamData = data
-		streamItems = append(streamItems, data)
+		if len(data) > 0 {
+			lastStreamData = data
+			streamItems = append(streamItems, data)
+		}
 		return true
-	}, func() {
-		// 判断streamItems 是否为空
-		if len(streamItems) == 0 {
-			isEmptyResp = true
-			return
-		}
-
-		for _, item := range streamItems {
-			var response struct {
-				Choices []struct {
-					Delta struct {
-						Content   string `json:"content"`
-						ToolCalls []struct {
-							ID       string `json:"id"`
-							Type     string `json:"type"`
-							Function struct {
-								Name      string `json:"name"`
-								Arguments string `json:"arguments"`
-							} `json:"function"`
-						} `json:"tool_calls"`
-					} `json:"delta"`
-				} `json:"choices"`
-			}
-
-			// 使用 json.Unmarshal 而不是完整解析整个对象
-			if err := json.Unmarshal([]byte(item), &response); err != nil {
-				continue // 解析错误，跳过
-			}
-
-			// 检查 choices 数组存在且非空
-			if len(response.Choices) > 0 {
-				// 检查 content 字段非空或者有tool_calls
-				if response.Choices[0].Delta.Content != "" || len(response.Choices[0].Delta.ToolCalls) > 0 {
-					isEmptyResp = false
-					return // 找到非空内容或function calling，直接返回
-				}
-			}
-		}
-
-		// 所有项目检查完毕，未找到非空内容
-		return
 	})
 
-	if isEmptyResp {
-		// 设置completion_tokens为0以便错误日志记录
-		c.Set("completion_tokens", 0)
-		common.LogWarn(c, "流式请求返回空回复，应该重试其他渠道")
-		// 返回可重试的错误，不标记为LocalError
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "stream response is empty, should retry other channels",
-				Type:    "empty_stream_response",
-				Code:    "empty_response",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
-	}
-
+	// 处理最后的响应
 	shouldSendLastResp := true
-	var lastStreamResponse dto.ChatCompletionsStreamResponse
-	err := common.DecodeJsonStr(lastStreamData, &lastStreamResponse)
-	if err == nil {
-		responseId = lastStreamResponse.Id
-		createAt = lastStreamResponse.Created
-		systemFingerprint = lastStreamResponse.GetSystemFingerprint()
-		model = lastStreamResponse.Model
-		if service.ValidUsage(lastStreamResponse.Usage) {
-			containStreamUsage = true
-			usage = lastStreamResponse.Usage
-			if !info.ShouldIncludeUsage {
-				shouldSendLastResp = false
-			}
-		}
-		for _, choice := range lastStreamResponse.Choices {
-			if choice.FinishReason != nil {
-				shouldSendLastResp = true
-			}
-		}
+	if err := handleLastResponse(lastStreamData, &responseId, &createAt, &systemFingerprint, &model, &usage,
+		&containStreamUsage, info, &shouldSendLastResp); err != nil {
+		common.LogError(c, fmt.Sprintf("error handling last response: %s, lastStreamData: [%s]", err.Error(), lastStreamData))
 	}
 
-	if shouldSendLastResp {
-		// 由于我们已经在流处理中立即处理了每条数据，这里不需要再处理最后一条数据
-		// 除非这是唯一的一条数据或者需要发送特殊的结束标记
-		// sendStreamData(c, info, lastStreamData, forceFormat, thinkToContent)
+	if info.RelayFormat == relaycommon.RelayFormatOpenAI {
+		if shouldSendLastResp {
+			_ = sendStreamData(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
+		}
 	}
 
 	// 处理token计算
 	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
-		common.SysError("error processing tokens: " + err.Error())
+		common.LogError(c, "error processing tokens: "+err.Error())
 	}
 
 	if !containStreamUsage {
-		usage, _ = service.ResponseText2Usage(responseTextBuilder.String(), info.UpstreamModelName, info.PromptTokens)
+		usage = service.ResponseText2Usage(responseTextBuilder.String(), info.UpstreamModelName, info.PromptTokens)
 		usage.CompletionTokens += toolCount * 7
 	} else {
-		if info.ChannelType == common.ChannelTypeDeepSeek {
+		if info.ChannelType == constant.ChannelTypeDeepSeek {
 			if usage.PromptCacheHitTokens != 0 {
 				usage.PromptTokensDetails.CachedTokens = usage.PromptCacheHitTokens
 			}
 		}
 	}
-	
-	// 设置token信息到context中，以便错误日志记录
-	c.Set("completion_tokens", usage.CompletionTokens)
+	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
-	handleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
-
-	return nil, usage
+	return usage, nil
 }
 
-func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	defer common.CloseResponseBodyGracefully(resp)
+
 	var simpleResponse dto.OpenAITextResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	err = resp.Body.Close()
+	if common.DebugEnabled {
+		println("upstream response body:", string(responseBody))
+	}
+	err = common.Unmarshal(responseBody, &simpleResponse)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
-	err = common.DecodeJson(responseBody, &simpleResponse)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
-	}
-	if simpleResponse.Error != nil && simpleResponse.Error.Type != "" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error:      *simpleResponse.Error,
-			StatusCode: resp.StatusCode,
-		}, nil
+	if oaiError := simpleResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
+		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
-	// 检测空回复：如果没有choices
-	if len(simpleResponse.Choices) == 0 {
-		c.Set("completion_tokens", 0)
-		common.LogWarn(c, "非流式请求返回空choices，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "non-stream response has empty choices, should retry other channels",
-				Type:    "empty_response",
-				Code:    "empty_choices",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
+	forceFormat := false
+	if info.ChannelSetting.ForceFormat {
+		forceFormat = true
 	}
 
-	// 检查是否所有choices都没有内容（包括function calling的tool_calls和function_call）
-	hasContent := false
-	for _, choice := range simpleResponse.Choices {
-		if choice.Message.StringContent() != "" || 
-		   choice.Message.ReasoningContent != "" || 
-		   choice.Message.Reasoning != "" ||
-		   choice.Message.HasFunctionOrToolCall() {
-			hasContent = true
-			break
-		}
-	}
-
-	if !hasContent {
-		c.Set("completion_tokens", 0)
-		common.LogWarn(c, "非流式请求返回空内容，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "non-stream response has empty content, should retry other channels",
-				Type:    "empty_response",
-				Code:    "empty_content",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
-	}
-
-	// 计算token usage
 	if simpleResponse.Usage.TotalTokens == 0 || (simpleResponse.Usage.PromptTokens == 0 && simpleResponse.Usage.CompletionTokens == 0) {
 		completionTokens := 0
 		for _, choice := range simpleResponse.Choices {
-			// 计算文本内容的tokens
-			textContent := choice.Message.StringContent() + choice.Message.ReasoningContent + choice.Message.Reasoning
-			ctkm, _ := service.CountTextToken(textContent, info.UpstreamModelName)
+			ctkm := service.CountTextToken(choice.Message.StringContent()+choice.Message.ReasoningContent+choice.Message.Reasoning, info.UpstreamModelName)
 			completionTokens += ctkm
-			
-			// 计算tool_calls的tokens
-			toolCalls := choice.Message.ParseToolCalls()
-			for _, toolCall := range toolCalls {
-				toolTokens, _ := service.CountTextToken(toolCall.Function.Name+toolCall.Function.Arguments, info.UpstreamModelName)
-				completionTokens += toolTokens
-			}
-			
-			// 计算function_call的tokens (老版本支持)
-			if functionCall := choice.Message.ParseFunctionCall(); functionCall != nil {
-				functionTokens, _ := service.CountTextToken(functionCall.Name+functionCall.Arguments, info.UpstreamModelName)
-				completionTokens += functionTokens
-			}
 		}
 		simpleResponse.Usage = dto.Usage{
 			PromptTokens:     info.PromptTokens,
@@ -360,86 +209,45 @@ func OpenaiHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		}
 	}
 
-	// 设置token信息到context中，以便错误日志记录
-	c.Set("completion_tokens", simpleResponse.Usage.CompletionTokens)
-
-	// 二次检查：如果计算出的completion tokens为0且没有tool_calls或function_call，也应该重试
-	// 注意：function calling响应可能没有文本内容但有tool_calls或function_call，这是正常的
-	if simpleResponse.Usage.CompletionTokens == 0 {
-		hasFunctionCalls := false
-		for _, choice := range simpleResponse.Choices {
-			if choice.Message.HasFunctionOrToolCall() {
-				hasFunctionCalls = true
-				break
-			}
-		}
-		
-		if !hasFunctionCalls {
-			common.LogWarn(c, "非流式请求计算出的completion tokens为0且无function calls，应该重试其他渠道")
-			return &dto.OpenAIErrorWithStatusCode{
-				Error: dto.OpenAIError{
-					Message: "non-stream response has zero completion tokens and no function calls, should retry other channels",
-					Type:    "empty_response",
-					Code:    "zero_completion_tokens",
-				},
-				StatusCode: http.StatusInternalServerError,
-				LocalError: false, // 不标记为本地错误，允许重试
-			}, nil
-		}
-	}
-
-	forceFormat := false
-	if forceFmt, ok := info.ChannelSetting[constant.ForceFormat].(bool); ok {
-		forceFormat = forceFmt
-	}
-
 	switch info.RelayFormat {
 	case relaycommon.RelayFormatOpenAI:
 		if forceFormat {
-			responseBody, err = json.Marshal(simpleResponse)
+			responseBody, err = common.Marshal(simpleResponse)
 			if err != nil {
-				return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+				return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 			}
 		} else {
 			break
 		}
 	case relaycommon.RelayFormatClaude:
 		claudeResp := service.ResponseOpenAI2Claude(&simpleResponse, info)
-		claudeRespStr, err := json.Marshal(claudeResp)
+		claudeRespStr, err := common.Marshal(claudeResp)
 		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 		}
 		responseBody = claudeRespStr
+	case relaycommon.RelayFormatGemini:
+		geminiResp := service.ResponseOpenAI2Gemini(&simpleResponse, info)
+		geminiRespStr, err := common.Marshal(geminiResp)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
+		responseBody = geminiRespStr
 	}
 
-	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// We shouldn't set the header before we parse the response body, because the parse part may fail.
-	// And then we will have to send an error response, but in this case, the header has already been set.
-	// So the httpClient will be confused by the response.
-	// For example, Postman will report error, and we cannot check the response at all.
-	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
-	}
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	if err != nil {
-		//return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
-		common.SysError("error copying response body: " + err.Error())
-	}
-	resp.Body.Close()
-	return nil, &simpleResponse.Usage
+	common.IOCopyBytesGracefully(c, resp, responseBody)
+
+	return &simpleResponse.Usage, nil
 }
 
-func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) *dto.Usage {
 	// the status code has been judged before, if there is a body reading failure,
 	// it should be regarded as a non-recoverable error, so it should not return err for external retry.
 	// Analogous to nginx's load balancing, it will only retry if it can't be requested or
 	// if the upstream returns a specific status code, once the upstream has already written the header,
 	// the subsequent failure of the response body should be regarded as a non-recoverable error,
 	// and can be terminated directly.
-	defer resp.Body.Close()
+	defer common.CloseResponseBodyGracefully(resp)
 	usage := &dto.Usage{}
 	usage.PromptTokens = info.PromptTokens
 	usage.TotalTokens = info.PromptTokens
@@ -452,38 +260,23 @@ func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	if err != nil {
 		common.LogError(c, err.Error())
 	}
-	return nil, usage
+	return usage
 }
 
-func OpenaiSTTHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, responseFormat string) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func OpenaiSTTHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, responseFormat string) (*types.NewAPIError, *dto.Usage) {
+	defer common.CloseResponseBodyGracefully(resp)
+
 	// count tokens by audio file duration
 	audioTokens, err := countAudioTokens(c)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "count_audio_tokens_failed", http.StatusInternalServerError), nil
+		return types.NewError(err, types.ErrorCodeCountTokenFailed), nil
 	}
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
+		return types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError), nil
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// We shouldn't set the header before we parse the response body, because the parse part may fail.
-	// And then we will have to send an error response, but in this case, the header has already been set.
-	// So the httpClient will be confused by the response.
-	// For example, Postman will report error, and we cannot check the response at all.
-	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
-	}
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
-	}
-	resp.Body.Close()
+	// 写入新的 response body
+	common.IOCopyBytesGracefully(c, resp, responseBody)
 
 	usage := &dto.Usage{}
 	usage.PromptTokens = audioTokens
@@ -505,13 +298,14 @@ func countAudioTokens(c *gin.Context) (int, error) {
 	if err = c.ShouldBind(&reqBody); err != nil {
 		return 0, errors.WithStack(err)
 	}
-
+	ext := filepath.Ext(reqBody.File.Filename) // 获取文件扩展名
 	reqFp, err := reqBody.File.Open()
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
+	defer reqFp.Close()
 
-	tmpFp, err := os.CreateTemp("", "audio-*")
+	tmpFp, err := os.CreateTemp("", "audio-*"+ext)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -525,7 +319,7 @@ func countAudioTokens(c *gin.Context) (int, error) {
 		return 0, errors.WithStack(err)
 	}
 
-	duration, err := common.GetAudioDuration(c.Request.Context(), tmpFp.Name())
+	duration, err := common.GetAudioDuration(c.Request.Context(), tmpFp.Name(), ext)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -533,9 +327,9 @@ func countAudioTokens(c *gin.Context) (int, error) {
 	return int(math.Round(math.Ceil(duration) / 60.0 * 1000)), nil // 1 minute 相当于 1k tokens
 }
 
-func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.RealtimeUsage) {
+func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.NewAPIError, *dto.RealtimeUsage) {
 	if info == nil || info.ClientWs == nil || info.TargetWs == nil {
-		return service.OpenAIErrorWrapper(fmt.Errorf("invalid websocket connection"), "invalid_connection", http.StatusBadRequest), nil
+		return types.NewError(fmt.Errorf("invalid websocket connection"), types.ErrorCodeBadResponse), nil
 	}
 
 	info.IsStream = true
@@ -573,7 +367,7 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.Op
 				}
 
 				realtimeEvent := &dto.RealtimeEvent{}
-				err = json.Unmarshal(message, realtimeEvent)
+				err = common.Unmarshal(message, realtimeEvent)
 				if err != nil {
 					errChan <- fmt.Errorf("error unmarshalling message: %v", err)
 					return
@@ -633,7 +427,7 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.Op
 				}
 				info.SetFirstResponseTime()
 				realtimeEvent := &dto.RealtimeEvent{}
-				err = json.Unmarshal(message, realtimeEvent)
+				err = common.Unmarshal(message, realtimeEvent)
 				if err != nil {
 					errChan <- fmt.Errorf("error unmarshalling message: %v", err)
 					return
@@ -680,9 +474,9 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*dto.Op
 						localUsage = &dto.RealtimeUsage{}
 						// print now usage
 					}
-					//common.LogInfo(c, fmt.Sprintf("realtime streaming sumUsage: %v", sumUsage))
-					//common.LogInfo(c, fmt.Sprintf("realtime streaming localUsage: %v", localUsage))
-					//common.LogInfo(c, fmt.Sprintf("realtime streaming localUsage: %v", localUsage))
+					common.LogInfo(c, fmt.Sprintf("realtime streaming sumUsage: %v", sumUsage))
+					common.LogInfo(c, fmt.Sprintf("realtime streaming localUsage: %v", localUsage))
+					common.LogInfo(c, fmt.Sprintf("realtime streaming localUsage: %v", localUsage))
 
 				} else if realtimeEvent.Type == dto.RealtimeEventTypeSessionUpdated || realtimeEvent.Type == dto.RealtimeEventTypeSessionCreated {
 					realtimeSession := realtimeEvent.Session
@@ -758,41 +552,26 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 	return err
 }
 
-func OpenaiHandlerWithUsage(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
+func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	defer common.CloseResponseBodyGracefully(resp)
+
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// We shouldn't set the header before we parse the response body, because the parse part may fail.
-	// And then we will have to send an error response, but in this case, the header has already been set.
-	// So the httpClient will be confused by the response.
-	// For example, Postman will report error, and we cannot check the response at all.
-	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
-	}
-	// reset content length
-	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBody)))
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "copy_response_body_failed", http.StatusInternalServerError), nil
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 
 	var usageResp dto.SimpleResponse
-	err = json.Unmarshal(responseBody, &usageResp)
+	err = common.Unmarshal(responseBody, &usageResp)
 	if err != nil {
-		return service.OpenAIErrorWrapper(err, "parse_response_body_failed", http.StatusInternalServerError), nil
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+
+	// 写入新的 response body
+	common.IOCopyBytesGracefully(c, resp, responseBody)
+
+	// Once we've written to the client, we should not return errors anymore
+	// because the upstream has already consumed resources and returned content
+	// We should still perform billing even if parsing fails
 	// format
 	if usageResp.InputTokens > 0 {
 		usageResp.PromptTokens += usageResp.InputTokens
@@ -804,354 +583,5 @@ func OpenaiHandlerWithUsage(c *gin.Context, resp *http.Response, info *relaycomm
 		usageResp.PromptTokensDetails.ImageTokens += usageResp.InputTokensDetails.ImageTokens
 		usageResp.PromptTokensDetails.TextTokens += usageResp.InputTokensDetails.TextTokens
 	}
-	return nil, &usageResp.Usage
-}
-
-func OpenaiEmbeddingHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-	
-	var usage *dto.Usage
-	var shouldPassthrough = true
-	
-	// 🔑 优化：先尝试轻量级验证，如果成功就直接透传
-	var embeddingResponse dto.OpenAIEmbeddingResponse
-	err = common.DecodeJson(responseBody, &embeddingResponse)
-	if err != nil {
-		// 解析失败，尝试兼容解析
-		if common.DebugEnabled {
-			fmt.Printf("DEBUG: 标准embedding解析失败: %v, 尝试兼容解析\n", err)
-		}
-		
-		var rawResponse map[string]interface{}
-		if rawErr := common.DecodeJson(responseBody, &rawResponse); rawErr == nil {
-			// 手动构建兼容的响应
-			if convertedResponse, convertErr := convertRawEmbeddingResponse(rawResponse); convertErr == nil {
-				embeddingResponse = *convertedResponse
-				shouldPassthrough = false // 需要重新序列化，不能透传
-				if common.DebugEnabled {
-					fmt.Printf("DEBUG: 兼容解析成功，data项数量: %d\n", len(embeddingResponse.Data))
-				}
-			} else {
-				fmt.Printf("ERROR: 兼容解析也失败: %v\n", convertErr)
-				return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
-			}
-		} else {
-			fmt.Printf("ERROR: 原始JSON解析失败: %v\n", rawErr)
-			return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
-		}
-	} else {
-		if common.DebugEnabled {
-			fmt.Printf("DEBUG: 标准embedding解析成功，data项数量: %d\n", len(embeddingResponse.Data))
-		}
-	}
-
-	// 检查是否有错误
-	if embeddingResponse.Object == "" {
-		// 尝试解析为错误响应
-		var errorResponse dto.SimpleResponse
-		err = common.DecodeJson(responseBody, &errorResponse)
-		if err == nil && errorResponse.Error != nil && errorResponse.Error.Type != "" {
-			return &dto.OpenAIErrorWithStatusCode{
-				Error:      *errorResponse.Error,
-				StatusCode: resp.StatusCode,
-			}, nil
-		}
-	}
-
-	// 快速验证：检查数据是否为空
-	if len(embeddingResponse.Data) == 0 {
-		common.LogWarn(c, "embedding请求返回空data，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "embedding response has empty data, should retry other channels",
-				Type:    "empty_response", 
-				Code:    "empty_data",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false,
-		}, nil
-	}
-
-	// 只在调试模式下做详细验证
-	if common.DebugEnabled {
-		hasEmbedding := false
-		totalEmbeddings := 0
-		validEmbeddings := 0
-		
-		for i, item := range embeddingResponse.Data {
-			embedding := item.GetEmbedding()
-			totalEmbeddings++
-			common.SysLog(fmt.Sprintf("DEBUG: embedding[%d] length: %d, first few values: %v", 
-				i, len(embedding), getFirstFewValues(embedding, 5)))
-			
-			if len(embedding) > 0 {
-				hasEmbedding = true
-				validEmbeddings++
-			}
-		}
-
-		if !hasEmbedding {
-			debugInfo := fmt.Sprintf("原始响应体前500字符: %s", truncateString(string(responseBody), 500))
-			common.LogWarn(c, fmt.Sprintf("embedding请求返回空向量，应该重试其他渠道. 总数: %d, 有效: %d. %s", 
-				totalEmbeddings, validEmbeddings, debugInfo))
-			
-			return &dto.OpenAIErrorWithStatusCode{
-				Error: dto.OpenAIError{
-					Message: fmt.Sprintf("embedding response has empty vectors, should retry other channels (checked %d embeddings)", totalEmbeddings),
-					Type:    "empty_response",
-					Code:    "empty_vectors", 
-				},
-				StatusCode: http.StatusInternalServerError,
-				LocalError: false,
-			}, nil
-		}
-	}
-
-	// 计算token usage
-	if embeddingResponse.Usage.TotalTokens == 0 && embeddingResponse.Usage.PromptTokens == 0 {
-		usage = &dto.Usage{
-			PromptTokens:     info.PromptTokens,
-			CompletionTokens: 0,
-			TotalTokens:      info.PromptTokens,
-		}
-	} else {
-		usage = &embeddingResponse.Usage
-	}
-
-	// 🔑 关键优化：根据情况选择透传还是重新序列化
-	if shouldPassthrough {
-		// 直接透传原始响应，保持原始格式（JSON或Base64）
-		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-		for k, v := range resp.Header {
-			c.Writer.Header().Set(k, v[0])
-		}
-		c.Writer.WriteHeader(resp.StatusCode)
-		_, err = io.Copy(c.Writer, resp.Body)
-		if err != nil {
-			common.SysError("error copying response body: " + err.Error())
-		}
-		resp.Body.Close()
-		
-		if common.DebugEnabled {
-			fmt.Printf("DEBUG: 透传原始embedding响应 (保持原始格式)\n")
-		}
-	} else {
-		// 重新序列化为标准JSON格式
-		newResponseBody, err := json.Marshal(embeddingResponse)
-		if err != nil {
-			return service.OpenAIErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
-		}
-		
-		c.Writer.Header().Set("Content-Type", "application/json")
-		c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(newResponseBody)))
-		c.Writer.WriteHeader(resp.StatusCode)
-		_, err = c.Writer.Write(newResponseBody)
-		if err != nil {
-			common.SysError("error writing response body: " + err.Error())
-		}
-		
-		if common.DebugEnabled {
-			fmt.Printf("DEBUG: 重新序列化embedding响应为JSON格式\n")
-		}
-	}
-	
-	return nil, usage
-}
-
-// convertRawEmbeddingResponse 将原始响应转换为标准的embedding响应格式
-func convertRawEmbeddingResponse(rawResponse map[string]interface{}) (*dto.OpenAIEmbeddingResponse, error) {
-	response := &dto.OpenAIEmbeddingResponse{
-		Object: "list",
-		Model:  "",
-		Usage:  dto.Usage{},
-	}
-	
-	// 处理基本字段
-	if obj, ok := rawResponse["object"].(string); ok {
-		response.Object = obj
-	}
-	if model, ok := rawResponse["model"].(string); ok {
-		response.Model = model
-	}
-	
-	// 处理usage字段
-	if usageData, ok := rawResponse["usage"].(map[string]interface{}); ok {
-		if promptTokens, ok := usageData["prompt_tokens"].(float64); ok {
-			response.Usage.PromptTokens = int(promptTokens)
-		}
-		if completionTokens, ok := usageData["completion_tokens"].(float64); ok {
-			response.Usage.CompletionTokens = int(completionTokens)
-		}
-		if totalTokens, ok := usageData["total_tokens"].(float64); ok {
-			response.Usage.TotalTokens = int(totalTokens)
-		}
-	}
-	
-	// 处理data字段 - 这是关键部分
-	if dataArray, ok := rawResponse["data"].([]interface{}); ok {
-		response.Data = make([]dto.OpenAIEmbeddingResponseItem, 0, len(dataArray))
-		
-		for i, item := range dataArray {
-			if itemMap, ok := item.(map[string]interface{}); ok {
-				responseItem := dto.OpenAIEmbeddingResponseItem{
-					Object: "embedding",
-					Index:  i,
-				}
-				
-				// 设置object字段
-				if obj, ok := itemMap["object"].(string); ok {
-					responseItem.Object = obj
-				}
-				
-				// 设置index字段
-				if idx, ok := itemMap["index"].(float64); ok {
-					responseItem.Index = int(idx)
-				}
-				
-				// 处理embedding字段 - 支持多种格式
-				if embeddingData, exists := itemMap["embedding"]; exists {
-					var embedding dto.FlexibleEmbedding
-					embeddingJSON, marshalErr := json.Marshal(embeddingData)
-					if marshalErr != nil {
-						fmt.Printf("ERROR: 无法marshal embedding数据: %v, 数据类型: %T\n", marshalErr, embeddingData)
-						continue
-					}
-					
-					if err := embedding.UnmarshalJSON(embeddingJSON); err != nil {
-						fmt.Printf("ERROR: 无法解析embedding数据: %v, JSON: %s\n", err, string(embeddingJSON))
-						continue
-					}
-					
-					responseItem.Embedding = embedding
-					if common.DebugEnabled {
-						fmt.Printf("DEBUG: 成功解析embedding, 长度: %d\n", len(embedding.GetData()))
-					}
-				} else {
-					fmt.Printf("WARNING: embedding字段不存在于数据项中\n")
-				}
-				
-				response.Data = append(response.Data, responseItem)
-			}
-		}
-	}
-	
-	return response, nil
-}
-
-func OpenaiModerationHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.OpenAIErrorWithStatusCode, *dto.Usage) {
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
-	}
-
-	// 首先尝试解析为错误响应
-	var errorResponse dto.SimpleResponse
-	err = common.DecodeJson(responseBody, &errorResponse)
-	if err == nil && errorResponse.Error != nil && errorResponse.Error.Type != "" {
-		return &dto.OpenAIErrorWithStatusCode{
-			Error:      *errorResponse.Error,
-			StatusCode: resp.StatusCode,
-		}, nil
-	}
-
-	// 尝试解析为 moderations 响应
-	var moderationResponse map[string]interface{}
-	err = common.DecodeJson(responseBody, &moderationResponse)
-	if err != nil {
-		return service.OpenAIErrorWrapper(err, "unmarshal_response_body_failed", http.StatusInternalServerError), nil
-	}
-
-	// 检查是否有 results 字段
-	results, hasResults := moderationResponse["results"]
-	if !hasResults {
-		common.LogWarn(c, "moderation请求返回空results，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "moderation response has no results field, should retry other channels",
-				Type:    "empty_response",
-				Code:    "missing_results",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
-	}
-
-	// 检查 results 是否为空
-	if resultsArray, ok := results.([]interface{}); ok {
-		if len(resultsArray) == 0 {
-			common.LogWarn(c, "moderation请求返回空results数组，应该重试其他渠道")
-			return &dto.OpenAIErrorWithStatusCode{
-				Error: dto.OpenAIError{
-					Message: "moderation response has empty results array, should retry other channels",
-					Type:    "empty_response",
-					Code:    "empty_results",
-				},
-				StatusCode: http.StatusInternalServerError,
-				LocalError: false, // 不标记为本地错误，允许重试
-			}, nil
-		}
-	} else {
-		common.LogWarn(c, "moderation请求results字段格式错误，应该重试其他渠道")
-		return &dto.OpenAIErrorWithStatusCode{
-			Error: dto.OpenAIError{
-				Message: "moderation response results field format error, should retry other channels",
-				Type:    "empty_response",
-				Code:    "invalid_results_format",
-			},
-			StatusCode: http.StatusInternalServerError,
-			LocalError: false, // 不标记为本地错误，允许重试
-		}, nil
-	}
-
-	// 计算 usage，moderations 通常只有 prompt tokens
-	usage := &dto.Usage{
-		PromptTokens:     info.PromptTokens,
-		CompletionTokens: 0,
-		TotalTokens:      info.PromptTokens,
-	}
-
-	// 🔑 关键修复：所有检查都通过后才写入HTTP响应
-	// Reset response body
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	// 设置响应头
-	for k, v := range resp.Header {
-		c.Writer.Header().Set(k, v[0])
-	}
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(c.Writer, resp.Body)
-	if err != nil {
-		common.SysError("error copying response body: " + err.Error())
-	}
-	resp.Body.Close()
-	return nil, usage
-}
-
-// getFirstFewValues 获取数组的前几个值用于调试
-func getFirstFewValues(arr []float64, count int) []float64 {
-	if len(arr) == 0 {
-		return []float64{}
-	}
-	if len(arr) <= count {
-		return arr
-	}
-	return arr[:count]
-}
-
-// truncateString 截断字符串到指定长度
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
+	return &usageResp.Usage, nil
 }

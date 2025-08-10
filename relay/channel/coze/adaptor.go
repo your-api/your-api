@@ -9,12 +9,18 @@ import (
 	"one-api/dto"
 	"one-api/relay/channel"
 	"one-api/relay/common"
+	"one-api/types"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Adaptor struct {
+}
+
+func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *common.RelayInfo, *dto.GeminiChatRequest) (any, error) {
+	//TODO implement me
+	return nil, errors.New("not implemented")
 }
 
 // ConvertAudioRequest implements channel.Adaptor.
@@ -95,11 +101,11 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *common.RelayInfo, requestBody 
 }
 
 // DoResponse implements channel.Adaptor.
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *common.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *common.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.IsStream {
-		err, usage = cozeChatStreamHandler(c, resp, info)
+		usage, err = cozeChatStreamHandler(c, info, resp)
 	} else {
-		err, usage = cozeChatHandler(c, resp, info)
+		usage, err = cozeChatHandler(c, info, resp)
 	}
 	return
 }

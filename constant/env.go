@@ -1,9 +1,5 @@
 package constant
 
-import (
-	"one-api/common"
-)
-
 var StreamingTimeout int
 var DifyDebug bool
 var MaxFileDownloadMB int
@@ -17,6 +13,7 @@ var NotifyLimitCount int
 var NotificationLimitDurationMinute int
 var GenerateDefaultToken bool
 var ErrorLogEnabled bool
+<<<<<<< HEAD
 var DataExportInterval string
 var DataExportDefaultTime string
 var DrawingEnabled bool

@@ -1,3 +1,22 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
 import {
@@ -173,7 +192,8 @@ export default function SettingGeminiModel(props) {
                 <Text>
                   {t(
                     "和Claude不同，默认情况下Gemini的思考模型会自动决定要不要思考，就算不开启适配模型也可以正常使用，" +
-                    "如果您需要计费，推荐设置无后缀模型价格按思考价格设置"
+                    "如果您需要计费，推荐设置无后缀模型价格按思考价格设置。" +
+                    "支持使用 gemini-2.5-pro-preview-06-05-thinking-128 格式来精确传递思考预算。"
                   )}
                 </Text>
               </Col>
@@ -183,7 +203,7 @@ export default function SettingGeminiModel(props) {
                 <Form.Switch
                   label={t('启用Gemini思考后缀适配')}
                   field={'gemini.thinking_adapter_enabled'}
-                  extraText={"适配-thinking和-nothinking后缀"}
+                  extraText={t('适配 -thinking、-thinking-预算数字 和 -nothinking 后缀')}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,
@@ -205,11 +225,11 @@ export default function SettingGeminiModel(props) {
             <Row>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.InputNumber
-                  label={t('请求模型带-thinking后缀的BudgetTokens数（超出24576的部分将被忽略）')}
+                  label={t('思考预算占比')}
                   field={'gemini.thinking_adapter_budget_tokens_percentage'}
                   initValue={''}
-                  extraText={t('0.1-1之间的小数')}
-                  min={0.1}
+                  extraText={t('0.002-1之间的小数')} 
+                  min={0.002}
                   max={1}
                   onChange={(value) =>
                     setInputs({

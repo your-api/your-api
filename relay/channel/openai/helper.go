@@ -2,6 +2,9 @@ package openai
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/samber/lo"
+	"net/http"
 	"one-api/common"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
@@ -14,78 +17,23 @@ import (
 )
 
 // 辅助函数
-func handleStreamFormat(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
-	// 早期检测空数据
-	if data == "" {
-		return nil
-	}
-
-	// 解析并检测空回复
-	var streamResponse dto.ChatCompletionsStreamResponse
-	if err := json.Unmarshal(common.StringToByteSlice(data), &streamResponse); err == nil {
-		// 检查是否为空回复，如果是则直接返回，不增加发送计数
-		if isEmptyStreamResponse(&streamResponse) {
-			return nil
-		}
-	}
-
+func HandleStreamFormat(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	info.SendResponseCount++
+
 	switch info.RelayFormat {
 	case relaycommon.RelayFormatOpenAI:
 		return sendStreamData(c, info, data, forceFormat, thinkToContent)
 	case relaycommon.RelayFormatClaude:
 		return handleClaudeFormat(c, data, info)
+	case relaycommon.RelayFormatGemini:
+		return handleGeminiFormat(c, data, info)
 	}
 	return nil
 }
 
-// isEmptyStreamResponse 检查流回复是否为空，用于过滤无意义的空回复
-func isEmptyStreamResponse(response *dto.ChatCompletionsStreamResponse) bool {
-	// 检查基本字段是否为空值
-	if response.Id == "" && response.Object == "" && response.Created == 0 {
-		// 检查choices是否为空或者只包含空的delta
-		if response.Choices == nil || len(response.Choices) == 0 {
-			return true
-		}
-		
-		// 检查所有choices是否都没有实际内容
-		hasValidContent := false
-		for _, choice := range response.Choices {
-			// 检查delta是否有实际内容
-			if choice.Delta.GetContentString() != "" || 
-			   choice.Delta.GetReasoningContent() != "" ||
-			   choice.Delta.Role != "" ||
-			   choice.Delta.ToolCalls != nil && len(choice.Delta.ToolCalls) > 0 ||
-			   choice.FinishReason != nil {
-				hasValidContent = true
-				break
-			}
-		}
-		
-		if !hasValidContent {
-			return true
-		}
-	}
-
-	// 检查choices长度为0的情况（用户提到的情况）
-	if response.Choices != nil && len(response.Choices) == 1 {
-		choice := response.Choices[0]
-		// 检查choices.length为0的特殊情况
-		if choice.Delta.GetContentString() == "" && 
-		   choice.Delta.GetReasoningContent() == "" &&
-		   choice.Delta.Role == "" &&
-		   (choice.Delta.ToolCalls == nil || len(choice.Delta.ToolCalls) == 0) &&
-		   choice.FinishReason == nil {
-			return true
-		}
-	}
-
-	return false
-}
-
 func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo) error {
 	var streamResponse dto.ChatCompletionsStreamResponse
-	if err := json.Unmarshal(common.StringToByteSlice(data), &streamResponse); err != nil {
+	if err := common.Unmarshal(common.StringToByteSlice(data), &streamResponse); err != nil {
 		return err
 	}
 
@@ -99,13 +47,39 @@ func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo
 	return nil
 }
 
+func handleGeminiFormat(c *gin.Context, data string, info *relaycommon.RelayInfo) error {
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := common.Unmarshal(common.StringToByteSlice(data), &streamResponse); err != nil {
+		common.LogError(c, "failed to unmarshal stream response: "+err.Error())
+		return err
+	}
+
+	geminiResponse := service.StreamResponseOpenAI2Gemini(&streamResponse, info)
+
+	// 如果返回 nil，表示没有实际内容，跳过发送
+	if geminiResponse == nil {
+		return nil
+	}
+
+	geminiResponseStr, err := common.Marshal(geminiResponse)
+	if err != nil {
+		common.LogError(c, "failed to marshal gemini response: "+err.Error())
+		return err
+	}
+
+	// send gemini format response
+	c.Render(-1, common.CustomEvent{Data: "data: " + string(geminiResponseStr)})
+	if flusher, ok := c.Writer.(http.Flusher); ok {
+		flusher.Flush()
+	} else {
+		return errors.New("streaming error: flusher not found")
+	}
+	return nil
+}
+
 func ProcessStreamResponse(streamResponse dto.ChatCompletionsStreamResponse, responseTextBuilder *strings.Builder, toolCount *int) error {
 	for _, choice := range streamResponse.Choices {
-		// 过滤掉"Thinking..."开头的内容，不参与token计费
-		content := choice.Delta.GetContentString()
-		if !strings.HasPrefix(content, "Thinking...") {
-			responseTextBuilder.WriteString(content)
-		}
+		responseTextBuilder.WriteString(choice.Delta.GetContentString())
 		responseTextBuilder.WriteString(choice.Delta.GetReasoningContent())
 		if choice.Delta.ToolCalls != nil {
 			if len(choice.Delta.ToolCalls) > *toolCount {
@@ -152,11 +126,7 @@ func processChatCompletions(streamResp string, streamItems []string, responseTex
 	// 批量处理所有响应
 	for _, streamResponse := range streamResponses {
 		for _, choice := range streamResponse.Choices {
-			// 过滤掉"Thinking..."开头的内容，不参与token计费
-			content := choice.Delta.GetContentString()
-			if !strings.HasPrefix(content, "Thinking...") {
-				responseTextBuilder.WriteString(content)
-			}
+			responseTextBuilder.WriteString(choice.Delta.GetContentString())
 			responseTextBuilder.WriteString(choice.Delta.GetReasoningContent())
 			if choice.Delta.ToolCalls != nil {
 				if len(choice.Delta.ToolCalls) > *toolCount {
@@ -217,14 +187,16 @@ func handleLastResponse(lastStreamData string, responseId *string, createAt *int
 		*containStreamUsage = true
 		*usage = lastStreamResponse.Usage
 		if !info.ShouldIncludeUsage {
-			*shouldSendLastResp = false
+			*shouldSendLastResp = lo.SomeBy(lastStreamResponse.Choices, func(choice dto.ChatCompletionsStreamResponseChoice) bool {
+				return choice.Delta.GetContentString() != "" || choice.Delta.GetReasoningContent() != ""
+			})
 		}
 	}
 
 	return nil
 }
 
-func handleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStreamData string,
+func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStreamData string,
 	responseId string, createAt int64, model string, systemFingerprint string,
 	usage *dto.Usage, containStreamUsage bool) {
 
@@ -240,7 +212,7 @@ func handleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 	case relaycommon.RelayFormatClaude:
 		info.ClaudeConvertInfo.Done = true
 		var streamResponse dto.ChatCompletionsStreamResponse
-		if err := json.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
+		if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
 			common.SysError("error unmarshalling stream response: " + err.Error())
 			return
 		}
@@ -249,7 +221,38 @@ func handleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStream
 
 		claudeResponses := service.StreamResponseOpenAI2Claude(&streamResponse, info)
 		for _, resp := range claudeResponses {
-			helper.ClaudeData(c, *resp)
+			_ = helper.ClaudeData(c, *resp)
+		}
+
+	case relaycommon.RelayFormatGemini:
+		var streamResponse dto.ChatCompletionsStreamResponse
+		if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &streamResponse); err != nil {
+			common.SysError("error unmarshalling stream response: " + err.Error())
+			return
+		}
+
+		// 这里处理的是 openai 最后一个流响应，其 delta 为空，有 finish_reason 字段
+		// 因此相比较于 google 官方的流响应，由 openai 转换而来会多一个 parts 为空，finishReason 为 STOP 的响应
+		// 而包含最后一段文本输出的响应（倒数第二个）的 finishReason 为 null
+		// 暂不知是否有程序会不兼容。
+
+		geminiResponse := service.StreamResponseOpenAI2Gemini(&streamResponse, info)
+
+		// openai 流响应开头的空数据
+		if geminiResponse == nil {
+			return
+		}
+
+		geminiResponseStr, err := common.Marshal(geminiResponse)
+		if err != nil {
+			common.SysError("error marshalling gemini response: " + err.Error())
+			return
+		}
+
+		// 发送最终的 Gemini 响应
+		c.Render(-1, common.CustomEvent{Data: "data: " + string(geminiResponseStr)})
+		if flusher, ok := c.Writer.(http.Flusher); ok {
+			flusher.Flush()
 		}
 	}
 }

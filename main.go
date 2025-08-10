@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"one-api/common"
@@ -13,10 +14,10 @@ import (
 	"one-api/router"
 	"one-api/service"
 	"one-api/setting/operation_setting"
+	"one-api/setting/ratio_setting"
 	"os"
 	"strconv"
 	"time"
-	"io"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -43,20 +44,11 @@ func main() {
 		common.SysLog("应用程序时区已设置为: " + time.Local.String())
 	}
 
-	err = godotenv.Load(".env")
+	err = InitResources()
 	if err != nil {
-		// 减少不必要的日志输出
-		if common.DebugEnabled {
-			common.SysLog("Support for .env file is disabled: " + err.Error())
-		}
+		common.FatalLog("failed to initialize resources: " + err.Error())
+		return
 	}
-
-	common.LoadEnv()
-
-	// 在环境变量加载后立即初始化HTTP客户端，确保使用正确的超时配置
-	service.InitHTTPClients()
-
-	common.SetupLogger()
 	common.SysLog("New API " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
@@ -64,43 +56,13 @@ func main() {
 	if common.DebugEnabled {
 		common.SysLog("running in debug mode")
 	}
-	// Initialize SQL Database
-	err = model.InitDB()
-	if err != nil {
-		common.FatalLog("failed to initialize database: " + err.Error())
-	}
 
-	model.CheckSetup()
-
-	// Initialize SQL Database
-	err = model.InitLogDB()
-	if err != nil {
-		common.FatalLog("failed to initialize database: " + err.Error())
-	}
 	defer func() {
 		err := model.CloseDB()
 		if err != nil {
 			common.FatalLog("failed to close database: " + err.Error())
 		}
 	}()
-
-	// Initialize Redis
-	err = common.InitRedisClient()
-	if err != nil {
-		common.FatalLog("failed to initialize Redis: " + err.Error())
-	}
-
-	// Initialize model settings
-	operation_setting.InitRatioSettings()
-	// Initialize constants
-	constant.InitEnv()
-	// Initialize options
-	model.InitOptionMap()
-
-	// Initialize pre-consumed quota tracker
-	model.InitPreConsumedQuotaTracker()
-
-	service.InitTokenEncoders()
 
 	if common.RedisEnabled {
 		// for compatibility with old versions
@@ -119,7 +81,7 @@ func main() {
 					common.SysError(fmt.Sprintf("InitChannelCache panic: %v, attempting recovery", r))
 					// 尝试清理和恢复
 					time.Sleep(1 * time.Second)
-					
+
 					// 尝试修复数据库中的能力数据
 					_, fixErr := model.FixAbility()
 					if fixErr != nil {
@@ -131,7 +93,7 @@ func main() {
 					}
 				}
 			}()
-			
+
 			// 首先尝试修复能力数据
 			count, err := model.FixAbility()
 			if err != nil {
@@ -145,9 +107,11 @@ func main() {
 			}
 		}()
 
-		go model.SyncOptions(common.SyncFrequency)
 		go model.SyncChannelCache(common.SyncFrequency)
 	}
+
+	// 热更新配置
+	go model.SyncOptions(common.SyncFrequency)
 
 	// 数据看板
 	go model.UpdateQuotaData()
@@ -193,21 +157,21 @@ func main() {
 
 	// Initialize HTTP server
 	server := gin.New()
-	
+
 	// 配置信任的代理IP（Docker网络）
 	server.SetTrustedProxies([]string{"172.0.0.0/8", "10.0.0.0/8", "192.168.0.0/16", "127.0.0.1"})
-	
+
 	// 使用我们的全局panic恢复中间件
 	server.Use(middleware.GlobalPanicRecover())
-	
+
 	// 添加全局CORS中间件，解决跨域问题
 	server.Use(middleware.CORS())
-	
+
 	// This will cause SSE not to work!!!
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
 	middleware.SetUpLogger(server)
-	
+
 	// Initialize session store
 	// 显示SessionSecret的前几位用于调试
 	secretPreview := common.SessionSecret
@@ -234,4 +198,64 @@ func main() {
 	if err != nil {
 		common.FatalLog("failed to start HTTP server: " + err.Error())
 	}
+}
+
+func InitResources() error {
+	// Load .env file if exists
+	err := godotenv.Load(".env")
+	if err != nil {
+		// 减少不必要的日志输出
+		if common.DebugEnabled {
+			common.SysLog("Support for .env file is disabled: " + err.Error())
+		}
+	}
+
+	// 加载环境变量
+	common.LoadEnv()
+
+	common.SetupLogger()
+
+	// 在环境变量加载后立即初始化HTTP客户端，确保使用正确的超时配置
+	service.InitHTTPClients()
+
+	// Initialize SQL Database
+	err = model.InitDB()
+	if err != nil {
+		common.FatalLog("failed to initialize database: " + err.Error())
+		return err
+	}
+
+	model.CheckSetup()
+
+	// Initialize model settings
+	ratio_setting.InitRatioSettings()
+
+	// Initialize constants
+	constant.InitEnv()
+
+	// Initialize options, should after model.InitDB()
+	model.InitOptionMap()
+
+	// 初始化模型
+	model.GetPricing()
+
+	// Initialize pre-consumed quota tracker
+	model.InitPreConsumedQuotaTracker()
+
+	service.InitTokenEncoders()
+
+	// Initialize Log Database
+	err = model.InitLogDB()
+	if err != nil {
+		return err
+	}
+
+	// Initialize Redis
+	err = common.InitRedisClient()
+	if err != nil {
+		common.FatalLog("failed to initialize Redis: " + err.Error())
+		return err
+	}
+
+	return nil
 }

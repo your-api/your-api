@@ -1,17 +1,17 @@
 package gemini
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"one-api/common"
 	"one-api/dto"
 	"one-api/relay/channel"
+	"one-api/relay/channel/openai"
 	relaycommon "one-api/relay/common"
-	"one-api/service"
+	"one-api/relay/constant"
 	"one-api/setting/model_setting"
+	"one-api/types"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -20,10 +20,33 @@ import (
 type Adaptor struct {
 }
 
-func (a *Adaptor) ConvertClaudeRequest(*gin.Context, *relaycommon.RelayInfo, *dto.ClaudeRequest) (any, error) {
-	//TODO implement me
-	panic("implement me")
-	return nil, nil
+func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	if len(request.Contents) > 0 {
+		for i, content := range request.Contents {
+			if i == 0 {
+				if request.Contents[0].Role == "" {
+					request.Contents[0].Role = "user"
+				}
+			}
+			for _, part := range content.Parts {
+				if part.FileData != nil {
+					if part.FileData.MimeType == "" && strings.Contains(part.FileData.FileUri, "www.youtube.com") {
+						part.FileData.MimeType = "video/webm"
+					}
+				}
+			}
+		}
+	}
+	return request, nil
+}
+
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
+	adaptor := openai.Adaptor{}
+	oaiReq, err := adaptor.ConvertClaudeRequest(c, info, req)
+	if err != nil {
+		return nil, err
+	}
+	return a.ConvertOpenAIRequest(c, info, oaiReq.(*dto.GeneralOpenAIRequest))
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
@@ -48,13 +71,13 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	}
 
 	// build gemini imagen request
-	geminiRequest := GeminiImageRequest{
-		Instances: []GeminiImageInstance{
+	geminiRequest := dto.GeminiImageRequest{
+		Instances: []dto.GeminiImageInstance{
 			{
 				Prompt: request.Prompt,
 			},
 		},
-		Parameters: GeminiImageParameters{
+		Parameters: dto.GeminiImageParameters{
 			SampleCount:      request.N,
 			AspectRatio:      aspectRatio,
 			PersonGeneration: "allow_adult", // default allow adult
@@ -71,10 +94,13 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 	if model_setting.GetGeminiSettings().ThinkingAdapterEnabled {
-		// suffix -thinking and -nothinking
-		if strings.HasSuffix(info.OriginModelName, "-thinking") {
+		// 新增逻辑：处理 -thinking-<budget> 格式
+		if strings.Contains(info.UpstreamModelName, "-thinking-") {
+			parts := strings.Split(info.UpstreamModelName, "-thinking-")
+			info.UpstreamModelName = parts[0]
+		} else if strings.HasSuffix(info.UpstreamModelName, "-thinking") { // 旧的适配
 			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
-		} else if strings.HasSuffix(info.OriginModelName, "-nothinking") {
+		} else if strings.HasSuffix(info.UpstreamModelName, "-nothinking") {
 			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-nothinking")
 		}
 	}
@@ -94,6 +120,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	action := "generateContent"
 	if info.IsStream {
 		action = "streamGenerateContent?alt=sse"
+		if info.RelayMode == constant.RelayModeGemini {
+			info.DisablePing = true
+		}
 	}
 	return fmt.Sprintf("%s/%s/models/%s:%s", info.BaseUrl, version, info.UpstreamModelName, action), nil
 }
@@ -132,9 +161,9 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	}
 
 	// only process the first input
-	geminiRequest := GeminiEmbeddingRequest{
-		Content: GeminiChatContent{
-			Parts: []GeminiPart{
+	geminiRequest := dto.GeminiEmbeddingRequest{
+		Content: dto.GeminiChatContent{
+			Parts: []dto.GeminiPart{
 				{
 					Text: inputs[0],
 				},
@@ -164,22 +193,30 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeGemini {
+		if info.IsStream {
+			return GeminiTextGenerationStreamHandler(c, info, resp)
+		} else {
+			return GeminiTextGenerationHandler(c, info, resp)
+		}
+	}
+
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {
-		return GeminiImageHandler(c, resp, info)
+		return GeminiImageHandler(c, info, resp)
 	}
 
 	// check if the model is an embedding model
 	if strings.HasPrefix(info.UpstreamModelName, "text-embedding") ||
 		strings.HasPrefix(info.UpstreamModelName, "embedding") ||
 		strings.HasPrefix(info.UpstreamModelName, "gemini-embedding") {
-		return GeminiEmbeddingHandler(c, resp, info)
+		return GeminiEmbeddingHandler(c, info, resp)
 	}
 
 	if info.IsStream {
-		err, usage = GeminiChatStreamHandler(c, resp, info)
+		return GeminiChatStreamHandler(c, info, resp)
 	} else {
-		err, usage = GeminiChatHandler(c, resp, info)
+		return GeminiChatHandler(c, info, resp)
 	}
 
 	//if usage.(*dto.Usage).CompletionTokenDetails.ReasoningTokens > 100 {
@@ -193,61 +230,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	//	}
 	//}
 
-	return
-}
-
-func GeminiImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *dto.OpenAIErrorWithStatusCode) {
-	responseBody, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return nil, service.OpenAIErrorWrapper(readErr, "read_response_body_failed", http.StatusInternalServerError)
-	}
-	_ = resp.Body.Close()
-
-	var geminiResponse GeminiImageResponse
-	if jsonErr := json.Unmarshal(responseBody, &geminiResponse); jsonErr != nil {
-		return nil, service.OpenAIErrorWrapper(jsonErr, "unmarshal_response_body_failed", http.StatusInternalServerError)
-	}
-
-	if len(geminiResponse.Predictions) == 0 {
-		return nil, service.OpenAIErrorWrapper(errors.New("no images generated"), "no_images", http.StatusBadRequest)
-	}
-
-	// convert to openai format response
-	openAIResponse := dto.ImageResponse{
-		Created: common.GetTimestamp(),
-		Data:    make([]dto.ImageData, 0, len(geminiResponse.Predictions)),
-	}
-
-	for _, prediction := range geminiResponse.Predictions {
-		if prediction.RaiFilteredReason != "" {
-			continue // skip filtered image
-		}
-		openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
-			B64Json: prediction.BytesBase64Encoded,
-		})
-	}
-
-	jsonResponse, jsonErr := json.Marshal(openAIResponse)
-	if jsonErr != nil {
-		return nil, service.OpenAIErrorWrapper(jsonErr, "marshal_response_failed", http.StatusInternalServerError)
-	}
-
-	c.Writer.Header().Set("Content-Type", "application/json")
-	c.Writer.WriteHeader(resp.StatusCode)
-	_, _ = c.Writer.Write(jsonResponse)
-
-	// https://github.com/google-gemini/cookbook/blob/719a27d752aac33f39de18a8d3cb42a70874917e/quickstarts/Counting_Tokens.ipynb
-	// each image has fixed 258 tokens
-	const imageTokens = 258
-	generatedImages := len(openAIResponse.Data)
-
-	usage = &dto.Usage{
-		PromptTokens:     imageTokens * generatedImages, // each generated image has fixed 258 tokens
-		CompletionTokens: 0,                             // image generation does not calculate completion tokens
-		TotalTokens:      imageTokens * generatedImages,
-	}
-
-	return usage, nil
+	return nil, types.NewError(errors.New("not implemented"), types.ErrorCodeBadResponseBody)
 }
 
 func (a *Adaptor) GetModelList() []string {

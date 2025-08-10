@@ -1,11 +1,11 @@
 package model
 
 import (
-	"encoding/json"
 	"one-api/common"
 	"one-api/setting"
 	"one-api/setting/config"
 	"one-api/setting/operation_setting"
+	"one-api/setting/ratio_setting"
 	"strconv"
 	"strings"
 	"time"
@@ -59,9 +59,9 @@ func InitOptionMap() {
 	common.OptionMap["SMTPAccount"] = ""
 	common.OptionMap["SMTPToken"] = ""
 	common.OptionMap["SMTPSSLEnabled"] = strconv.FormatBool(common.SMTPSSLEnabled)
-	common.OptionMap["Notice"] = "公告配置可在控制台-系统设置-其他设置处设置，支持 HTML & Markdown"
+	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
-	common.OptionMap["HomePageContent"] = "## 全新的 高颜值 / 高性能 的AI模型接口管理与分发系统\n\n### 可在控制台-系统设置-其他设置处设置此处运营文案，支持 HTML & Markdown"
+	common.OptionMap["HomePageContent"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
@@ -74,9 +74,18 @@ func InitOptionMap() {
 	common.OptionMap["EpayId"] = ""
 	common.OptionMap["EpayKey"] = ""
 	common.OptionMap["Price"] = strconv.FormatFloat(setting.Price, 'f', -1, 64)
+	common.OptionMap["USDExchangeRate"] = strconv.FormatFloat(setting.USDExchangeRate, 'f', -1, 64)
 	common.OptionMap["MinTopUp"] = strconv.Itoa(setting.MinTopUp)
+	common.OptionMap["StripeMinTopUp"] = strconv.Itoa(setting.StripeMinTopUp)
+	common.OptionMap["StripeApiSecret"] = setting.StripeApiSecret
+	common.OptionMap["StripeWebhookSecret"] = setting.StripeWebhookSecret
+	common.OptionMap["StripePriceId"] = setting.StripePriceId
+	common.OptionMap["StripeUnitPrice"] = strconv.FormatFloat(setting.StripeUnitPrice, 'f', -1, 64)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
+	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
+	common.OptionMap["DefaultUseAutoGroup"] = strconv.FormatBool(setting.DefaultUseAutoGroup)
+	common.OptionMap["PayMethods"] = setting.PayMethods2JsonString()
 	common.OptionMap["GitHubClientId"] = ""
 	common.OptionMap["GitHubClientSecret"] = ""
 	common.OptionMap["TelegramBotToken"] = ""
@@ -95,20 +104,18 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
-	common.OptionMap["ModelRatio"] = operation_setting.ModelRatio2JSONString()
-	common.OptionMap["ModelPrice"] = operation_setting.ModelPrice2JSONString()
-	common.OptionMap["CacheRatio"] = operation_setting.CacheRatio2JSONString()
-	common.OptionMap["GroupRatio"] = setting.GroupRatio2JSONString()
+	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
+	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
+	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
+	common.OptionMap["GroupRatio"] = ratio_setting.GroupRatio2JSONString()
+	common.OptionMap["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
 	common.OptionMap["UserUsableGroups"] = setting.UserUsableGroups2JSONString()
-	common.OptionMap["CompletionRatio"] = operation_setting.CompletionRatio2JSONString()
+	common.OptionMap["CompletionRatio"] = ratio_setting.CompletionRatio2JSONString()
 	common.OptionMap["TopUpLink"] = common.TopUpLink
 	//common.OptionMap["ChatLink"] = common.ChatLink
 	//common.OptionMap["ChatLink2"] = common.ChatLink2
 	common.OptionMap["QuotaPerUnit"] = strconv.FormatFloat(common.QuotaPerUnit, 'f', -1, 64)
 	common.OptionMap["RetryTimes"] = strconv.Itoa(common.RetryTimes)
-	common.OptionMap["MaxRetryTimes"] = strconv.Itoa(common.MaxRetryTimes)
-	common.OptionMap["EnableCyclicRetry"] = strconv.FormatBool(common.EnableCyclicRetry)
-	common.OptionMap["RetryAllPriorities"] = strconv.FormatBool(common.RetryAllPriorities)
 	common.OptionMap["DataExportInterval"] = strconv.Itoa(common.DataExportInterval)
 	common.OptionMap["DataExportDefaultTime"] = common.DataExportDefaultTime
 	common.OptionMap["DefaultCollapseSidebar"] = strconv.FormatBool(common.DefaultCollapseSidebar)
@@ -126,19 +133,7 @@ func InitOptionMap() {
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
 	common.OptionMap["StreamCacheQueueLength"] = strconv.Itoa(setting.StreamCacheQueueLength)
 	common.OptionMap["AutomaticDisableKeywords"] = operation_setting.AutomaticDisableKeywordsToString()
-	// 添加联系方式配置项 - 使用JSON格式存储
-	defaultContactInfo := map[string]interface{}{
-		"ContactPhone":       "",
-		"ContactEmail":       "",
-		"ContactAddress":     "",
-		"ContactWeChat":      "",
-		"ContactQQ":          "",
-		"ContactTelegram":    "",
-		"ContactWorkTime":    "周一至周五 9:00-18:00",
-		"ContactDescription": "如有任何问题或建议，请随时联系我们的客服团队。我们将竭诚为您服务！",
-	}
-	contactInfoJSON, _ := json.Marshal(defaultContactInfo)
-	common.OptionMap["ContactInfo"] = string(contactInfoJSON)
+	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -208,7 +203,7 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" {
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" {
 		boolValue := value == "true"
 		switch key {
 		case "PasswordRegisterEnabled":
@@ -277,6 +272,10 @@ func updateOptionMap(key string, value string) (err error) {
 			common.SMTPSSLEnabled = boolValue
 		case "WorkerAllowHttpImageRequestEnabled":
 			setting.WorkerAllowHttpImageRequestEnabled = boolValue
+		case "DefaultUseAutoGroup":
+			setting.DefaultUseAutoGroup = boolValue
+		case "ExposeRatioEnabled":
+			ratio_setting.SetExposeRatioEnabled(boolValue)
 		}
 	}
 	switch key {
@@ -303,6 +302,8 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.PayAddress = value
 	case "Chats":
 		err = setting.UpdateChatsByJsonString(value)
+	case "AutoGroups":
+		err = setting.UpdateAutoGroupsByJsonString(value)
 	case "CustomCallbackAddress":
 		setting.CustomCallbackAddress = value
 	case "EpayId":
@@ -311,8 +312,20 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.EpayKey = value
 	case "Price":
 		setting.Price, _ = strconv.ParseFloat(value, 64)
+	case "USDExchangeRate":
+		setting.USDExchangeRate, _ = strconv.ParseFloat(value, 64)
 	case "MinTopUp":
 		setting.MinTopUp, _ = strconv.Atoi(value)
+	case "StripeApiSecret":
+		setting.StripeApiSecret = value
+	case "StripeWebhookSecret":
+		setting.StripeWebhookSecret = value
+	case "StripePriceId":
+		setting.StripePriceId = value
+	case "StripeUnitPrice":
+		setting.StripeUnitPrice, _ = strconv.ParseFloat(value, 64)
+	case "StripeMinTopUp":
+		setting.StripeMinTopUp, _ = strconv.Atoi(value)
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":
@@ -363,28 +376,24 @@ func updateOptionMap(key string, value string) (err error) {
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
 	case "RetryTimes":
 		common.RetryTimes, _ = strconv.Atoi(value)
-	case "MaxRetryTimes":
-		common.MaxRetryTimes, _ = strconv.Atoi(value)
-	case "EnableCyclicRetry":
-		common.EnableCyclicRetry = value == "true"
-	case "RetryAllPriorities":
-		common.RetryAllPriorities = value == "true"
 	case "DataExportInterval":
 		common.DataExportInterval, _ = strconv.Atoi(value)
 	case "DataExportDefaultTime":
 		common.DataExportDefaultTime = value
 	case "ModelRatio":
-		err = operation_setting.UpdateModelRatioByJSONString(value)
+		err = ratio_setting.UpdateModelRatioByJSONString(value)
 	case "GroupRatio":
-		err = setting.UpdateGroupRatioByJSONString(value)
+		err = ratio_setting.UpdateGroupRatioByJSONString(value)
+	case "GroupGroupRatio":
+		err = ratio_setting.UpdateGroupGroupRatioByJSONString(value)
 	case "UserUsableGroups":
 		err = setting.UpdateUserUsableGroupsByJSONString(value)
 	case "CompletionRatio":
-		err = operation_setting.UpdateCompletionRatioByJSONString(value)
+		err = ratio_setting.UpdateCompletionRatioByJSONString(value)
 	case "ModelPrice":
-		err = operation_setting.UpdateModelPriceByJSONString(value)
+		err = ratio_setting.UpdateModelPriceByJSONString(value)
 	case "CacheRatio":
-		err = operation_setting.UpdateCacheRatioByJSONString(value)
+		err = ratio_setting.UpdateCacheRatioByJSONString(value)
 	case "TopUpLink":
 		common.TopUpLink = value
 	//case "ChatLink":
@@ -399,25 +408,10 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.SensitiveWordsFromString(value)
 	case "AutomaticDisableKeywords":
 		operation_setting.AutomaticDisableKeywordsFromString(value)
-	case "Providers":
-		operation_setting.UpdateProviders(value)
-	case "Advantages":
-		operation_setting.UpdateAdvantages(value)
-	case "TypingList":
-		operation_setting.UpdateTypingList(value)
-	case "ModelDescriptions":
-		operation_setting.UpdateModelDescriptions(value)
-	case "ImageReadProxy":
-		operation_setting.UpdateImageReadProxy(value)
-	case "custemNavLinks":
-		operation_setting.UpdateCustomNavLinks(value)
-	case "UpdateDiscountTiers":
-		operation_setting.UpdateDiscountTiers(value)
-
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
-	case "ContactInfo":
-		// 联系方式信息以JSON格式存储，无需额外处理
+	case "PayMethods":
+		err = setting.UpdatePayMethodsByJsonString(value)
 	}
 	return err
 }

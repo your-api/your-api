@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 	"io"
 	"net/http"
 	"one-api/common"
@@ -17,6 +15,9 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 func UpdateTaskBulk() {
@@ -84,7 +85,9 @@ func UpdateTaskByPlatform(platform constant.TaskPlatform, taskChannelM map[int][
 	case constant.TaskPlatformSuno:
 		_ = UpdateSunoTaskAll(context.Background(), taskChannelM, taskM)
 	default:
-		common.SysLog("未知平台")
+		if err := UpdateVideoTaskAll(context.Background(), platform, taskChannelM, taskM); err != nil {
+			common.SysLog(fmt.Sprintf("UpdateVideoTaskAll fail: %s", err))
+		}
 	}
 }
 
@@ -232,10 +235,8 @@ func checkTaskNeedUpdate(oldTask *model.Task, newTask dto.SunoDataResponse) bool
 }
 
 func GetAllTask(c *gin.Context) {
-	p, _ := strconv.Atoi(c.Query("p"))
-	if p < 0 {
-		p = 0
-	}
+	pageInfo := common.GetPageQuery(c)
+
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	// 解析其他查询参数
@@ -246,25 +247,18 @@ func GetAllTask(c *gin.Context) {
 		Action:         c.Query("action"),
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
+		ChannelID:      c.Query("channel_id"),
 	}
 
-	logs := model.TaskGetAllTasks(p*common.ItemsPerPage, common.ItemsPerPage, queryParams)
-	if logs == nil {
-		logs = make([]*model.Task, 0)
-	}
-
-	c.JSON(200, gin.H{
-		"success": true,
-		"message": "",
-		"data":    logs,
-	})
+	items := model.TaskGetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
+	total := model.TaskCountAllTasks(queryParams)
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
 }
 
 func GetUserTask(c *gin.Context) {
-	p, _ := strconv.Atoi(c.Query("p"))
-	if p < 0 {
-		p = 0
-	}
+	pageInfo := common.GetPageQuery(c)
 
 	userId := c.GetInt("id")
 
@@ -280,14 +274,9 @@ func GetUserTask(c *gin.Context) {
 		EndTimestamp:   endTimestamp,
 	}
 
-	logs := model.TaskGetAllUserTask(userId, p*common.ItemsPerPage, common.ItemsPerPage, queryParams)
-	if logs == nil {
-		logs = make([]*model.Task, 0)
-	}
-
-	c.JSON(200, gin.H{
-		"success": true,
-		"message": "",
-		"data":    logs,
-	})
+	items := model.TaskGetAllUserTask(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
+	total := model.TaskCountAllUserTask(userId, queryParams)
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
 }

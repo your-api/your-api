@@ -7,10 +7,15 @@ import (
 	"io"
 	"net/http"
 	"one-api/common"
+	"one-api/constant"
 	"one-api/model"
 	"one-api/service"
+	"one-api/setting"
+	"one-api/types"
 	"strconv"
 	"time"
+
+	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -304,34 +309,70 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 	return balance, nil
 }
 
+func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
+	url := "https://api.moonshot.cn/v1/users/me/balance"
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	if err != nil {
+		return 0, err
+	}
+
+	type MoonshotBalanceData struct {
+		AvailableBalance float64 `json:"available_balance"`
+		VoucherBalance   float64 `json:"voucher_balance"`
+		CashBalance      float64 `json:"cash_balance"`
+	}
+
+	type MoonshotBalanceResponse struct {
+		Code   int                 `json:"code"`
+		Data   MoonshotBalanceData `json:"data"`
+		Scode  string              `json:"scode"`
+		Status bool                `json:"status"`
+	}
+
+	response := MoonshotBalanceResponse{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	if !response.Status || response.Code != 0 {
+		return 0, fmt.Errorf("failed to update moonshot balance, status: %v, code: %d, scode: %s", response.Status, response.Code, response.Scode)
+	}
+	availableBalanceCny := response.Data.AvailableBalance
+	availableBalanceUsd := decimal.NewFromFloat(availableBalanceCny).Div(decimal.NewFromFloat(setting.Price)).InexactFloat64()
+	channel.UpdateBalance(availableBalanceUsd)
+	return availableBalanceUsd, nil
+}
+
 func updateChannelBalance(channel *model.Channel) (float64, error) {
-	baseURL := common.ChannelBaseURLs[channel.Type]
+	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
 		channel.BaseURL = &baseURL
 	}
 	switch channel.Type {
-	case common.ChannelTypeOpenAI:
+	case constant.ChannelTypeOpenAI:
 		if channel.GetBaseURL() != "" {
 			baseURL = channel.GetBaseURL()
 		}
-	case common.ChannelTypeAzure:
+	case constant.ChannelTypeAzure:
 		return 0, errors.New("尚未实现")
-	case common.ChannelTypeCustom:
+	case constant.ChannelTypeCustom:
 		baseURL = channel.GetBaseURL()
 	//case common.ChannelTypeOpenAISB:
 	//	return updateChannelOpenAISBBalance(channel)
-	case common.ChannelTypeAIProxy:
+	case constant.ChannelTypeAIProxy:
 		return updateChannelAIProxyBalance(channel)
-	case common.ChannelTypeAPI2GPT:
+	case constant.ChannelTypeAPI2GPT:
 		return updateChannelAPI2GPTBalance(channel)
-	case common.ChannelTypeAIGC2D:
+	case constant.ChannelTypeAIGC2D:
 		return updateChannelAIGC2DBalance(channel)
-	case common.ChannelTypeSiliconFlow:
+	case constant.ChannelTypeSiliconFlow:
 		return updateChannelSiliconFlowBalance(channel)
-	case common.ChannelTypeDeepSeek:
+	case constant.ChannelTypeDeepSeek:
 		return updateChannelDeepSeekBalance(channel)
-	case common.ChannelTypeOpenRouter:
+	case constant.ChannelTypeOpenRouter:
 		return updateChannelOpenRouterBalance(channel)
+	case constant.ChannelTypeMoonshot:
+		return updateChannelMoonshotBalance(channel)
 	default:
 		return 0, errors.New("尚未实现")
 	}
@@ -370,26 +411,24 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 func UpdateChannelBalance(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	channel, err := model.GetChannelById(id, true)
+	channel, err := model.CacheGetChannel(id)
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if channel.ChannelInfo.IsMultiKey {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": "多密钥渠道不支持余额查询",
 		})
 		return
 	}
 	balance, err := updateChannelBalance(channel)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -397,7 +436,6 @@ func UpdateChannelBalance(c *gin.Context) {
 		"message": "",
 		"balance": balance,
 	})
-	return
 }
 
 func updateAllChannelsBalance() error {
@@ -409,6 +447,9 @@ func updateAllChannelsBalance() error {
 		if channel.Status != common.ChannelStatusEnabled {
 			continue
 		}
+		if channel.ChannelInfo.IsMultiKey {
+			continue // skip multi-key channels
+		}
 		// TODO: support Azure
 		//if channel.Type != common.ChannelTypeOpenAI && channel.Type != common.ChannelTypeCustom {
 		//	continue
@@ -419,7 +460,7 @@ func updateAllChannelsBalance() error {
 		} else {
 			// err is nil & balance <= 0 means quota is used up
 			if balance <= 0 {
-				service.DisableChannel(channel.Id, channel.Name, "余额不足")
+				service.DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, "", channel.GetAutoBan()), "余额不足")
 			}
 		}
 		time.Sleep(common.RequestInterval)
@@ -431,10 +472,7 @@ func UpdateAllChannelsBalance(c *gin.Context) {
 	// TODO: make it async
 	err := updateAllChannelsBalance()
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

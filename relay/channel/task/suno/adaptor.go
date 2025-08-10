@@ -22,6 +22,10 @@ type TaskAdaptor struct {
 	ChannelType int
 }
 
+func (a *TaskAdaptor) ParseTaskResult([]byte) (*relaycommon.TaskInfo, error) {
+	return nil, fmt.Errorf("not implement") // todo implement this method if needed
+}
+
 func (a *TaskAdaptor) Init(info *relaycommon.TaskRelayInfo) {
 	a.ChannelType = info.ChannelType
 }
