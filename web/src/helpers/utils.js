@@ -365,14 +365,102 @@ export function isValidMessage(message) {
   return false;
 }
 
+// Commented out - duplicate functions defined later in the file
+// // Add missing time helper
+// export function getRelativeTime(dateString) {
+//   if (!dateString) return '';
+//   
+//   const date = new Date(dateString);
+//   const now = new Date();
+//   const diffMs = now - date;
+//   const diffSecs = Math.floor(diffMs / 1000);
+//   const diffMins = Math.floor(diffSecs / 60);
+//   const diffHours = Math.floor(diffMins / 60);
+//   const diffDays = Math.floor(diffHours / 24);
+//   const diffWeeks = Math.floor(diffDays / 7);
+//   const diffMonths = Math.floor(diffDays / 30);
+//   const diffYears = Math.floor(diffDays / 365);
+//
+//   if (diffSecs < 60) {
+//     return '刚刚';
+//   } else if (diffMins < 60) {
+//     return `${diffMins}分钟前`;
+//   } else if (diffHours < 24) {
+//     return `${diffHours}小时前`;
+//   } else if (diffDays < 7) {
+//     return `${diffDays}天前`;
+//   } else if (diffWeeks < 4) {
+//     return `${diffWeeks}周前`;
+//   } else if (diffMonths < 12) {
+//     return `${diffMonths}个月前`;
+//   } else {
+//     return `${diffYears}年前`;
+//   }
+// }
+//
+// // Add missing date formatting helper
+// export function formatDateTimeString(dateString) {
+//   if (!dateString) return '';
+//   const date = new Date(dateString);
+//   return date.toLocaleString('zh-CN', {
+//     year: 'numeric',
+//     month: '2-digit',
+//     day: '2-digit',
+//     hour: '2-digit',
+//     minute: '2-digit',
+//     second: '2-digit'
+//   });
+// }
+
 // Add missing table compact mode helpers
 export function getTableCompactMode() {
-  const stored = localStorage.getItem('tableCompactMode');
-  return stored === 'true';
+  return localStorage.getItem('table_compact_mode') === 'true';
 }
 
 export function setTableCompactMode(value) {
-  localStorage.setItem('tableCompactMode', value ? 'true' : 'false');
+  localStorage.setItem('table_compact_mode', value.toString());
+}
+
+// Add getRelativeTime function
+export function getRelativeTime(timestamp) {
+  if (!timestamp) return '';
+  
+  const now = new Date();
+  const date = new Date(timestamp);
+  const diffInSeconds = Math.floor((now - date) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return '刚刚';
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${minutes}分钟前`;
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `${hours}小时前`;
+  } else if (diffInSeconds < 2592000) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `${days}天前`;
+  } else if (diffInSeconds < 31536000) {
+    const months = Math.floor(diffInSeconds / 2592000);
+    return `${months}个月前`;
+  } else {
+    const years = Math.floor(diffInSeconds / 31536000);
+    return `${years}年前`;
+  }
+}
+
+// Add formatDateTimeString function
+export function formatDateTimeString(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
 }
 
 // Add missing processIncompleteThinkTags function

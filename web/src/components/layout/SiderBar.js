@@ -427,7 +427,7 @@ const SiderBar = ({ onNavigate = () => { } }) => {
             />
           }
           onClick={toggleCollapsed}
-          icononly={collapsed}
+          {...(collapsed ? { iconOnly: true } : {})}
           style={collapsed ? { padding: '4px', width: '100%' } : { padding: '4px 12px', width: '100%' }}
         >
           {!collapsed ? t('收起侧边栏') : null}
