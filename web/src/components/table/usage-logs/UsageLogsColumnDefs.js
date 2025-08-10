@@ -174,54 +174,11 @@ function renderFirstUseTime(type, t) {
 }
 
 function renderModelName(record, copyText, t) {
-  let other = getLogOther(record.other);
-  let modelMapped =
-    other?.is_model_mapped &&
-    other?.upstream_model_name &&
-    other?.upstream_model_name !== '';
-  if (!modelMapped) {
-    return renderModelTag(record.model_name, {
-      onClick: (event) => {
-        copyText(event, record.model_name).then((r) => { });
-      },
-    });
-  } else {
-    return (
-      <>
-        <Space vertical align={'start'}>
-          <Popover
-            content={
-              <div style={{ padding: 10 }}>
-                <Space vertical align={'start'}>
-                  <div className='flex items-center'>
-                    <Typography.Text strong style={{ marginRight: 8 }}>
-                      {t('请求并计费模型')}:
-                    </Typography.Text>
-                    {renderModelTag(record.model_name, {
-                      onClick: (event) => {
-                        copyText(event, record.model_name).then((r) => { });
-                      },
-                    })}
-                  </div>
-                </Space>
-              </div>
-            }
-          >
-            {renderModelTag(record.model_name, {
-              onClick: (event) => {
-                copyText(event, record.model_name).then((r) => { });
-              },
-              suffixIcon: (
-                <Route
-                  style={{ width: '0.9em', height: '0.9em', opacity: 0.75 }}
-                />
-              ),
-            })}
-          </Popover>
-        </Space>
-      </>
-    );
-  }
+  return renderModelTag(record.model_name, {
+    onClick: (event) => {
+      copyText(event, record.model_name).then((r) => { });
+    },
+  });
 }
 
 export const getLogsColumns = ({
