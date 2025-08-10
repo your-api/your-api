@@ -317,7 +317,12 @@ func migrateDBFast() error {
 
 func migrateLOGDB() error {
 	var err error
+	// 先执行原始的AutoMigrate以确保logs表存在（作为模板）
 	if err = LOG_DB.AutoMigrate(&Log{}); err != nil {
+		return err
+	}
+	// 然后执行分片表和视图的迁移
+	if err = MigrateShardedLogs(LOG_DB); err != nil {
 		return err
 	}
 	return nil

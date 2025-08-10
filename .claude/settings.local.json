@@ -39,7 +39,10 @@
       "Bash(mkdir:*)",
       "Bash(sed:*)",
       "Bash(git grep:*)",
-      "Bash(go get:*)"
+      "Bash(go get:*)",
+      "Bash(go mod init:*)",
+      "Bash(chmod:*)",
+      "Bash(/tmp/test_mysql_query.sh:*)"
     ],
     "deny": []
   }
