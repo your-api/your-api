@@ -203,18 +203,6 @@ function renderModelName(record, copyText, t) {
                       },
                     })}
                   </div>
-                  <div className='flex items-center'>
-                    <Typography.Text strong style={{ marginRight: 8 }}>
-                      {t('实际模型')}:
-                    </Typography.Text>
-                    {renderModelTag(other.upstream_model_name, {
-                      onClick: (event) => {
-                        copyText(event, other.upstream_model_name).then(
-                          (r) => { },
-                        );
-                      },
-                    })}
-                  </div>
                 </Space>
               </div>
             }

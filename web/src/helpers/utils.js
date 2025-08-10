@@ -309,15 +309,18 @@ export function createCardProPagination({
 }
 
 // Add missing filter helper
-export function selectFilter(options = []) {
-  return {
-    text: '',
-    value: '',
-    options: options.map(opt => ({
-      text: opt.label || opt,
-      value: opt.value || opt,
-    })),
-  };
+export function selectFilter(sugInput, option) {
+  // Handle the filter logic for Select component
+  // sugInput is the search string, option is the current option being evaluated
+  if (!sugInput) return true;
+  
+  // Get the label text from the option
+  const label = option.label || option.text || option.value || '';
+  const searchStr = String(label).toLowerCase();
+  const inputStr = String(sugInput).toLowerCase();
+  
+  // Return true if the option matches the search
+  return searchStr.includes(inputStr);
 }
 
 // Add missing pricing helpers
