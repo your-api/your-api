@@ -1,153 +1,218 @@
-/*
-Copyright (C) 2025 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
-
-import React, { useContext, useEffect, useState, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useContext, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../context/User/index.js';
 import { useSetTheme, useTheme } from '../../context/Theme/index.js';
 import { useTranslation } from 'react-i18next';
-import { API, getLogo, getSystemName, showSuccess, stringToColor } from '../../helpers/index.js';
+
+import { API, getLogo, getSystemName, isMobile, showSuccess } from '../../helpers/index.js';
+import '../../index.css';
+
 import fireworks from 'react-fireworks';
-import { CN, GB } from 'country-flag-icons/react/3x2';
-import NoticeModal from './NoticeModal.js';
 
 import {
   IconClose,
-  IconMenu,
-  IconLanguage,
-  IconChevronDown,
-  IconSun,
-  IconMoon,
-  IconExit,
-  IconUserSetting,
-  IconCreditCard,
+  IconHelpCircle,
+  IconHome,
+  IconHomeStroked,
+  IconIndentLeft,
+  IconComment,
   IconKey,
-  IconBell,
+  IconMenu,
+  IconNoteMoneyStroked,
+  IconPriceTag,
+  IconUser,
+  IconLanguage,
+  IconInfoCircle,
+  IconCreditCard,
+  IconTerminal,
+ IconFilpVertical,
 } from '@douyinfe/semi-icons';
 import {
   Avatar,
   Button,
   Dropdown,
+  Layout,
+  Nav,
+  Switch,
   Tag,
-  Typography,
-  Skeleton,
-  Badge,
+  SideSheet,
+  List,
+  Space,
 } from '@douyinfe/semi-ui';
+import { stringToColor } from '../../helpers/render.js';
+import Text from '@douyinfe/semi-ui/lib/es/typography/text';
+import { StyleContext } from '../../context/Style/index.js';
 import { StatusContext } from '../../context/Status/index.js';
-import { useIsMobile } from '../../hooks/common/useIsMobile.js';
-import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed.js';
-import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime.js';
+import {useDispatch, useSelector} from "react-redux";
+import {fetchCustemNavLinks, fetchTypingList} from "../../store/setting/providers.js";
 
-const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
+// 自定义顶部栏样式
+const headerStyle = {
+  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+  borderBottom: '1px solid var(--semi-color-border)',
+  background: 'var(--semi-color-bg-0)',
+  transition: 'all 0.3s ease',
+  width: '100%',
+};
+
+// 自定义顶部栏按钮样式
+const headerItemStyle = {
+  borderRadius: '4px',
+  margin: '0 4px',
+  transition: 'all 0.3s ease',
+};
+
+// 自定义顶部栏按钮悬停样式
+const headerItemHoverStyle = {
+  backgroundColor: 'var(--semi-color-primary-light-default)',
+  color: 'var(--semi-color-primary)',
+};
+
+// 自定义顶部栏Logo样式
+const logoStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  padding: '0 10px',
+  height: '100%',
+};
+
+// 自定义顶部栏系统名称样式
+const systemNameStyle = {
+  fontWeight: 'bold',
+  fontSize: '22px',
+  background:
+    'linear-gradient(45deg, var(--semi-color-primary), var(--semi-color-secondary))',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  padding: '0 5px',
+};
+
+// 自定义顶部栏按钮图标样式
+const headerIconStyle = {
+  fontSize: '18px',
+  transition: 'all 0.3s ease',
+};
+
+// 自定义头像样式
+const avatarStyle = {
+  margin: '4px',
+  cursor: 'pointer',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  transition: 'all 0.3s ease',
+};
+
+// 自定义下拉菜单样式
+const dropdownStyle = {
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  overflow: 'hidden',
+};
+
+// 自定义主题切换开关样式
+const switchStyle = {
+  margin: '0 8px',
+};
+
+// 移动端导航抽屉样式
+const mobileNavDrawerStyle = {
+  padding: '16px 0',
+};
+
+// 移动端导航项样式
+const mobileNavItemStyle = {
+  padding: '12px 16px',
+  borderRadius: '8px',
+  margin: '4px 8px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+};
+
+const HeaderBar = () => {
   const { t, i18n } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
+  const [styleState, styleDispatch] = useContext(StyleContext);
   const [statusState, statusDispatch] = useContext(StatusContext);
-  const isMobile = useIsMobile();
-  const [collapsed, toggleCollapsed] = useSidebarCollapsed();
-  const [logoLoaded, setLogoLoaded] = useState(false);
   let navigate = useNavigate();
   const [currentLang, setCurrentLang] = useState(i18n.language);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
-  const [noticeVisible, setNoticeVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const loading = statusState?.status === undefined;
-  const isLoading = useMinimumLoadingTime(loading);
+  const dispatch = useDispatch();
+  const [mobileNavVisible, setMobileNavVisible] = useState(false);
 
   const systemName = getSystemName();
   const logo = getLogo();
   const currentDate = new Date();
+  // enable fireworks on new year(1.1 and 2.9-2.24)
   const isNewYear = currentDate.getMonth() === 0 && currentDate.getDate() === 1;
 
+  // Check if self-use mode is enabled
   const isSelfUseMode = statusState?.status?.self_use_mode_enabled || false;
   const docsLink = statusState?.status?.docs_link || '';
   const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
 
-  const isConsoleRoute = location.pathname.startsWith('/console');
-
-  const theme = useTheme();
-  const setTheme = useSetTheme();
-
-  const announcements = statusState?.status?.announcements || [];
-
-  const getAnnouncementKey = (a) => `${a?.publishDate || ''}-${(a?.content || '').slice(0, 30)}`;
-
-  const calculateUnreadCount = () => {
-    if (!announcements.length) return 0;
-    let readKeys = [];
-    try {
-      readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
-    } catch (_) {
-      readKeys = [];
-    }
-    const readSet = new Set(readKeys);
-    return announcements.filter((a) => !readSet.has(getAnnouncementKey(a))).length;
-  };
-
-  const getUnreadKeys = () => {
-    if (!announcements.length) return [];
-    let readKeys = [];
-    try {
-      readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
-    } catch (_) {
-      readKeys = [];
-    }
-    const readSet = new Set(readKeys);
-    return announcements.filter((a) => !readSet.has(getAnnouncementKey(a))).map(getAnnouncementKey);
-  };
+  const { custemNavLinks = []} = useSelector((state) => state.providers);
 
   useEffect(() => {
-    setUnreadCount(calculateUnreadCount());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [announcements]);
+    dispatch(fetchCustemNavLinks());
+  }, [dispatch]);
 
-  const mainNavLinks = [
+  let buttons = [
     {
       text: t('首页'),
       itemKey: 'home',
       to: '/',
+      icon: <IconHome style={headerIconStyle} />,
     },
     {
       text: t('控制台'),
-      itemKey: 'console',
+      itemKey: 'detail',
       to: '/console',
+      icon: <IconTerminal style={headerIconStyle} />,
+    },
+    {
+      text: t('充值'),
+      itemKey: 'topup',
+      to: '/console/topup',
+      icon: <IconCreditCard style={headerIconStyle} />,
     },
     {
       text: t('模型广场'),
-      itemKey: 'pricing',
+      itemKey: 'models',
       to: '/pricing',
+      icon: <IconTerminal style={headerIconStyle} />,
     },
+    {
+      text: t('价格'),
+      itemKey: 'prices',
+      to: '/prices',
+      icon: <IconPriceTag style={headerIconStyle} />,
+    },
+    // Only include the docs button if docsLink exists
     ...(docsLink
       ? [
-        {
-          text: t('文档'),
-          itemKey: 'docs',
-          isExternal: true,
-          externalLink: docsLink,
-        },
-      ]
+          {
+            text: t('文档'),
+            itemKey: 'docs',
+            to: '/docs',
+            icon: <IconHelpCircle style={headerIconStyle} />,
+          },
+        ]
       : []),
+    // Add custom navigation links from the backend
+    ...custemNavLinks.map(link => ({
+      text: t(link.text),
+      itemKey: link.item_key,
+      isExternal: true,
+      externalLink: link.url,
+      icon: <IconFilpVertical style={headerIconStyle} />,
+    })),
     {
-      text: t('关于'),
+      text: t('联系我们'),
       itemKey: 'about',
       to: '/about',
+      icon: <IconInfoCircle style={headerIconStyle} />,
     },
   ];
 
@@ -157,7 +222,6 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     userDispatch({ type: 'logout' });
     localStorage.removeItem('user');
     navigate('/login');
-    setMobileMenuOpen(false);
   }
 
   const handleNewYearClick = () => {
@@ -165,43 +229,31 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     fireworks.start();
     setTimeout(() => {
       fireworks.stop();
+      setTimeout(() => {
+        window.location.reload();
+      }, 10000);
     }, 3000);
   };
 
-  const handleNoticeOpen = () => {
-    setNoticeVisible(true);
-  };
-
-  const handleNoticeClose = () => {
-    setNoticeVisible(false);
-    if (announcements.length) {
-      let readKeys = [];
-      try {
-        readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
-      } catch (_) {
-        readKeys = [];
-      }
-      const mergedKeys = Array.from(new Set([...readKeys, ...announcements.map(getAnnouncementKey)]));
-      localStorage.setItem('notice_read_keys', JSON.stringify(mergedKeys));
-    }
-    setUnreadCount(0);
-  };
+  const theme = useTheme();
+  const setTheme = useSetTheme();
 
   useEffect(() => {
     if (theme === 'dark') {
       document.body.setAttribute('theme-mode', 'dark');
-      document.documentElement.classList.add('dark');
     } else {
       document.body.removeAttribute('theme-mode');
-      document.documentElement.classList.remove('dark');
     }
-
+    // 发送当前主题模式给子页面
     const iframe = document.querySelector('iframe');
     if (iframe) {
       iframe.contentWindow.postMessage({ themeMode: theme }, '*');
     }
 
-  }, [theme, isNewYear]);
+    if (isNewYear) {
+      console.log('Happy New Year!');
+    }
+  }, [theme]);
 
   useEffect(() => {
     const handleLanguageChanged = (lng) => {
@@ -213,453 +265,499 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     };
 
     i18n.on('languageChanged', handleLanguageChanged);
+
     return () => {
       i18n.off('languageChanged', handleLanguageChanged);
     };
   }, [i18n]);
 
-  useEffect(() => {
-    setLogoLoaded(false);
-    if (!logo) return;
-    const img = new Image();
-    img.src = logo;
-    img.onload = () => setLogoLoaded(true);
-  }, [logo]);
-
   const handleLanguageChange = (lang) => {
     i18n.changeLanguage(lang);
-    setMobileMenuOpen(false);
   };
 
-  const handleNavLinkClick = (itemKey) => {
-    if (itemKey === 'home') {
-      // styleDispatch(styleActions.setSider(false)); // This line is removed
-    }
-    setMobileMenuOpen(false);
-  };
-
-  const renderNavLinks = (isMobileView = false, isLoading = false) => {
-    if (isLoading) {
-      const skeletonLinkClasses = isMobileView
-        ? 'flex items-center gap-1 p-3 w-full rounded-md'
-        : 'flex items-center gap-1 p-2 rounded-md';
-      return Array(4)
-        .fill(null)
-        .map((_, index) => (
-          <div key={index} className={skeletonLinkClasses}>
-            <Skeleton
-              loading={true}
-              active
-              placeholder={
-                <Skeleton.Title
-                  active
-                  style={{ width: isMobileView ? 100 : 60, height: 16 }}
-                />
-              }
-            />
-          </div>
-        ));
-    }
-
-    return mainNavLinks.map((link) => {
-      const commonLinkClasses = isMobileView
-        ? 'flex items-center gap-1 p-3 w-full text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors font-semibold'
-        : 'flex items-center gap-1 p-2 text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-md font-semibold';
-
-      const linkContent = (
-        <span>{link.text}</span>
-      );
-
-      if (link.isExternal) {
-        return (
-          <a
-            key={link.itemKey}
-            href={link.externalLink}
-            target='_blank'
-            rel='noopener noreferrer'
-            className={commonLinkClasses}
-            onClick={() => handleNavLinkClick(link.itemKey)}
-          >
-            {linkContent}
-          </a>
-        );
-      }
-
-      let targetPath = link.to;
-      if (link.itemKey === 'console' && !userState.user) {
-        targetPath = '/login';
-      }
-
-      return (
-        <Link
-          key={link.itemKey}
-          to={targetPath}
-          className={commonLinkClasses}
-          onClick={() => handleNavLinkClick(link.itemKey)}
-        >
-          {linkContent}
-        </Link>
-      );
-    });
-  };
-
-  const renderUserArea = () => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center p-1 rounded-full bg-semi-color-fill-0 dark:bg-semi-color-fill-1">
-          <Skeleton
-            loading={true}
-            active
-            placeholder={<Skeleton.Avatar active size="extra-small" className="shadow-sm" />}
-          />
-          <div className="ml-1.5 mr-1">
-            <Skeleton
-              loading={true}
-              active
-              placeholder={
-                <Skeleton.Title
-                  active
-                  style={{ width: isMobile ? 15 : 50, height: 12 }}
-                />
-              }
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (userState.user) {
-      return (
-        <Dropdown
-          position="bottomRight"
-          render={
-            <Dropdown.Menu className="!bg-semi-color-bg-overlay !border-semi-color-border !shadow-lg !rounded-lg dark:!bg-gray-700 dark:!border-gray-600">
-              <Dropdown.Item
-                onClick={() => {
-                  navigate('/console/personal');
-                  setMobileMenuOpen(false);
-                }}
-                className="!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-blue-500 dark:hover:!text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <IconUserSetting size="small" className="text-gray-500 dark:text-gray-400" />
-                  <span>{t('个人设置')}</span>
-                </div>
-              </Dropdown.Item>
-              <Dropdown.Item
-                onClick={() => {
-                  navigate('/console/token');
-                  setMobileMenuOpen(false);
-                }}
-                className="!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-blue-500 dark:hover:!text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <IconKey size="small" className="text-gray-500 dark:text-gray-400" />
-                  <span>{t('令牌管理')}</span>
-                </div>
-              </Dropdown.Item>
-              <Dropdown.Item
-                onClick={() => {
-                  navigate('/console/topup');
-                  setMobileMenuOpen(false);
-                }}
-                className="!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-blue-500 dark:hover:!text-white"
-              >
-                <div className="flex items-center gap-2">
-                  <IconCreditCard size="small" className="text-gray-500 dark:text-gray-400" />
-                  <span>{t('钱包')}</span>
-                </div>
-              </Dropdown.Item>
-              <Dropdown.Item onClick={logout} className="!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-red-500 dark:hover:!text-white">
-                <div className="flex items-center gap-2">
-                  <IconExit size="small" className="text-gray-500 dark:text-gray-400" />
-                  <span>{t('退出')}</span>
-                </div>
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          }
-        >
-          <Button
-            theme="borderless"
-            type="tertiary"
-            className="flex items-center gap-1.5 !p-1 !rounded-full hover:!bg-semi-color-fill-1 dark:hover:!bg-gray-700 !bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 dark:hover:!bg-semi-color-fill-2"
-          >
-            <Avatar
-              size="extra-small"
-              color={stringToColor(userState.user.username)}
-              className="mr-1"
-            >
-              {userState.user.username[0].toUpperCase()}
-            </Avatar>
-            <span className="hidden md:inline">
-              <Typography.Text className="!text-xs !font-medium !text-semi-color-text-1 dark:!text-gray-300 mr-1">
-                {userState.user.username}
-              </Typography.Text>
-            </span>
-            <IconChevronDown className="text-xs text-semi-color-text-2 dark:text-gray-400" />
-          </Button>
-        </Dropdown>
-      );
-    } else {
-      const showRegisterButton = !isSelfUseMode;
-
-      const commonSizingAndLayoutClass = "flex items-center justify-center !py-[10px] !px-1.5";
-
-      const loginButtonSpecificStyling = "!bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 hover:!bg-semi-color-fill-1 dark:hover:!bg-gray-700 transition-colors";
-      let loginButtonClasses = `${commonSizingAndLayoutClass} ${loginButtonSpecificStyling}`;
-
-      let registerButtonClasses = `${commonSizingAndLayoutClass}`;
-
-      const loginButtonTextSpanClass = "!text-xs !text-semi-color-text-1 dark:!text-gray-300 !p-1.5";
-      const registerButtonTextSpanClass = "!text-xs !text-white !p-1.5";
-
-      if (showRegisterButton) {
-        if (isMobile) {
-          loginButtonClasses += " !rounded-full";
+  const handleNavItemClick = (itemKey, to, isExternal, externalLink) => {
+    if (isExternal && externalLink) {
+      // 判断如果以/开头，则为相对路径,然后路由跳转打开
+        // 否则为绝对路径，直接打开
+        if (externalLink.startsWith('/')) {
+            navigate(externalLink);
         } else {
-          loginButtonClasses += " !rounded-l-full !rounded-r-none";
+            window.open(externalLink, '_blank');
         }
-        registerButtonClasses += " !rounded-r-full !rounded-l-none";
-      } else {
-        loginButtonClasses += " !rounded-full";
-      }
 
-      return (
-        <div className="flex items-center">
-          <Link to="/login" onClick={() => handleNavLinkClick('login')} className="flex">
-            <Button
-              theme="borderless"
-              type="tertiary"
-              className={loginButtonClasses}
-            >
-              <span className={loginButtonTextSpanClass}>
-                {t('登录')}
-              </span>
-            </Button>
-          </Link>
-          {showRegisterButton && (
-            <div className="hidden md:block">
-              <Link to="/register" onClick={() => handleNavLinkClick('register')} className="flex -ml-px">
-                <Button
-                  theme="solid"
-                  type="primary"
-                  className={registerButtonClasses}
-                >
-                  <span className={registerButtonTextSpanClass}>
-                    {t('注册')}
-                  </span>
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
-      );
+    } else {
+      if (itemKey === 'home') {
+        styleDispatch({
+          type: 'SET_INNER_PADDING',
+          payload: false,
+        });
+        styleDispatch({ type: 'SET_SIDER', payload: false });
+      } else {
+        styleDispatch({
+          type: 'SET_INNER_PADDING',
+          payload: true,
+        });
+        styleDispatch({ type: 'SET_SIDER', payload: true });
+      }
+      navigate(to);
     }
+    setMobileNavVisible(false);
+  };
+
+  // 切换侧边栏显示状态
+  const toggleSider = () => {
+    styleDispatch({ type: 'SET_SIDER', payload: !styleState.showSider });
+    setMobileNavVisible(false);
+  };
+
+  // 移动端导航抽屉
+  const renderMobileNavDrawer = () => {
+    return (
+      <SideSheet
+        title={
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              navigate('/');
+              styleDispatch({
+                type: 'SET_INNER_PADDING',
+                payload: false,
+              });
+              styleDispatch({ type: 'SET_SIDER', payload: false });
+              setMobileNavVisible(false);
+            }}
+          >
+            <img src={logo} alt="logo" style={{ height: '36px' }} />
+            <span style={systemNameStyle}>{systemName}</span>
+          </div>
+        }
+        visible={mobileNavVisible}
+        onCancel={() => setMobileNavVisible(false)}
+        placement="left"
+        width={280}
+        style={{ borderRadius: '0 16px 16px 0' }}
+        headerStyle={{ padding: '16px' }}
+        bodyStyle={mobileNavDrawerStyle}
+        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+      >
+        <List>
+          {buttons.map((btn) => (
+            <List.Item
+              key={btn.itemKey}
+              onClick={() => handleNavItemClick(btn.itemKey, btn.to, btn.isExternal, btn.externalLink)}
+              style={mobileNavItemStyle}
+              className="mobile-nav-item"
+            >
+              <div style={{ fontSize: '20px' }}>{btn.icon}</div>
+              <span style={{ fontSize: '16px' }}>{btn.text}</span>
+            </List.Item>
+          ))}
+          
+          {/* 侧边栏切换按钮 */}
+          <List.Item
+            style={{
+              ...mobileNavItemStyle,
+              backgroundColor: 'var(--semi-color-primary-light-default)',
+              marginTop: '16px',
+            }}
+            onClick={toggleSider}
+            className="mobile-nav-item"
+          >
+            <div style={{ fontSize: '20px' }}>
+              {styleState.showSider ? <IconIndentLeft /> : <IconMenu />}
+            </div>
+            <span style={{ fontSize: '16px', fontWeight: '500' }}>
+              {styleState.showSider ? t('隐藏功能侧边栏') : t('显示功能侧边栏')}
+            </span>
+          </List.Item>
+          
+          <div style={{ margin: '20px 0', borderBottom: '1px solid var(--semi-color-border)' }} />
+          
+          {/* 用户相关操作 */}
+          {userState.user ? (
+            <List.Item
+              style={mobileNavItemStyle}
+              onClick={logout}
+              className="mobile-nav-item"
+            >
+              <Avatar
+                size="small"
+                color={stringToColor(userState.user.username)}
+              >
+                {userState.user.username[0]}
+              </Avatar>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: '500' }}>{userState.user.username}</span>
+                <span style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>{t('退出')}</span>
+              </div>
+            </List.Item>
+          ) : (
+            <>
+              <List.Item
+                style={mobileNavItemStyle}
+                onClick={() => {
+                  navigate('/login');
+                  setMobileNavVisible(false);
+                }}
+                className="mobile-nav-item"
+              >
+                <IconUser style={{ fontSize: '20px' }} />
+                <span style={{ fontSize: '16px' }}>{t('登录')}</span>
+              </List.Item>
+              
+              {!isSelfUseMode && (
+                <List.Item
+                  style={mobileNavItemStyle}
+                  onClick={() => {
+                    navigate('/register');
+                    setMobileNavVisible(false);
+                  }}
+                  className="mobile-nav-item"
+                >
+                  <IconKey style={{ fontSize: '20px' }} />
+                  <span style={{ fontSize: '16px' }}>{t('注册')}</span>
+                </List.Item>
+              )}
+            </>
+          )}
+          
+          {/* 设置区域 */}
+          <div style={{ padding: '16px', marginTop: '8px' }}>
+            <Space style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{theme === 'dark' ? t('深色模式') : t('浅色模式')}</span>
+              <Switch
+                checkedText='🌞'
+                size='default'
+                checked={theme === 'dark'}
+                uncheckedText='🌙'
+                onChange={(checked) => {
+                  setTheme(checked);
+                }}
+              />
+            </Space>
+            
+            <Space style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+              <span>{t('语言')}</span>
+              <Space>
+                <Button
+                  type={currentLang === 'zh' ? 'primary' : 'tertiary'}
+                  size="small"
+                  onClick={() => handleLanguageChange('zh')}
+                >
+                  中文
+                </Button>
+                <Button
+                  type={currentLang === 'en' ? 'primary' : 'tertiary'}
+                  size="small"
+                  onClick={() => handleLanguageChange('en')}
+                >
+                  English
+                </Button>
+              </Space>
+            </Space>
+          </div>
+        </List>
+      </SideSheet>
+    );
   };
 
   return (
-    <header className="text-semi-color-text-0 sticky top-0 z-50 transition-colors duration-300 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-lg" style={{ borderBottom: '1px solid var(--semi-color-border)' }}>
-      <NoticeModal
-        visible={noticeVisible}
-        onClose={handleNoticeClose}
-        isMobile={isMobile}
-        defaultTab={unreadCount > 0 ? 'system' : 'inApp'}
-        unreadKeys={getUnreadKeys()}
-      />
-      <div className="w-full px-2">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <div className="md:hidden">
-              <Button
-                icon={
-                  isConsoleRoute
-                    ? ((isMobile ? drawerOpen : collapsed) ? <IconClose className="text-lg" /> : <IconMenu className="text-lg" />)
-                    : (mobileMenuOpen ? <IconClose className="text-lg" /> : <IconMenu className="text-lg" />)
-                }
-                aria-label={
-                  isConsoleRoute
-                    ? ((isMobile ? drawerOpen : collapsed) ? t('关闭侧边栏') : t('打开侧边栏'))
-                    : (mobileMenuOpen ? t('关闭菜单') : t('打开菜单'))
-                }
-                onClick={() => {
-                  if (isConsoleRoute) {
-                    // 控制侧边栏的显示/隐藏，无论是否移动设备
-                    isMobile ? onMobileMenuToggle() : toggleCollapsed();
-                  } else {
-                    // 控制HeaderBar自己的移动菜单
-                    setMobileMenuOpen(!mobileMenuOpen);
-                  }
-                }}
-                theme="borderless"
-                type="tertiary"
-                className="!p-2 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700"
-              />
-            </div>
-            <Link to="/" onClick={() => handleNavLinkClick('home')} className="flex items-center gap-2 group ml-2">
-              <div className="relative w-8 h-8 md:w-8 md:h-8">
-                {(isLoading || !logoLoaded) && (
-                  <Skeleton.Image
-                    active
-                    className="absolute inset-0 !rounded-full"
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                )}
-                <img
-                  src={logo}
-                  alt="logo"
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-200 group-hover:scale-105 rounded-full ${(!isLoading && logoLoaded) ? 'opacity-100' : 'opacity-0'}`}
-                />
-              </div>
-              <div className="hidden md:flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Skeleton
-                    loading={isLoading}
-                    active
-                    placeholder={
-                      <Skeleton.Title
-                        active
-                        style={{ width: 120, height: 24 }}
-                      />
+    <>
+      <Layout>
+        <div style={{ width: '100%' }}>
+          <Nav
+            className={'topnav'}
+            mode={'horizontal'}
+            style={headerStyle}
+            itemStyle={headerItemStyle}
+            hoverStyle={headerItemHoverStyle}
+            renderWrapper={({ itemElement, isSubNav, isInSubNav, props }) => {
+              const routerMap = {
+                about: '/about',
+                login: '/login',
+                register: '/register',
+                models: '/pricing',
+                prices: '/prices',
+                detail: '/console',
+                topup: '/console/topup',
+                home: '/',
+                chat: '/chat',
+                docs: '/docs',
+              };
+              return (
+                <div
+                  onClick={(e) => {
+                    if (props.itemKey === 'home') {
+                      styleDispatch({
+                        type: 'SET_INNER_PADDING',
+                        payload: false,
+                      });
+                      styleDispatch({ type: 'SET_SIDER', payload: false });
+                    } else {
+                      styleDispatch({
+                        type: 'SET_INNER_PADDING',
+                        payload: true,
+                      });
+                      if (!styleState.isMobile) {
+                        styleDispatch({ type: 'SET_SIDER', payload: true });
+                      }
                     }
-                  >
-                    <Typography.Title heading={4} className="!text-lg !font-semibold !mb-0">
-                      {systemName}
-                    </Typography.Title>
-                  </Skeleton>
-                  {(isSelfUseMode || isDemoSiteMode) && !isLoading && (
-                    <Tag
-                      color={isSelfUseMode ? 'purple' : 'blue'}
-                      className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm"
-                      size="small"
-                      shape='circle'
+                  }}
+                >
+                  {props.isExternal ? (
+                    <a
+                      className='header-bar-text'
+                      style={{ textDecoration: 'none' }}
+                      href={props.externalLink}
+                      target='_blank'
+                      rel='noopener noreferrer'
                     >
-                      {isSelfUseMode ? t('自用模式') : t('演示站点')}
-                    </Tag>
+                      {itemElement}
+                    </a>
+                  ) : (
+                    <Link
+                      className='header-bar-text'
+                      style={{ textDecoration: 'none' }}
+                      to={routerMap[props.itemKey]}
+                    >
+                      {itemElement}
+                    </Link>
                   )}
                 </div>
-              </div>
-            </Link>
-            {(isSelfUseMode || isDemoSiteMode) && !isLoading && (
-              <div className="md:hidden">
-                <Tag
-                  color={isSelfUseMode ? 'purple' : 'blue'}
-                  className="ml-2 text-xs px-1 py-0.5 rounded whitespace-nowrap shadow-sm"
-                  size="small"
-                  shape='circle'
-                >
-                  {isSelfUseMode ? t('自用模式') : t('演示站点')}
-                </Tag>
-              </div>
-            )}
-
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2 ml-6">
-              {renderNavLinks(false, isLoading)}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-3">
-            {isNewYear && (
-              <Dropdown
-                position="bottomRight"
-                render={
-                  <Dropdown.Menu className="!bg-semi-color-bg-overlay !border-semi-color-border !shadow-lg !rounded-lg dark:!bg-gray-700 dark:!border-gray-600">
-                    <Dropdown.Item onClick={handleNewYearClick} className="!text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-gray-600">
-                      Happy New Year!!! 🎉
-                    </Dropdown.Item>
-                  </Dropdown.Menu>
-                }
-              >
-                <Button
-                  theme="borderless"
-                  type="tertiary"
-                  icon={<span className="text-xl">🎉</span>}
-                  aria-label="New Year"
-                  className="!p-1.5 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700 rounded-full"
-                />
-              </Dropdown>
-            )}
-
-            {unreadCount > 0 ? (
-              <Badge count={unreadCount} type="danger" overflowCount={99}>
-                <Button
-                  icon={<IconBell className="text-lg" />}
-                  aria-label={t('系统公告')}
-                  onClick={handleNoticeOpen}
-                  theme="borderless"
-                  type="tertiary"
-                  className="!p-1.5 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700 !rounded-full !bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 hover:!bg-semi-color-fill-1 dark:hover:!bg-semi-color-fill-2"
-                />
-              </Badge>
-            ) : (
-              <Button
-                icon={<IconBell className="text-lg" />}
-                aria-label={t('系统公告')}
-                onClick={handleNoticeOpen}
-                theme="borderless"
-                type="tertiary"
-                className="!p-1.5 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700 !rounded-full !bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 hover:!bg-semi-color-fill-1 dark:hover:!bg-semi-color-fill-2"
-              />
-            )}
-
-            <Button
-              icon={theme === 'dark' ? <IconSun size="large" className="text-yellow-500" /> : <IconMoon size="large" className="text-gray-300" />}
-              aria-label={t('切换主题')}
-              onClick={() => setTheme(theme === 'dark' ? false : true)}
-              theme="borderless"
-              type="tertiary"
-              className="!p-1.5 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700 !rounded-full !bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 hover:!bg-semi-color-fill-1 dark:hover:!bg-semi-color-fill-2"
-            />
-
-            <Dropdown
-              position="bottomRight"
-              render={
-                <Dropdown.Menu className="!bg-semi-color-bg-overlay !border-semi-color-border !shadow-lg !rounded-lg dark:!bg-gray-700 dark:!border-gray-600">
-                  <Dropdown.Item
-                    onClick={() => handleLanguageChange('zh')}
-                    className={`!flex !items-center !gap-2 !px-3 !py-1.5 !text-sm !text-semi-color-text-0 dark:!text-gray-200 ${currentLang === 'zh' ? '!bg-semi-color-primary-light-default dark:!bg-blue-600 !font-semibold' : 'hover:!bg-semi-color-fill-1 dark:hover:!bg-gray-600'}`}
+              );
+            }}
+            selectedKeys={[]}
+            // items={headerButtons}
+            onSelect={(key) => {}}
+            header={
+              styleState.isMobile
+                ? {
+                    logo: (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          position: 'relative',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Button
+                          icon={<IconMenu />}
+                          theme='light'
+                          aria-label={t('打开导航菜单')}
+                          onClick={() => setMobileNavVisible(true)}
+                          style={{ marginRight: '8px' }}
+                        />
+                        <img 
+                          src={logo} 
+                          alt='logo' 
+                          style={{ height: '36px', cursor: 'pointer' }} 
+                          onClick={() => {
+                            navigate('/');
+                            styleDispatch({
+                              type: 'SET_INNER_PADDING',
+                              payload: false,
+                            });
+                            styleDispatch({ type: 'SET_SIDER', payload: false });
+                          }}
+                        />
+                        {(isSelfUseMode || isDemoSiteMode) && (
+                          <Tag
+                            color={isSelfUseMode ? 'purple' : 'blue'}
+                            style={{
+                              position: 'absolute',
+                              top: '-8px',
+                              right: '-15px',
+                              fontSize: '0.7rem',
+                              padding: '0 4px',
+                              height: 'auto',
+                              lineHeight: '1.2',
+                              zIndex: 1,
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            {isSelfUseMode ? t('自用模式') : t('演示站点')}
+                          </Tag>
+                        )}
+                      </div>
+                    ),
+                  }
+                : {
+                    logo: (
+                      <div 
+                        style={{
+                          ...logoStyle,
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                          navigate('/');
+                          styleDispatch({
+                            type: 'SET_INNER_PADDING',
+                            payload: false,
+                          });
+                          styleDispatch({ type: 'SET_SIDER', payload: false });
+                        }}
+                      >
+                        <img src={logo} alt='logo' style={{ height: '50px' }} />
+                      </div>
+                    ),
+                    text: (
+                      <div
+                        style={{
+                          position: 'relative',
+                          display: 'inline-block',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                          navigate('/');
+                          styleDispatch({
+                            type: 'SET_INNER_PADDING',
+                            payload: false,
+                          });
+                          styleDispatch({ type: 'SET_SIDER', payload: false });
+                        }}
+                      >
+                        <span style={systemNameStyle}>{systemName}</span>
+                        {(isSelfUseMode || isDemoSiteMode) && (
+                          <Tag
+                            color={isSelfUseMode ? 'purple' : 'blue'}
+                            style={{
+                              position: 'absolute',
+                              top: '-10px',
+                              right: '-25px',
+                              fontSize: '0.7rem',
+                              padding: '0 4px',
+                              whiteSpace: 'nowrap',
+                              zIndex: 1,
+                              boxShadow: '0 0 3px rgba(255, 255, 255, 0.7)',
+                            }}
+                          >
+                            {isSelfUseMode ? t('自用模式') : t('演示站点')}
+                          </Tag>
+                        )}
+                      </div>
+                    ),
+                  }
+            }
+            items={styleState.isMobile ? [] : buttons}
+            footer={
+              <>
+                {isNewYear && !styleState.isMobile && (
+                  // happy new year
+                  <Dropdown
+                    position='bottomRight'
+                    render={
+                      <Dropdown.Menu style={dropdownStyle}>
+                        <Dropdown.Item onClick={handleNewYearClick}>
+                          Happy New Year!!!
+                        </Dropdown.Item>
+                      </Dropdown.Menu>
+                    }
                   >
-                    <CN title="中文" className="!w-5 !h-auto" />
-                    <span>中文</span>
-                  </Dropdown.Item>
-                  <Dropdown.Item
-                    onClick={() => handleLanguageChange('en')}
-                    className={`!flex !items-center !gap-2 !px-3 !py-1.5 !text-sm !text-semi-color-text-0 dark:!text-gray-200 ${currentLang === 'en' ? '!bg-semi-color-primary-light-default dark:!bg-blue-600 !font-semibold' : 'hover:!bg-semi-color-fill-1 dark:hover:!bg-gray-600'}`}
+                    <Nav.Item itemKey={'new-year'} text={'🎉'} />
+                  </Dropdown>
+                )}
+                {!styleState.isMobile && (
+                  <>
+                    <Switch
+                      checkedText='🌞'
+                      size={styleState.isMobile ? 'default' : 'large'}
+                      checked={theme === 'dark'}
+                      uncheckedText='🌙'
+                      style={switchStyle}
+                      onChange={(checked) => {
+                        setTheme(checked);
+                      }}
+                    />
+                  </>
+                )}
+                {!styleState.isMobile && (
+                  <Dropdown
+                    position='bottomRight'
+                    render={
+                      <Dropdown.Menu style={dropdownStyle}>
+                        <Dropdown.Item
+                          onClick={() => handleLanguageChange('zh')}
+                          type={currentLang === 'zh' ? 'primary' : 'tertiary'}
+                        >
+                          中文
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          onClick={() => handleLanguageChange('en')}
+                          type={currentLang === 'en' ? 'primary' : 'tertiary'}
+                        >
+                          English
+                        </Dropdown.Item>
+                      </Dropdown.Menu>
+                    }
                   >
-                    <GB title="English" className="!w-5 !h-auto" />
-                    <span>English</span>
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              }
-            >
-              <Button
-                icon={<IconLanguage className="text-lg" />}
-                aria-label={t('切换语言')}
-                theme="borderless"
-                type="tertiary"
-                className="!p-1.5 !text-current focus:!bg-semi-color-fill-1 dark:focus:!bg-gray-700 !rounded-full !bg-semi-color-fill-0 dark:!bg-semi-color-fill-1 hover:!bg-semi-color-fill-1 dark:hover:!bg-semi-color-fill-2"
-              />
-            </Dropdown>
-
-            {renderUserArea()}
-          </div>
+                    <Nav.Item
+                      itemKey={'language'}
+                      icon={<IconLanguage style={headerIconStyle} />}
+                    />
+                  </Dropdown>
+                )}
+                {userState.user && !styleState.isMobile ? (
+                  <>
+                    <Dropdown
+                      position='bottomRight'
+                      render={
+                        <Dropdown.Menu style={dropdownStyle}>
+                          <Dropdown.Item onClick={logout}>
+                            {t('退出')}
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      }
+                    >
+                      <Avatar
+                        size='small'
+                        color={stringToColor(userState.user.username)}
+                        style={avatarStyle}
+                      >
+                        {userState.user.username[0]}
+                      </Avatar>
+                      {styleState.isMobile ? null : (
+                        <Text style={{ marginLeft: '4px', fontWeight: '500' }}>
+                          {userState.user.username}
+                        </Text>
+                      )}
+                    </Dropdown>
+                  </>
+                ) : (
+                  <>
+                    {!styleState.isMobile && (
+                      <>
+                        <Nav.Item
+                          itemKey={'login'}
+                          text={!styleState.isMobile ? t('登录') : null}
+                          icon={<IconUser style={headerIconStyle} />}
+                        />
+                        {
+                          // Hide register option in self-use mode
+                          !styleState.isMobile && !isSelfUseMode && (
+                            <Nav.Item
+                              itemKey={'register'}
+                              text={t('注册')}
+                              icon={<IconKey style={headerIconStyle} />}
+                            />
+                          )
+                        }
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            }
+          ></Nav>
         </div>
-      </div>
-
-      <div className="md:hidden">
-        <div
-          className={`
-            absolute top-16 left-0 right-0 bg-semi-color-bg-0 
-            shadow-lg p-3
-            transform transition-all duration-300 ease-in-out
-            ${(!isConsoleRoute && mobileMenuOpen) ? 'translate-y-0 opacity-100 visible' : '-translate-y-4 opacity-0 invisible'}
-          `}
-        >
-          <nav className="flex flex-col gap-1">
-            {renderNavLinks(true, isLoading)}
-          </nav>
-        </div>
-      </div>
-    </header>
+      </Layout>
+      {styleState.isMobile && renderMobileNavDrawer()}
+    </>
   );
 };
 

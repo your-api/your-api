@@ -1,41 +1,24 @@
-/*
-Copyright (C) 2025 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
-
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useContext, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
-import Loading from './components/common/ui/Loading.js';
+import Loading from './components/common/ui/Loading';
 import User from './pages/User';
-import { AuthRedirect, PrivateRoute } from './helpers';
-import RegisterForm from './components/auth/RegisterForm.js';
-import LoginForm from './components/auth/LoginForm.js';
+import { PrivateRoute } from './helpers';
+import RegisterForm from './components/auth/RegisterForm';
+import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
 import Setting from './pages/Setting';
-
-import PasswordResetForm from './components/auth/PasswordResetForm.js';
-import PasswordResetConfirm from './components/auth/PasswordResetConfirm.js';
+import EditUser from './pages/User/EditUser';
+import PasswordResetForm from './components/auth/PasswordResetForm';
+import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import Channel from './pages/Channel';
 import Token from './pages/Token';
+import EditChannel from './pages/Channel/EditChannel';
 import Redemption from './pages/Redemption';
 import TopUp from './pages/TopUp';
 import Log from './pages/Log';
 import Chat from './pages/Chat';
 import Chat2Link from './pages/Chat2Link';
+import { Layout } from '@douyinfe/semi-ui';
 import Midjourney from './pages/Midjourney';
 import Pricing from './pages/Pricing/index.js';
 import Task from './pages/Task/index.js';
@@ -47,8 +30,9 @@ import Setup from './pages/Setup/index.js';
 import SetupCheck from './components/layout/SetupCheck.js';
 
 const Home = lazy(() => import('./pages/Home'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const About = lazy(() => import('./pages/About'));
+const Detail = lazy(() => import('./pages/Detail'));
+const Contact = lazy(() => import('./pages/About'));
+const Document = lazy(() => import('./pages/Document'));
 
 function App() {
   const location = useLocation();
@@ -73,6 +57,16 @@ function App() {
           }
         />
         <Route
+          path='/console'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <Detail />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route
           path='/console/models'
           element={
             <PrivateRoute>
@@ -86,6 +80,22 @@ function App() {
             <PrivateRoute>
               <Channel />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/channel/edit/:id'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <EditChannel />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/console/channel/add'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <EditChannel />
+            </Suspense>
           }
         />
         <Route
@@ -121,6 +131,22 @@ function App() {
           }
         />
         <Route
+          path='/console/user/edit/:id'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <EditUser />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/console/user/edit'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <EditUser />
+            </Suspense>
+          }
+        />
+        <Route
           path='/user/reset'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
@@ -132,9 +158,7 @@ function App() {
           path='/login'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <AuthRedirect>
-                <LoginForm />
-              </AuthRedirect>
+              <LoginForm />
             </Suspense>
           }
         />
@@ -142,9 +166,7 @@ function App() {
           path='/register'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <AuthRedirect>
-                <RegisterForm />
-              </AuthRedirect>
+              <RegisterForm />
             </Suspense>
           }
         />
@@ -219,11 +241,11 @@ function App() {
           }
         />
         <Route
-          path='/console'
+          path='/detail'
           element={
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <Dashboard />
+                <Detail />
               </Suspense>
             </PrivateRoute>
           }
@@ -257,10 +279,26 @@ function App() {
           }
         />
         <Route
+          path='/docs'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <Document />
+            </Suspense>
+          }
+        />
+        <Route
           path='/about'
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <About />
+              <Contact />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/chat/:id?'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <Chat />
             </Suspense>
           }
         />

@@ -45,7 +45,21 @@ func UpdateOption(c *gin.Context) {
 		})
 		return
 	}
+	
+	// Handle homepage configuration options
 	switch option.Key {
+	case "Providers", "Advantages", "TypingList", "CustomNavLinks", "DiscountTiers", "ModelDescriptions", "ContactInfo":
+		// These are JSON configurations, validate JSON format
+		if option.Value != "" {
+			var temp interface{}
+			if err := json.Unmarshal([]byte(option.Value), &temp); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"message": "Invalid JSON format: " + err.Error(),
+				})
+				return
+			}
+		}
 	case "GitHubOAuthEnabled":
 		if option.Value == "true" && common.GitHubClientId == "" {
 			c.JSON(http.StatusOK, gin.H{
@@ -169,3 +183,4 @@ func UpdateOption(c *gin.Context) {
 	})
 	return
 }
+

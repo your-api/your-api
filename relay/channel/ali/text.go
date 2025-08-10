@@ -74,7 +74,7 @@ func embeddingResponseAli2OpenAI(response *AliEmbeddingResponse, model string) *
 		openAIEmbeddingResponse.Data = append(openAIEmbeddingResponse.Data, dto.OpenAIEmbeddingResponseItem{
 			Object:    `embedding`,
 			Index:     item.TextIndex,
-			Embedding: item.Embedding,
+			Embedding: dto.NewFlexibleEmbedding(item.Embedding),
 		})
 	}
 	return &openAIEmbeddingResponse

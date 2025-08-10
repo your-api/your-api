@@ -70,6 +70,11 @@ type FlexibleEmbedding struct {
 	data []float64
 }
 
+// NewFlexibleEmbedding 创建一个新的FlexibleEmbedding实例
+func NewFlexibleEmbedding(data []float64) FlexibleEmbedding {
+	return FlexibleEmbedding{data: data}
+}
+
 // UnmarshalJSON 自定义JSON反序列化，支持[]float64, string(base64), string(逗号分隔)等格式
 func (f *FlexibleEmbedding) UnmarshalJSON(data []byte) error {
 	// 尝试解析为[]float64

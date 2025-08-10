@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"

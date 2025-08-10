@@ -70,7 +70,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	// 🔒 安全检查：确保不泄露HTTP图片链接，防止暴露源站IP
 	for msgIndex := range request.Messages {
 		message := &request.Messages[msgIndex]
-		if len(message.Content) > 0 {
+		if message.Content != nil {
 			arrayContent := message.ParseContent()
 			hasModification := false
 			newContent := make([]dto.MediaContent, 0, len(arrayContent))

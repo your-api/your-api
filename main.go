@@ -13,7 +13,6 @@ import (
 	"one-api/model"
 	"one-api/router"
 	"one-api/service"
-	"one-api/setting/operation_setting"
 	"one-api/setting/ratio_setting"
 	"os"
 	"strconv"
@@ -83,7 +82,7 @@ func main() {
 					time.Sleep(1 * time.Second)
 
 					// 尝试修复数据库中的能力数据
-					_, fixErr := model.FixAbility()
+					_, _, fixErr := model.FixAbility()
 					if fixErr != nil {
 						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
 					} else {
@@ -95,16 +94,12 @@ func main() {
 			}()
 
 			// 首先尝试修复能力数据
-			count, err := model.FixAbility()
+			_, _, err := model.FixAbility()
 			if err != nil {
 				common.SysError(fmt.Sprintf("FixAbility failed: %s", err.Error()))
-				// 即使修复失败，也尝试初始化缓存
-				model.InitChannelCache()
-			} else {
-				if common.DebugEnabled {
-					common.SysDebug(fmt.Sprintf("FixAbility completed, processed %d items", count))
-				}
 			}
+			// 初始化缓存
+			model.InitChannelCache()
 		}()
 
 		go model.SyncChannelCache(common.SyncFrequency)
@@ -211,12 +206,12 @@ func InitResources() error {
 	}
 
 	// 加载环境变量
-	common.LoadEnv()
+	common.InitEnv()
 
 	common.SetupLogger()
 
 	// 在环境变量加载后立即初始化HTTP客户端，确保使用正确的超时配置
-	service.InitHTTPClients()
+	service.InitHttpClient()
 
 	// Initialize SQL Database
 	err = model.InitDB()
@@ -230,8 +225,8 @@ func InitResources() error {
 	// Initialize model settings
 	ratio_setting.InitRatioSettings()
 
-	// Initialize constants
-	constant.InitEnv()
+	// Initialize constants - 已经在common.InitEnv中调用了initConstantEnv
+	// constant.InitEnv()
 
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()

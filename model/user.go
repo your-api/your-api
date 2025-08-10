@@ -39,11 +39,17 @@ type User struct {
 	AffQuota         int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
 	AffHistoryQuota  int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	PayCount         int            `json:"pay_count" gorm:"type:int;default:0;column:pay_count"`           // 支付次数
+	RewardQuota      int            `json:"reward_quota" gorm:"type:int;default:0;column:reward_quota"`     // 奖励额度
+	WithdrawedQuota  int            `json:"withdrawed_quota" gorm:"type:int;default:0;column:withdrawed_quota"` // 已提现额度
+	WithdrawingQuota int            `json:"withdrawing_quota" gorm:"type:int;default:0;column:withdrawing_quota"` // 提现中额度
+	RegisterIP       string         `json:"register_ip" gorm:"type:varchar(64);column:register_ip"`         // 注册IP
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	Phone            string         `json:"phone" gorm:"type:varchar(32);column:phone;index"`              // 手机号
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -827,4 +833,136 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
+}
+
+// IsPhoneAlreadyTaken 检查手机号是否已被使用
+func IsPhoneAlreadyTaken(phone string) bool {
+	var count int64
+	DB.Model(&User{}).Where("phone = ?", phone).Count(&count)
+	return count > 0
+}
+
+// ResetUserPasswordByPhone 通过手机号重置用户密码
+func ResetUserPasswordByPhone(phone string, password string) error {
+	return DB.Model(&User{}).Where("phone = ?", phone).Update("password", password).Error
+}
+
+// GetUserByPhone 通过手机号获取用户
+func GetUserByPhone(phone string) (*User, error) {
+	var user User
+	err := DB.Where("phone = ?", phone).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// TransferWithdrawingQuotaToQuota 将待提现额度转移到可用额度
+func (user *User) TransferWithdrawingQuotaToQuota(quota int) error {
+	// 检查quota是否小于最小额度
+	if float64(quota) < common.QuotaPerUnit {
+		return fmt.Errorf("转移额度最小为%s！", common.LogQuota(int(common.QuotaPerUnit)))
+	}
+
+	// 开始数据库事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback() // 确保在函数退出时事务能回滚
+
+	// 加锁查询用户以确保数据一致性
+	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
+	if err != nil {
+		return err
+	}
+
+	// 计算待使用收益（RewardQuota - WithdrawedQuota）
+	availableQuota := user.RewardQuota - user.WithdrawedQuota
+	if availableQuota < quota {
+		return errors.New("可转移金额不足！")
+	}
+
+	// 增加Quota
+	user.Quota += quota
+	// 增加已提现额度
+	user.WithdrawedQuota += quota
+
+	// 更新用户数据
+	err = tx.Save(&user).Error
+	if err != nil {
+		return err
+	}
+
+	// 记录日志
+	RecordLog(user.Id, LogTypeTopup, fmt.Sprintf("佣金转余额 %s", common.LogQuota(quota)))
+
+	// 提交事务
+	return tx.Commit().Error
+}
+
+// WithdrawCommissionQuota 申请提现佣金
+func (user *User) WithdrawCommissionQuota(quota int, alipayAccount, contact string) error {
+	// 检查quota是否达到最小提现额度（十块钱）
+	minWithdrawQuota := int(common.QuotaPerUnit * 10) // 10块钱
+	if quota < minWithdrawQuota {
+		return fmt.Errorf("提现额度最小为%s！", common.LogQuota(minWithdrawQuota))
+	}
+
+	// 检查必填信息
+	if alipayAccount == "" {
+		return errors.New("支付宝账号不能为空！")
+	}
+	if contact == "" {
+		return errors.New("联系方式不能为空！")
+	}
+
+	// 开始数据库事务
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback() // 确保在函数退出时事务能回滚
+
+	// 加锁查询用户以确保数据一致性
+	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
+	if err != nil {
+		return err
+	}
+
+	// 计算可提现金额（RewardQuota - WithdrawedQuota - WithdrawingQuota）
+	availableQuota := user.RewardQuota - user.WithdrawedQuota - user.WithdrawingQuota
+	if availableQuota < quota {
+		return errors.New("可提现金额不足！")
+	}
+
+	// 检查是否有待处理的提现申请
+	hasPending, err := IsUserHasPendingWithdraw(user.Id)
+	if err != nil {
+		return err
+	}
+	if hasPending {
+		return errors.New("您还有待处理的提现申请，请等待处理完成后再申请！")
+	}
+
+	// 创建提现申请记录
+	_, err = CreateWithdrawHistory(user.Id, quota, alipayAccount, contact)
+	if err != nil {
+		return err
+	}
+
+	// 增加正在提现的额度
+	user.WithdrawingQuota += quota
+
+	// 更新用户数据
+	err = tx.Save(&user).Error
+	if err != nil {
+		return err
+	}
+
+	// 记录日志
+	RecordLog(user.Id, LogTypeTopup, fmt.Sprintf("申请提现 %s", common.LogQuota(quota)))
+
+	// 提交事务
+	return tx.Commit().Error
 }

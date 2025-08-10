@@ -109,7 +109,7 @@ func getImageToken(info *relaycommon.RelayInfo, imageUrl *dto.MessageImageUrl, m
 	var format string
 	var b64str string
 	if strings.HasPrefix(imageUrl.Url, "http") {
-		config, format, err = DecodeUrlImageData(imageUrl.Url)
+		config, format, _, err = DecodeUrlImageData(imageUrl.Url)
 	} else {
 		common.SysLog(fmt.Sprintf("decoding image"))
 		config, format, b64str, err = DecodeBase64ImageData(imageUrl.Url)

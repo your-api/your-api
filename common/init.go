@@ -126,4 +126,16 @@ func initConstantEnv() {
 	constant.GenerateDefaultToken = GetEnvOrDefaultBool("GENERATE_DEFAULT_TOKEN", false)
 	// 是否启用错误日志
 	constant.ErrorLogEnabled = GetEnvOrDefaultBool("ERROR_LOG_ENABLED", false)
+	
+	// 新增的环境变量
+	constant.DataExportInterval = GetEnvOrDefaultString("DATA_EXPORT_INTERVAL", "5m")
+	constant.DataExportDefaultTime = GetEnvOrDefaultString("DATA_EXPORT_DEFAULT_TIME", "")
+	constant.DrawingEnabled = GetEnvOrDefaultBool("DRAWING_ENABLED", true)
+	constant.IndexEnabled = GetEnvOrDefaultBool("INDEX_ENABLED", true)
+	constant.OcrEnabled = GetEnvOrDefaultBool("OCR_ENABLED", true)
+	constant.ImageReadProxyEnabled = GetEnvOrDefaultBool("IMAGE_READ_PROXY_ENABLED", true)
+	constant.ProxyType = GetEnvOrDefaultString("PROXY_TYPE", "http")
+	constant.UploadPath = GetEnvOrDefaultString("UPLOAD_PATH", "")
+	constant.TextAuditEnabled = GetEnvOrDefaultBool("TEXT_AUDIT_ENABLED", false)
+	constant.TopUpRatio = GetEnvOrDefaultFloat64("TOP_UP_RATIO", 1.0)
 }

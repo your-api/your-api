@@ -13,7 +13,7 @@ import {
 import { copy, showSuccess } from '../helpers';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/Theme';
-import { StyleContext } from '../context/Style/index.js';
+// import { StyleContext } from '../context/Style/index.js'; // StyleContext not needed
 
 export default function ApiGuideDrawer({
                                          visible,
@@ -25,7 +25,7 @@ export default function ApiGuideDrawer({
   const { Title, Text, Paragraph } = Typography;
   const theme = useTheme(); // 使用useTheme钩子获取当前主题
   const isDarkMode = theme === 'dark';
-  const [styleState, styleDispatch] = useContext(StyleContext);
+  // const [styleState, styleDispatch] = useContext(StyleContext); // StyleContext not needed
 
   // API端点列表
   const apiEndpoints = [

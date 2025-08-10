@@ -42,6 +42,7 @@ const EditVendorModal = ({ visible, handleClose, refresh, editingVendor }) => {
     name: '',
     description: '',
     icon: '',
+    models: '',
     status: true,
   });
 
@@ -172,6 +173,16 @@ const EditVendorModal = ({ visible, handleClose, refresh, editingVendor }) => {
                 </span>
               }
               showClear
+            />
+          </Col>
+          <Col span={24}>
+            <Form.TextArea
+              field="models"
+              label={t('包含模型')}
+              placeholder={t('每行输入一个模型名称，例如：\ngpt-4\nclaude-3\ngemini-pro')}
+              rows={5}
+              showClear
+              extraText={t('输入该供应商支持的模型列表，每行一个模型名称')}
             />
           </Col>
           <Col span={24}>

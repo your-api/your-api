@@ -21,22 +21,39 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/about", controller.GetAbout)
+		apiRouter.GET("/contact", controller.GetContact)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.TryUserAuth(), controller.GetPricing)
 		apiRouter.GET("/verification", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), controller.ResetPassword)
+		
+		// 验证码相关
+		apiRouter.GET("/captcha/generate", controller.GenerateImageCaptcha)
+		apiRouter.GET("/captcha/generate_base64", controller.GenerateImageCaptchaBase64)
+		apiRouter.POST("/captcha/verify", controller.VerifyImageCaptchaAPI)
 		apiRouter.GET("/oauth/github", middleware.CriticalRateLimit(), controller.GitHubOAuth)
 		apiRouter.GET("/oauth/oidc", middleware.CriticalRateLimit(), controller.OidcAuth)
 		apiRouter.GET("/oauth/linuxdo", middleware.CriticalRateLimit(), controller.LinuxdoOAuth)
 		apiRouter.GET("/oauth/state", middleware.CriticalRateLimit(), controller.GenerateOAuthCode)
 		apiRouter.GET("/oauth/wechat", middleware.CriticalRateLimit(), controller.WeChatAuth)
 		apiRouter.GET("/oauth/wechat/bind", middleware.CriticalRateLimit(), controller.WeChatBind)
+		apiRouter.GET("/oauth/wechat/qr", middleware.CriticalRateLimit(), controller.GetWeChatQRCode)
+		apiRouter.GET("/oauth/wechat/qr/login", middleware.CriticalRateLimit(), controller.CheckWeChatQRLogin)
+		apiRouter.GET("/oauth/wechat/qr/bind", middleware.CriticalRateLimit(), middleware.UserAuth(), controller.CheckWeChatQRBind)
 		apiRouter.GET("/oauth/email/bind", middleware.CriticalRateLimit(), controller.EmailBind)
 		apiRouter.GET("/oauth/telegram/login", middleware.CriticalRateLimit(), controller.TelegramLogin)
 		apiRouter.GET("/oauth/telegram/bind", middleware.CriticalRateLimit(), controller.TelegramBind)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
+
+		// 订单管理路由
+		orderRoute := apiRouter.Group("/order")
+		orderRoute.Use(middleware.UserAuth())
+		{
+			orderRoute.POST("/getTradeInfo", middleware.CriticalRateLimit(), controller.GetOrderInfo)
+			orderRoute.GET("/queryTradeStatus", controller.QueryTradeStatus)
+		}
 
 		apiRouter.POST("/stripe/webhook", controller.StripeWebhook)
 
@@ -44,6 +61,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)
 			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Login)
+			userRoute.POST("/phone-login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.PhoneLogin)
+			userRoute.POST("/phone-reset", middleware.CriticalRateLimit(), controller.PhoneReset)
 			userRoute.POST("/login/2fa", middleware.CriticalRateLimit(), controller.Verify2FALogin)
 			//userRoute.POST("/tokenlog", middleware.CriticalRateLimit(), controller.TokenLog)
 			userRoute.GET("/logout", controller.Logout)
@@ -66,7 +85,17 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.RequestStripePay)
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
+				selfRoute.POST("/commission_transfer", controller.TransferCommissionQuota)
+				selfRoute.POST("/commission_withdraw", controller.WithdrawCommissionQuota)
+				selfRoute.GET("/withdraw_status", controller.GetWithdrawStatus)
+				selfRoute.GET("/withdraw/history", controller.GetWithdrawHistory)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+				
+				// 签到功能
+				selfRoute.POST("/checkin", controller.CheckInUser)
+				selfRoute.GET("/checkin/status", controller.GetCheckInStatus)
+				selfRoute.GET("/checkin/calendar", controller.GetCheckInCalendar)
+				selfRoute.GET("/checkin/stats", controller.GetCheckInStats)
 				
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
@@ -93,6 +122,14 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 		optionRoute := apiRouter.Group("/option")
+		// Public endpoints for homepage
+		optionRoute.GET("/getModelProviders", controller.GetModelProviders)
+		optionRoute.GET("/getAdvantages", controller.GetAdvantages)
+		optionRoute.GET("/getTypingList", controller.GetTypingList)
+		optionRoute.GET("/getCustomNavLinks", controller.GetCustomNavLinks)
+		optionRoute.GET("/getDiscountTiers", controller.GetDiscountTiers)
+		optionRoute.GET("/getModelDescriptions", controller.GetModelDescriptions)
+		
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)

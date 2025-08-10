@@ -980,3 +980,157 @@ func UpdateUserSetting(c *gin.Context) {
 		"message": "设置已更新",
 	})
 }
+
+// TransferCommissionQuotaRequest 划转佣金请求
+type TransferCommissionQuotaRequest struct {
+	Quota int `json:"quota" binding:"required"`
+}
+
+func TransferCommissionQuota(c *gin.Context) {
+	id := c.GetInt("id")
+	user, err := model.GetUserById(id, true)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	var req TransferCommissionQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	err = user.TransferWithdrawingQuotaToQuota(req.Quota)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "划转失败 " + err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "划转成功",
+	})
+}
+
+// WithdrawCommissionQuota 邀请充值返利提现申请
+type WithdrawCommissionQuotaRequest struct {
+	Quota         int    `json:"quota" binding:"required"`
+	AlipayAccount string `json:"alipay_account" binding:"required"`
+	Contact       string `json:"contact" binding:"required"`
+}
+
+func WithdrawCommissionQuota(c *gin.Context) {
+	id := c.GetInt("id")
+	user, err := model.GetUserById(id, true)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	var req WithdrawCommissionQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	err = user.WithdrawCommissionQuota(req.Quota, req.AlipayAccount, req.Contact)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "提现申请失败 " + err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "提现申请已提交，请等待管理员审核",
+	})
+}
+
+// GetWithdrawStatus 获取用户提现状态
+func GetWithdrawStatus(c *gin.Context) {
+	id := c.GetInt("id")
+	
+	// 获取正在提现的额度
+	pendingQuota, err := model.GetUserPendingWithdrawQuota(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	// 获取用户的提现记录
+	withdraws, total, err := model.GetUserWithdrawHistories(id, 0, 10)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"pending_quota": pendingQuota,
+			"withdraws":     withdraws,
+			"total":         total,
+		},
+	})
+}
+
+// GetWithdrawHistory 获取用户提现历史记录
+func GetWithdrawHistory(c *gin.Context) {
+	id := c.GetInt("id")
+	
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+	
+	offset := (page - 1) * pageSize
+	
+	withdraws, total, err := model.GetUserWithdrawHistories(id, offset, pageSize)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"withdraws": withdraws,
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+		},
+	})
+}

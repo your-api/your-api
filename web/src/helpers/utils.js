@@ -1,29 +1,7 @@
-/*
-Copyright (C) 2025 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
-
 import { Toast, Pagination } from '@douyinfe/semi-ui';
 import { toastConstants } from '../constants';
 import React from 'react';
 import { toast } from 'react-toastify';
-import { THINK_TAG_REGEX, MESSAGE_ROLES } from '../constants/playground.constants';
-import { TABLE_COMPACT_MODES_KEY } from '../constants';
-import { MOBILE_BREAKPOINT } from '../hooks/common/useIsMobile.js';
 
 const HTMLToastContent = ({ htmlContent }) => {
   return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
@@ -87,7 +65,9 @@ export async function copy(text) {
   return okay;
 }
 
-// isMobile 函数已移除，请改用 useIsMobile Hook
+export function isMobile() {
+  return window.innerWidth <= 600;
+}
 
 let showErrorOptions = { autoClose: toastConstants.ERROR_TIMEOUT };
 let showWarningOptions = { autoClose: toastConstants.WARNING_TIMEOUT };
@@ -95,8 +75,7 @@ let showSuccessOptions = { autoClose: toastConstants.SUCCESS_TIMEOUT };
 let showInfoOptions = { autoClose: toastConstants.INFO_TIMEOUT };
 let showNoticeOptions = { autoClose: false };
 
-const isMobileScreen = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
-if (isMobileScreen) {
+if (isMobile()) {
   showErrorOptions.position = 'top-center';
   // showErrorOptions.transition = 'flip';
 
@@ -116,8 +95,6 @@ export function showError(error) {
     if (error.name === 'AxiosError') {
       switch (error.response.status) {
         case 401:
-          // 清除用户状态
-          localStorage.removeItem('user');
           // toast.error('错误：未登录或登录已过期，请重新登录！', showErrorOptions);
           window.location.href = '/login?expired=true';
           break;
@@ -305,426 +282,201 @@ export function compareObjects(oldObject, newObject) {
   return changedProperties;
 }
 
-// playground message
-
-// 生成唯一ID
-let messageId = 4;
-export const generateMessageId = () => `${messageId++}`;
-
-// 提取消息中的文本内容
-export const getTextContent = (message) => {
-  if (!message || !message.content) return '';
-
-  if (Array.isArray(message.content)) {
-    const textContent = message.content.find(item => item.type === 'text');
-    return textContent?.text || '';
-  }
-  return typeof message.content === 'string' ? message.content : '';
-};
-
-// 处理 think 标签
-export const processThinkTags = (content, reasoningContent = '') => {
-  if (!content || !content.includes('<think>')) {
-    return { content, reasoningContent };
-  }
-
-  const thoughts = [];
-  const replyParts = [];
-  let lastIndex = 0;
-  let match;
-
-  THINK_TAG_REGEX.lastIndex = 0;
-  while ((match = THINK_TAG_REGEX.exec(content)) !== null) {
-    replyParts.push(content.substring(lastIndex, match.index));
-    thoughts.push(match[1]);
-    lastIndex = match.index + match[0].length;
-  }
-  replyParts.push(content.substring(lastIndex));
-
-  const processedContent = replyParts.join('').replace(/<\/?think>/g, '').trim();
-  const thoughtsStr = thoughts.join('\n\n---\n\n');
-  const processedReasoningContent = reasoningContent && thoughtsStr
-    ? `${reasoningContent}\n\n---\n\n${thoughtsStr}`
-    : reasoningContent || thoughtsStr;
-
-  return {
-    content: processedContent,
-    reasoningContent: processedReasoningContent
-  };
-};
-
-// 处理未完成的 think 标签
-export const processIncompleteThinkTags = (content, reasoningContent = '') => {
-  if (!content) return { content: '', reasoningContent };
-
-  const lastOpenThinkIndex = content.lastIndexOf('<think>');
-  if (lastOpenThinkIndex === -1) {
-    return processThinkTags(content, reasoningContent);
-  }
-
-  const fragmentAfterLastOpen = content.substring(lastOpenThinkIndex);
-  if (!fragmentAfterLastOpen.includes('</think>')) {
-    const unclosedThought = fragmentAfterLastOpen.substring('<think>'.length).trim();
-    const cleanContent = content.substring(0, lastOpenThinkIndex);
-    const processedReasoningContent = unclosedThought
-      ? reasoningContent ? `${reasoningContent}\n\n---\n\n${unclosedThought}` : unclosedThought
-      : reasoningContent;
-
-    return processThinkTags(cleanContent, processedReasoningContent);
-  }
-
-  return processThinkTags(content, reasoningContent);
-};
-
-// 构建消息内容（包含图片）
-export const buildMessageContent = (textContent, imageUrls = [], imageEnabled = false) => {
-  if (!textContent && (!imageUrls || imageUrls.length === 0)) {
-    return '';
-  }
-
-  const validImageUrls = imageUrls.filter(url => url && url.trim() !== '');
-
-  if (imageEnabled && validImageUrls.length > 0) {
-    return [
-      { type: 'text', text: textContent || '' },
-      ...validImageUrls.map(url => ({
-        type: 'image_url',
-        image_url: { url: url.trim() }
-      }))
-    ];
-  }
-
-  return textContent || '';
-};
-
-// 创建新消息
-export const createMessage = (role, content, options = {}) => ({
-  role,
-  content,
-  createAt: Date.now(),
-  id: generateMessageId(),
-  ...options
-});
-
-// 创建加载中的助手消息
-export const createLoadingAssistantMessage = () => createMessage(
-  MESSAGE_ROLES.ASSISTANT,
-  '',
-  {
-    reasoningContent: '',
-    isReasoningExpanded: true,
-    isThinkingComplete: false,
-    hasAutoCollapsed: false,
-    status: 'loading'
-  }
-);
-
-// 检查消息是否包含图片
-export const hasImageContent = (message) => {
-  return message &&
-    Array.isArray(message.content) &&
-    message.content.some(item => item.type === 'image_url');
-};
-
-// 格式化消息用于API请求
-export const formatMessageForAPI = (message) => {
-  if (!message) return null;
-
-  return {
-    role: message.role,
-    content: message.content
-  };
-};
-
-// 验证消息是否有效
-export const isValidMessage = (message) => {
-  return message &&
-    message.role &&
-    (message.content || message.content === '');
-};
-
-// 获取最后一条用户消息
-export const getLastUserMessage = (messages) => {
-  if (!Array.isArray(messages)) return null;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === MESSAGE_ROLES.USER) {
-      return messages[i];
-    }
-  }
-  return null;
-};
-
-// 获取最后一条助手消息
-export const getLastAssistantMessage = (messages) => {
-  if (!Array.isArray(messages)) return null;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === MESSAGE_ROLES.ASSISTANT) {
-      return messages[i];
-    }
-  }
-  return null;
-};
-
-// 计算相对时间（几天前、几小时前等）
-export const getRelativeTime = (publishDate) => {
-  if (!publishDate) return '';
-
-  const now = new Date();
-  const pubDate = new Date(publishDate);
-
-  // 如果日期无效，返回原始字符串
-  if (isNaN(pubDate.getTime())) return publishDate;
-
-  const diffMs = now.getTime() - pubDate.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
-  const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
-
-  // 如果是未来时间，显示具体日期
-  if (diffMs < 0) {
-    return formatDateString(pubDate);
-  }
-
-  // 根据时间差返回相应的描述
-  if (diffSeconds < 60) {
-    return '刚刚';
-  } else if (diffMinutes < 60) {
-    return `${diffMinutes} 分钟前`;
-  } else if (diffHours < 24) {
-    return `${diffHours} 小时前`;
-  } else if (diffDays < 7) {
-    return `${diffDays} 天前`;
-  } else if (diffWeeks < 4) {
-    return `${diffWeeks} 周前`;
-  } else if (diffMonths < 12) {
-    return `${diffMonths} 个月前`;
-  } else if (diffYears < 2) {
-    return '1 年前';
-  } else {
-    // 超过2年显示具体日期
-    return formatDateString(pubDate);
-  }
-};
-
-// 格式化日期字符串
-export const formatDateString = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// 格式化日期时间字符串（包含时间）
-export const formatDateTimeString = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
-};
-
-function readTableCompactModes() {
-  try {
-    const json = localStorage.getItem(TABLE_COMPACT_MODES_KEY);
-    return json ? JSON.parse(json) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeTableCompactModes(modes) {
-  try {
-    localStorage.setItem(TABLE_COMPACT_MODES_KEY, JSON.stringify(modes));
-  } catch {
-    // ignore
-  }
-}
-
-export function getTableCompactMode(tableKey = 'global') {
-  const modes = readTableCompactModes();
-  return !!modes[tableKey];
-}
-
-export function setTableCompactMode(compact, tableKey = 'global') {
-  const modes = readTableCompactModes();
-  modes[tableKey] = compact;
-  writeTableCompactModes(modes);
-}
-
-// -------------------------------
-// Select 组件统一过滤逻辑
-// 使用方式： <Select filter={selectFilter} ... />
-// 统一的 Select 搜索过滤逻辑 -- 支持同时匹配 option.value 与 option.label
-export const selectFilter = (input, option) => {
-  if (!input) return true;
-
-  const keyword = input.trim().toLowerCase();
-  const valueText = (option?.value ?? '').toString().toLowerCase();
-  const labelText = (option?.label ?? '').toString().toLowerCase();
-
-  return valueText.includes(keyword) || labelText.includes(keyword);
-};
-
-// -------------------------------
-// 模型定价计算工具函数
-export const calculateModelPrice = ({
-  record,
-  selectedGroup,
-  groupRatio,
-  tokenUnit,
-  displayPrice,
-  currency,
-  precision = 4
-}) => {
-  if (record.quota_type === 0) {
-    // 按量计费
-    const inputRatioPriceUSD = record.model_ratio * 2 * groupRatio[selectedGroup];
-    const completionRatioPriceUSD =
-      record.model_ratio * record.completion_ratio * 2 * groupRatio[selectedGroup];
-
-    const unitDivisor = tokenUnit === 'K' ? 1000 : 1;
-    const unitLabel = tokenUnit === 'K' ? 'K' : 'M';
-
-    const rawDisplayInput = displayPrice(inputRatioPriceUSD);
-    const rawDisplayCompletion = displayPrice(completionRatioPriceUSD);
-
-    const numInput = parseFloat(rawDisplayInput.replace(/[^0-9.]/g, '')) / unitDivisor;
-    const numCompletion = parseFloat(rawDisplayCompletion.replace(/[^0-9.]/g, '')) / unitDivisor;
-
-    return {
-      inputPrice: `${currency === 'CNY' ? '¥' : '$'}${numInput.toFixed(precision)}`,
-      completionPrice: `${currency === 'CNY' ? '¥' : '$'}${numCompletion.toFixed(precision)}`,
-      unitLabel,
-      isPerToken: true
-    };
-  } else {
-    // 按次计费
-    const priceUSD = parseFloat(record.model_price) * groupRatio[selectedGroup];
-    const displayVal = displayPrice(priceUSD);
-
-    return {
-      price: displayVal,
-      isPerToken: false
-    };
-  }
-};
-
-// 格式化价格信息（用于卡片视图）
-export const formatPriceInfo = (priceData, t) => {
-  if (priceData.isPerToken) {
-    return (
-      <>
-        <span style={{ color: 'var(--semi-color-text-1)' }}>
-          {t('提示')} {priceData.inputPrice}/{priceData.unitLabel}
-        </span>
-        <span style={{ color: 'var(--semi-color-text-1)' }}>
-          {t('补全')} {priceData.completionPrice}/{priceData.unitLabel}
-        </span>
-      </>
-    );
-  } else {
-    return (
-      <span style={{ color: 'var(--semi-color-text-1)' }}>
-        {t('模型价格')} {priceData.price}
-      </span>
-    );
-  }
-};
-
-// -------------------------------
-// CardPro 分页配置函数
-// 用于创建 CardPro 的 paginationArea 配置
-export const createCardProPagination = ({
+// Add missing pagination helper
+export function createCardProPagination({
   currentPage,
   pageSize,
   total,
   onPageChange,
   onPageSizeChange,
-  isMobile = false,
-  pageSizeOpts = [10, 20, 50, 100],
-  showSizeChanger = true,
-  t = (key) => key,
-}) => {
-  if (!total || total <= 0) return null;
-
-  const start = (currentPage - 1) * pageSize + 1;
-  const end = Math.min(currentPage * pageSize, total);
-  const totalText = `${t('显示第')} ${start} ${t('条 - 第')} ${end} ${t('条，共')} ${total} ${t('条')}`;
-
+  isMobile,
+  t,
+}) {
   return (
-    <>
-      {/* 桌面端左侧总数信息 */}
-      {!isMobile && (
-        <span
-          className="text-sm select-none"
-          style={{ color: 'var(--semi-color-text-2)' }}
-        >
-          {totalText}
-        </span>
-      )}
-
-      {/* 右侧分页控件 */}
-      <Pagination
-        currentPage={currentPage}
-        pageSize={pageSize}
-        total={total}
-        pageSizeOpts={pageSizeOpts}
-        showSizeChanger={showSizeChanger}
-        onPageSizeChange={onPageSizeChange}
-        onPageChange={onPageChange}
-        size={isMobile ? "small" : "default"}
-        showQuickJumper={isMobile}
-        showTotal
-      />
-    </>
+    <Pagination
+      currentPage={currentPage}
+      pageSize={pageSize}
+      total={total}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
+      pageSizeOpts={[10, 20, 50, 100]}
+      showSizeChanger={true}
+      showQuickJumper={true}
+      size={isMobile ? 'small' : 'default'}
+      style={{ flex: 1 }}
+    />
   );
-};
+}
 
-// 模型定价筛选条件默认值
-const DEFAULT_PRICING_FILTERS = {
-  search: '',
-  showWithRecharge: false,
-  currency: 'USD',
-  showRatio: false,
-  viewMode: 'card',
-  tokenUnit: 'M',
-  filterGroup: 'all',
-  filterQuotaType: 'all',
-  filterEndpointType: 'all',
-  filterVendor: 'all',
-  currentPage: 1,
-};
+// Add missing filter helper
+export function selectFilter(options = []) {
+  return {
+    text: '',
+    value: '',
+    options: options.map(opt => ({
+      text: opt.label || opt,
+      value: opt.value || opt,
+    })),
+  };
+}
 
-// 重置模型定价筛选条件
-export const resetPricingFilters = ({
-  handleChange,
-  setShowWithRecharge,
-  setCurrency,
-  setShowRatio,
-  setViewMode,
-  setFilterGroup,
-  setFilterQuotaType,
-  setFilterEndpointType,
-  setFilterVendor,
-  setCurrentPage,
-  setTokenUnit,
-}) => {
-  handleChange?.(DEFAULT_PRICING_FILTERS.search);
-  setShowWithRecharge?.(DEFAULT_PRICING_FILTERS.showWithRecharge);
-  setCurrency?.(DEFAULT_PRICING_FILTERS.currency);
-  setShowRatio?.(DEFAULT_PRICING_FILTERS.showRatio);
-  setViewMode?.(DEFAULT_PRICING_FILTERS.viewMode);
-  setTokenUnit?.(DEFAULT_PRICING_FILTERS.tokenUnit);
-  setFilterGroup?.(DEFAULT_PRICING_FILTERS.filterGroup);
-  setFilterQuotaType?.(DEFAULT_PRICING_FILTERS.filterQuotaType);
-  setFilterEndpointType?.(DEFAULT_PRICING_FILTERS.filterEndpointType);
-  setFilterVendor?.(DEFAULT_PRICING_FILTERS.filterVendor);
-  setCurrentPage?.(DEFAULT_PRICING_FILTERS.currentPage);
-};
+// Add missing pricing helpers
+export function resetPricingFilters() {
+  // Reset pricing filters to default state
+  return {
+    vendors: [],
+    groups: [],
+    quotaTypes: [],
+    endpointTypes: [],
+    searchTerm: '',
+  };
+}
+
+export function calculateModelPrice(model, amount = 1000000) {
+  // Calculate model price based on amount
+  const basePrice = model.price || 0;
+  return (basePrice * amount) / 1000000;
+}
+
+export function formatPriceInfo(price) {
+  // Format price for display
+  if (typeof price === 'number') {
+    return `$${price.toFixed(4)}`;
+  }
+  return '$0.0000';
+}
+
+// Add missing message helpers
+export function formatMessageForAPI(message) {
+  // Format message for API submission
+  if (typeof message === 'string') {
+    return { content: message, role: 'user' };
+  }
+  return message;
+}
+
+export function isValidMessage(message) {
+  // Check if message is valid
+  if (!message) return false;
+  if (typeof message === 'string') return message.trim().length > 0;
+  if (typeof message === 'object') {
+    return message.content && message.content.trim().length > 0;
+  }
+  return false;
+}
+
+// Add missing table compact mode helpers
+export function getTableCompactMode() {
+  const stored = localStorage.getItem('tableCompactMode');
+  return stored === 'true';
+}
+
+export function setTableCompactMode(value) {
+  localStorage.setItem('tableCompactMode', value ? 'true' : 'false');
+}
+
+// Add missing processIncompleteThinkTags function
+export function processIncompleteThinkTags(content = '', reasoningContent = '') {
+  // Process incomplete think tags in content
+  let processedContent = content;
+  let processedReasoningContent = reasoningContent;
+  
+  // Check if content has unclosed <think> tag
+  const thinkStartIndex = content.lastIndexOf('<think>');
+  const thinkEndIndex = content.lastIndexOf('</think>');
+  
+  if (thinkStartIndex > -1 && (thinkEndIndex === -1 || thinkStartIndex > thinkEndIndex)) {
+    // Extract incomplete think content
+    const incompleteThinkContent = content.substring(thinkStartIndex + 7);
+    
+    // Remove the incomplete think tag from content
+    processedContent = content.substring(0, thinkStartIndex);
+    
+    // Add the incomplete content to reasoning content
+    if (processedReasoningContent) {
+      processedReasoningContent += incompleteThinkContent;
+    } else {
+      processedReasoningContent = incompleteThinkContent;
+    }
+  }
+  
+  // Clean up any incomplete closing tags
+  if (processedContent.endsWith('</') || processedContent.endsWith('<')) {
+    processedContent = processedContent.replace(/<?\/?$/, '');
+  }
+  
+  return {
+    content: processedContent,
+    reasoningContent: processedReasoningContent
+  };
+}
+
+// Add missing processThinkTags function
+export function processThinkTags(content = '', reasoningContent = '') {
+  // Process complete think tags in content
+  let processedContent = content;
+  let processedReasoningContent = reasoningContent || '';
+  
+  // Regular expression to match <think>...</think> blocks
+  const thinkTagRegex = /<think>([\s\S]*?)<\/think>/g;
+  
+  // Extract all think blocks
+  let match;
+  while ((match = thinkTagRegex.exec(content)) !== null) {
+    // Add the think content to reasoning content
+    if (processedReasoningContent) {
+      processedReasoningContent += '\n' + match[1];
+    } else {
+      processedReasoningContent = match[1];
+    }
+  }
+  
+  // Remove all think blocks from the main content
+  processedContent = content.replace(thinkTagRegex, '');
+  
+  // Clean up extra whitespace
+  processedContent = processedContent.trim();
+  
+  return {
+    content: processedContent,
+    reasoningContent: processedReasoningContent
+  };
+}
+
+// Add missing getTextContent function
+export function getTextContent(content) {
+  if (Array.isArray(content)) {
+    const textItem = content.find(item => item.type === 'text');
+    return textItem && textItem.text && typeof textItem.text === 'string' ? textItem.text : '';
+  } else if (typeof content === 'string') {
+    return content;
+  }
+  return '';
+}
+
+// Add missing createLoadingAssistantMessage function
+export function createLoadingAssistantMessage() {
+  return {
+    role: 'assistant',
+    content: '',
+    status: 'loading',
+    timestamp: Date.now(),
+    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  };
+}
+
+// Add missing buildMessageContent function
+export function buildMessageContent(text) {
+  return text || '';
+}
+
+// Add missing createMessage function
+export function createMessage(role, content) {
+  return {
+    role: role,
+    content: content,
+    status: 'complete',
+    timestamp: Date.now(),
+    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  };
+}

@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"encoding/json"
+	"one-api/common"
 	"one-api/model"
 	"one-api/setting"
 	"one-api/setting/ratio_setting"
@@ -10,6 +12,21 @@ import (
 
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
+	
+	// Get model descriptions from options
+	modelDescriptions := make(map[string]string)
+	modelDescStr := common.OptionMap["ModelDescriptions"]
+	if modelDescStr != "" {
+		_ = json.Unmarshal([]byte(modelDescStr), &modelDescriptions)
+	}
+	
+	// Merge descriptions into pricing data
+	for i := range pricing {
+		if desc, ok := modelDescriptions[pricing[i].ModelName]; ok {
+			pricing[i].ModelDescription = desc
+		}
+	}
+	
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}

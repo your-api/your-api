@@ -17,6 +17,7 @@ type Vendor struct {
     Name        string         `json:"name" gorm:"size:128;not null;uniqueIndex:uk_vendor_name,where:deleted_at IS NULL"`
     Description string         `json:"description,omitempty" gorm:"type:text"`
     Icon        string         `json:"icon,omitempty" gorm:"type:varchar(128)"`
+    Models      string         `json:"models,omitempty" gorm:"type:text"` // 包含的模型列表，每行一个
     Status      int            `json:"status" gorm:"default:1"`
     CreatedTime int64          `json:"created_time" gorm:"bigint"`
     UpdatedTime int64          `json:"updated_time" gorm:"bigint"`

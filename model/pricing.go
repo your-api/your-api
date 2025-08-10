@@ -15,6 +15,7 @@ import (
 
 type Pricing struct {
     ModelName              string                  `json:"model_name"`
+    ModelDescription       string                  `json:"model_description,omitempty"`
     Description            string                  `json:"description,omitempty"`
     Tags                   string                  `json:"tags,omitempty"`
     VendorID               int                     `json:"vendor_id,omitempty"`
@@ -271,6 +272,7 @@ func updatePricing() {
             if meta.Status != 1 {
                 continue
             }
+            pricing.ModelDescription = meta.Description  // 添加 model_description 字段
             pricing.Description = meta.Description
             pricing.Tags = meta.Tags
             pricing.VendorID = meta.VendorID

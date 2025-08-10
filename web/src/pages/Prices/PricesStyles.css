@@ -1,0 +1,94 @@
+/* Prices page container */
+.prices-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Header section */
+.prices-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--semi-color-border);
+}
+
+.prices-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--semi-color-primary) 0%, var(--semi-color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+}
+
+.prices-subtitle {
+  font-size: 1.1rem;
+  color: var(--semi-color-text-2);
+  margin: 0;
+}
+
+/* Content section */
+.prices-content {
+  background: var(--semi-color-bg-1);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.prices-content:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark mode adjustments */
+[theme-mode="dark"] .prices-content {
+  background: var(--semi-color-bg-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[theme-mode="dark"] .prices-content:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .prices-container {
+    padding: 0 12px;
+  }
+  
+  .prices-header {
+    margin-bottom: 24px;
+    padding: 16px 0;
+  }
+  
+  .prices-title {
+    font-size: 2rem;
+  }
+  
+  .prices-subtitle {
+    font-size: 1rem;
+  }
+  
+  .prices-content {
+    padding: 16px;
+    border-radius: 8px;
+  }
+}
+
+/* Animation for page load */
+.prices-container {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
