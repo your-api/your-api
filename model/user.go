@@ -877,8 +877,8 @@ func (user *User) TransferWithdrawingQuotaToQuota(quota int) error {
 		return err
 	}
 
-	// 计算待使用收益（RewardQuota - WithdrawedQuota）
-	availableQuota := user.RewardQuota - user.WithdrawedQuota
+	// 计算可用额度（总收益 - 已提现额度 - 正在提现额度）
+	availableQuota := user.RewardQuota - user.WithdrawedQuota - user.WithdrawingQuota
 	if availableQuota < quota {
 		return errors.New("可转移金额不足！")
 	}
