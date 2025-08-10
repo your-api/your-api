@@ -4,7 +4,7 @@ import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import { PrivateRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
-import LoginForm from './components/auth/LoginForm';
+import LoginForm from './components/LoginForm';
 import NotFound from './pages/NotFound';
 import Setting from './pages/Setting';
 import EditUser from './pages/User/EditUser';

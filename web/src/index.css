@@ -18,6 +18,7 @@
   --sidebar-width: 180px;
   --sidebar-width-collapsed: 60px;
   --sidebar-current-width: var(--sidebar-width);
+  --header-height: 60px; /* 导航栏高度 */
 }
 
 body.sidebar-collapsed {
@@ -36,6 +37,21 @@ code {
 }
 
 /* ==================== 布局相关样式 ==================== */
+/* 修复导航栏固定定位导致的内容遮挡问题 */
+.topnav {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  height: var(--header-height);
+}
+
+/* 为主内容区域添加顶部间距，避免被导航栏遮挡 */
+body > #root > div:not(.topnav) {
+  padding-top: var(--header-height);
+}
+
 .semi-layout::-webkit-scrollbar,
 .semi-layout-content::-webkit-scrollbar,
 .semi-sider::-webkit-scrollbar {

@@ -8,12 +8,11 @@ import {
   showInfo,
   showSuccess,
   updateAPI,
-} from '../helpers';
-import {
   onGitHubOAuthClicked,
   onOIDCClicked,
   onLinuxDOOAuthClicked,
-} from './utils';
+  setUserData
+} from '../helpers';
 import Turnstile from 'react-turnstile';
 import {
   Button,
@@ -35,7 +34,6 @@ import TelegramLoginButton from 'react-telegram-login';
 import { IconGithubLogo, IconAlarm, IconEyeOpened, IconEyeClosed } from '@douyinfe/semi-icons';
 import OIDCIcon from './common/logo/OIDCIcon.js';
 import WeChatIcon from './common/logo/WeChatIcon';
-import { setUserData } from '../helpers/data.js';
 import LinuxDoIcon from './common/logo/LinuxDoIcon.js';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
@@ -101,166 +99,113 @@ const LoginForm = () => {
     }
   }, []);
 
-  // 新增：获取微信扫码二维码
+  // 新增：tab切换时的处理
+  useEffect(() => {
+    if (activeTabKey === 'qr' && status.wechat_login) {
+      // 切换到扫码登录时获取二维码
+      if (!qrCodeData) {
+        getWeChatQRCode();
+      }
+    }
+  }, [activeTabKey, status.wechat_login]);
+
+  // 新增：获取微信二维码
   const getWeChatQRCode = async () => {
     setQrLoading(true);
-    setLoginProcessed(false); // 重置登录处理标志
+    setQrStatus('waiting');
+    setQrMessage(t('正在获取二维码...'));
+    setLoginProcessed(false);
+    
     try {
       const res = await API.get('/api/oauth/wechat/qr');
       const { success, data, message } = res.data;
       
       if (success && data) {
         setQrCodeData(data);
-        setQrStatus('waiting');
         setQrMessage(t('请使用微信扫码登录'));
-        
-        // 开始轮询检查登录状态
-        startQRLoginCheck(data.ticket);
+        // 开始检查登录状态
+        startCheckWeChatLogin(data.ticket);
       } else {
         setQrStatus('error');
         setQrMessage(message || t('获取二维码失败'));
       }
     } catch (error) {
       setQrStatus('error');
-      setQrMessage(t('网络错误，请稍后重试'));
+      setQrMessage(t('获取二维码失败，请刷新重试'));
     } finally {
       setQrLoading(false);
     }
   };
 
-  // 新增：开始轮询检查扫码状态
-  const startQRLoginCheck = (ticket) => {
+  // 新增：检查微信登录状态
+  const startCheckWeChatLogin = (ticket) => {
+    // 清除之前的定时器
     if (qrCheckTimerRef.current) {
       clearInterval(qrCheckTimerRef.current);
     }
+
+    let checkCount = 0;
+    const maxChecks = 60; // 最多检查60次，每次2秒，共2分钟
     
     qrCheckTimerRef.current = setInterval(async () => {
+      checkCount++;
+      
+      if (checkCount > maxChecks) {
+        clearInterval(qrCheckTimerRef.current);
+        setQrStatus('expired');
+        setQrMessage(t('二维码已过期，请刷新'));
+        return;
+      }
+
+      if (loginProcessed) {
+        // 如果已经处理了登录，停止检查
+        clearInterval(qrCheckTimerRef.current);
+        return;
+      }
+
       try {
         const res = await API.get(`/api/oauth/wechat/qr/login?ticket=${ticket}`);
-        console.log('扫码检查响应:', res.data); // 添加调试日志
-        console.log('响应类型:', typeof res.data);
-        console.log('响应字符串:', JSON.stringify(res.data));
+        const { success, status, message, data } = res.data;
         
-        // 根据实际返回的数据结构调整解析
-        const responseData = res.data;
-        
-        // 增强判断逻辑，处理可能的响应格式
-        const isSuccess = responseData.success && (
-          responseData.status === 'success' || 
-          responseData.message === '登录成功' ||
-          (responseData.data && responseData.data.id && responseData.data.username)
-        );
-        
-        if (isSuccess) {
-          // 防止重复处理登录成功
-          if (loginProcessed) {
-            console.log('登录已处理，跳过重复处理');
-            return;
-          }
-          
+        if (success && status === 'success' && !loginProcessed) {
           // 登录成功
-          console.log('检测到登录成功，清理定时器');
-          setLoginProcessed(true); // 标记为已处理
-          
-          // 立即清理定时器，防止重复触发
-          if (qrCheckTimerRef.current) {
-            clearInterval(qrCheckTimerRef.current);
-            qrCheckTimerRef.current = null;
-          }
-          
+          setLoginProcessed(true);
+          clearInterval(qrCheckTimerRef.current);
           setQrStatus('success');
-          setQrMessage(t('登录成功！'));
+          setQrMessage(t('登录成功，正在跳转...'));
           
-          // 设置用户数据
-          console.log('设置用户数据:', responseData.data);
-          userDispatch({ type: 'login', payload: responseData.data });
-          setUserData(responseData.data);
+          // 处理登录
+          userDispatch({ type: 'login', payload: data });
+          setUserData(data);
           updateAPI();
-          
-          // 只显示一次成功提示
           showSuccess(t('登录成功！'));
-          
-          // 延迟1.5秒后跳转，让用户看到成功状态
-          setTimeout(() => {
-            console.log('准备跳转到/token页面');
-            navigate('/token');
-          }, 1500);
-        } else if (responseData.success === false && responseData.status === 'error') {
-          // 明确的错误状态
+          navigate('/token');
+        } else if (status === 'expired') {
           clearInterval(qrCheckTimerRef.current);
-          setQrStatus('error');
-          setQrMessage(responseData.message || t('登录失败'));
-          console.log('扫码登录错误:', responseData.message);
-        } else if (responseData.status === 'waiting') {
-          // 等待扫码状态，继续轮询
-          console.log('继续等待扫码...');
-        } else if (responseData.success === false && responseData.message && responseData.status !== 'waiting') {
-          // 只有在非waiting状态下且有错误消息时才停止轮询
-          clearInterval(qrCheckTimerRef.current);
-          setQrStatus('error');
-          setQrMessage(responseData.message);
-          console.log('扫码登录失败:', responseData.message);
-        } else {
-          // 其他状态，继续轮询
-          console.log('未知状态，继续等待:', responseData);
+          setQrStatus('expired');
+          setQrMessage(t('二维码已过期，请刷新'));
         }
+        // status === 'waiting' 时继续轮询
       } catch (error) {
-        console.error('检查登录状态失败:', error);
-        setQrStatus('error');
-        setQrMessage(t('网络错误，请检查网络连接'));
+        // 忽略轮询错误，继续检查
       }
     }, 2000); // 每2秒检查一次
   };
 
   // 新增：刷新二维码
   const refreshQRCode = () => {
-    if (qrCheckTimerRef.current) clearInterval(qrCheckTimerRef.current);
-    setLoginProcessed(false); // 重置登录处理标志
+    setQrCodeData(null);
     getWeChatQRCode();
   };
 
-  // 组件卸载时清理定时器
+  // 清理定时器
   useEffect(() => {
     return () => {
       if (qrCheckTimerRef.current) {
         clearInterval(qrCheckTimerRef.current);
-        qrCheckTimerRef.current = null;
       }
     };
   }, []);
-
-  // 当切换到扫码登录tab时，自动获取二维码
-  useEffect(() => {
-    if (activeTabKey === 'qr' && !qrCodeData) {
-      getWeChatQRCode();
-    }
-  }, [activeTabKey]);
-
-  const onWeChatLoginClicked = () => {
-    setShowWeChatLoginModal(true);
-  };
-
-  const onSubmitWeChatVerificationCode = async () => {
-    if (turnstileEnabled && turnstileToken === '') {
-      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
-      return;
-    }
-    const res = await API.get(
-      `/api/oauth/wechat?code=${inputs.wechat_verification_code}`,
-    );
-    const { success, message, data } = res.data;
-    if (success) {
-      userDispatch({ type: 'login', payload: data });
-      localStorage.setItem('user', JSON.stringify(data));
-      setUserData(data);
-      updateAPI();
-      navigate('/');
-      showSuccess('登录成功！');
-      setShowWeChatLoginModal(false);
-    } else {
-      showError(message);
-    }
-  };
 
   function handleChange(name, value) {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -268,7 +213,7 @@ const LoginForm = () => {
 
   async function handleSubmit(e) {
     if (turnstileEnabled && turnstileToken === '') {
-      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+      showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
       return;
     }
     setSubmitted(true);
@@ -285,11 +230,11 @@ const LoginForm = () => {
         userDispatch({ type: 'login', payload: data });
         setUserData(data);
         updateAPI();
-        showSuccess('登录成功！');
+        showSuccess(t('登录成功！'));
         if (username === 'root' && password === '123456') {
           Modal.error({
-            title: '您正在使用默认密码！',
-            content: '请立刻修改默认密码！',
+            title: t('您正在使用默认密码！'),
+            content: t('请立刻修改默认密码！'),
             centered: true,
           });
         }
@@ -298,9 +243,35 @@ const LoginForm = () => {
         showError(message);
       }
     } else {
-      showError('请输入用户名和密码！');
+      showError(t('请输入用户名和密码！'));
     }
   }
+
+  const onWeChatLoginClicked = () => {
+    setShowWeChatLoginModal(true);
+  };
+
+  const onSubmitWeChatVerificationCode = async () => {
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
+      return;
+    }
+    const res = await API.get(
+      `/api/oauth/wechat?code=${inputs.wechat_verification_code}`,
+    );
+    const { success, message, data } = res.data;
+    if (success) {
+      userDispatch({ type: 'login', payload: data });
+      localStorage.setItem('user', JSON.stringify(data));
+      setUserData(data);
+      updateAPI();
+      navigate('/');
+      showSuccess(t('登录成功！'));
+      setShowWeChatLoginModal(false);
+    } else {
+      showError(message);
+    }
+  };
 
   // 添加Telegram登录处理函数
   const onTelegramLoginClicked = async (response) => {
@@ -325,7 +296,7 @@ const LoginForm = () => {
     if (success) {
       userDispatch({ type: 'login', payload: data });
       localStorage.setItem('user', JSON.stringify(data));
-      showSuccess('登录成功！');
+      showSuccess(t('登录成功！'));
       setUserData(data);
       updateAPI();
       navigate('/');
@@ -334,69 +305,62 @@ const LoginForm = () => {
     }
   };
 
-  // 新增：渲染扫码登录界面
+  // 新增：渲染微信扫码登录界面
   const renderQRLogin = () => (
-    <div className="wechat-qr-container">
-      <div className="wechat-qr-title">
-        <Title level={3} style={{ color: '#09BB07', marginBottom: 8 }}>
-          {t('微信扫码登录')}
-        </Title>
-        <Text type="secondary" className="wechat-qr-subtitle">
-          {t('使用微信扫一扫，快速安全登录')}
-        </Text>
-      </div>
-
-      <div className="qr-code-wrapper">
+    <div className="qr-login-container">
+      <div className="qr-wrapper">
         {qrLoading ? (
-          <div className="qr-code-loading qr-loading-pulse">
+          <div className="qr-loading">
             <Spin size="large" />
+            <Text type="secondary" style={{ marginTop: 16 }}>
+              {t('正在获取二维码...')}
+            </Text>
           </div>
-        ) : qrCodeData && qrStatus === 'waiting' ? (
-          <div className="qr-code-container waiting">
-            <QRCodeSVG
-              value={qrCodeData.qr_url}
+        ) : qrCodeData ? (
+          <div className="qr-code-wrapper">
+            {qrStatus === 'expired' ? (
+              <div className="qr-expired-overlay">
+                <div className="qr-expired-content">
+                  <IconAlarm size="extra-large" />
+                  <Text style={{ marginTop: 8 }}>{t('二维码已过期')}</Text>
+                  <Button 
+                    onClick={refreshQRCode} 
+                    style={{ marginTop: 12 }}
+                    type="primary"
+                  >
+                    {t('刷新二维码')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            <QRCodeSVG 
+              value={qrCodeData.qr_url || qrCodeData.url} 
               size={200}
               level="H"
               includeMargin={true}
-              style={{
-                background: 'white',
-                borderRadius: '8px',
-                display: 'block',
-                margin: '0 auto',
-              }}
+              className={qrStatus === 'expired' ? 'qr-expired' : ''}
             />
           </div>
-        ) : qrStatus === 'success' ? (
-          <div className="qr-code-success">
-            <div className="qr-success-icon" style={{ fontSize: '4rem', color: '#09BB07', marginBottom: '1rem' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '4rem', height: '4rem' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </div>
-            <Text strong style={{ color: '#09BB07' }}>
-              {t('登录成功！')}
-            </Text>
-          </div>
         ) : (
-          <div className="qr-code-error">
-            <div style={{ fontSize: '4rem', color: 'var(--semi-color-text-2)', marginBottom: '1rem' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '4rem', height: '4rem' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-              </svg>
-            </div>
-            <Button
-              type="primary"
-              theme="solid"
-              onClick={refreshQRCode}
-              className="wechat-refresh-btn"
-            >
-              {t('重新获取二维码')}
+          <div className="qr-error">
+            <Text type="danger">{t('获取二维码失败')}</Text>
+            <Button onClick={getWeChatQRCode} style={{ marginTop: 16 }}>
+              {t('重试')}
             </Button>
           </div>
         )}
       </div>
 
-      <div className="qr-message">
+      <div className="qr-info">
+        <Title heading={6} style={{ marginBottom: 8, marginTop: 16 }}>
+          {t('微信扫码登录')}
+        </Title>
+        <Text type="secondary" size="small">
+          {t('使用微信扫一扫，快速安全登录')}
+        </Text>
+      </div>
+
+      <div className="qr-status">
         <Text type="secondary" size="small">
           {qrMessage}
         </Text>
@@ -599,7 +563,7 @@ const LoginForm = () => {
   );
 
   return (
-    <div>
+    <div style={{ paddingTop: '60px' }}>
       <Layout>
         <Layout.Header></Layout.Header>
         <Layout.Content>
@@ -798,9 +762,7 @@ const LoginForm = () => {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <p>
-                      {t(
-                        '微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）',
-                      )}
+                      {t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}
                     </p>
                   </div>
                   <Form size='large'>
@@ -815,25 +777,19 @@ const LoginForm = () => {
                     />
                   </Form>
                 </Modal>
-              </Card>
-              {turnstileEnabled ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    marginTop: 20,
-                  }}
-                >
-                  <Turnstile
-                    sitekey={turnstileSiteKey}
-                    onVerify={(token) => {
-                      setTurnstileToken(token);
-                    }}
-                  />
+                <div>
+                  {turnstileEnabled ? (
+                    <Turnstile
+                      sitekey={turnstileSiteKey}
+                      onVerify={(token) => {
+                        setTurnstileToken(token);
+                      }}
+                    />
+                  ) : (
+                    <></>
+                  )}
                 </div>
-              ) : (
-                <></>
-              )}
+              </Card>
             </div>
           </div>
         </Layout.Content>

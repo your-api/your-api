@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"math/rand"
 	"strconv"
@@ -22,7 +23,7 @@ const (
 
 var verificationMutex sync.Mutex
 var verificationMap map[string]verificationValue
-var verificationMapMaxSize = 10
+var verificationMapMaxSize = 1000  // 增加到 1000，避免验证码被过早清理
 var VerificationValidMinutes = 10
 
 func GenerateVerificationCode(length int) string {
@@ -52,6 +53,17 @@ func GenerateNumericVerificationCode(length int) string {
 }
 
 func RegisterVerificationCodeWithKey(key string, code string, purpose string) {
+	// 如果 Redis 可用，优先使用 Redis 存储
+	if RedisEnabled {
+		redisKey := fmt.Sprintf("verification:%s%s", purpose, key)
+		err := RedisSet(redisKey, code, time.Duration(VerificationValidMinutes)*time.Minute)
+		if err == nil {
+			return // Redis 存储成功，直接返回
+		}
+		// Redis 存储失败，继续使用内存存储作为后备
+	}
+	
+	// 内存存储
 	verificationMutex.Lock()
 	defer verificationMutex.Unlock()
 	verificationMap[purpose+key] = verificationValue{
@@ -64,6 +76,22 @@ func RegisterVerificationCodeWithKey(key string, code string, purpose string) {
 }
 
 func VerifyCodeWithKey(key string, code string, purpose string) bool {
+	// 如果 Redis 可用，优先从 Redis 验证
+	if RedisEnabled {
+		redisKey := fmt.Sprintf("verification:%s%s", purpose, key)
+		storedCode, err := RedisGet(redisKey)
+		if err == nil && storedCode != "" {
+			// 验证成功后删除 Redis 中的验证码（一次性使用）
+			if code == storedCode {
+				RedisDel(redisKey)
+				return true
+			}
+			return false
+		}
+		// Redis 中没有找到，继续尝试内存存储
+	}
+	
+	// 从内存存储验证
 	verificationMutex.Lock()
 	defer verificationMutex.Unlock()
 	value, okay := verificationMap[purpose+key]
@@ -71,10 +99,22 @@ func VerifyCodeWithKey(key string, code string, purpose string) bool {
 	if !okay || int(now.Sub(value.time).Seconds()) >= VerificationValidMinutes*60 {
 		return false
 	}
-	return code == value.code
+	// 验证成功后删除内存中的验证码（一次性使用）
+	if code == value.code {
+		delete(verificationMap, purpose+key)
+		return true
+	}
+	return false
 }
 
 func DeleteKey(key string, purpose string) {
+	// 如果 Redis 可用，从 Redis 删除
+	if RedisEnabled {
+		redisKey := fmt.Sprintf("verification:%s%s", purpose, key)
+		RedisDel(redisKey)
+	}
+	
+	// 从内存存储删除
 	verificationMutex.Lock()
 	defer verificationMutex.Unlock()
 	delete(verificationMap, purpose+key)
