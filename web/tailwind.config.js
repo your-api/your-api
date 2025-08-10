@@ -23,8 +23,9 @@ export default {
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
-    colors: {
-      "semi-color-white": "var(--semi-color-white)",
+    extend: {
+      colors: {
+        "semi-color-white": "var(--semi-color-white)",
       "semi-color-black": "var(--semi-color-black)",
       "semi-color-primary": "var(--semi-color-primary)",
       "semi-color-primary-hover": "var(--semi-color-primary-hover)",
@@ -123,7 +124,6 @@ export default {
       "semi-color-data-18": "var(--semi-color-data-18)",
       "semi-color-data-19": "var(--semi-color-data-19)"
     },
-    extend: {
       borderRadius: {
         "semi-border-radius-extra-small": "var(--semi-border-radius-extra-small)",
         "semi-border-radius-small": "var(--semi-border-radius-small)",

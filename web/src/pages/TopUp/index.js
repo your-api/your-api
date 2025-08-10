@@ -22,6 +22,7 @@ import {
   Spin,
   Input,
   InputNumber,
+  Avatar,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -29,6 +30,12 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { UserContext } from '../../context/User';
+import {
+  Gift,
+  Link as LinkIcon,
+  CreditCard,
+  Coins,
+} from 'lucide-react';
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -1177,34 +1184,90 @@ const TopUp = () => {
                 style={{
                   marginBottom: isMobile() ? 20 : 24,
                 }}
+                className='!rounded-2xl'
+                shadows='always'
+                bordered={false}
+                header={
+                  <div className='px-5 py-4 pb-0'>
+                    <div className='flex items-center'>
+                      <Avatar
+                          className='mr-3 shadow-md flex-shrink-0'
+                          color='orange'
+                      >
+                        <Coins size={24} />
+                      </Avatar>
+                      <div>
+                        <Title heading={5} style={{ margin: 0 }}>
+                          {t('当前余额')}
+                        </Title>
+                        <Text type='tertiary' className='text-sm'>
+                          {t('您的账户余额信息')}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                }
             >
-              <Title level={3} style={{ color: 'var(--semi-color-text-0)' }}>
-                {t('当前余额')}
-              </Title>
-              <div style={{ fontSize: 24, color: 'var(--semi-color-text-0)' }}>
-                {/*{renderQuotaWithAmount(userQuota)}*/}
-                {renderQuota(userQuota)}
+              <div className='px-5 pb-4'>
+                <div style={{ fontSize: 32, fontWeight: 'bold', color: 'var(--semi-color-text-0)' }}>
+                  {renderQuota(userQuota)}
+                </div>
+                <div className='grid grid-cols-2 gap-4 mt-4'>
+                  <div>
+                    <Text type='tertiary' className='text-sm'>{t('历史消耗')}</Text>
+                    <div className='text-lg font-semibold'>
+                      {renderQuota(userState?.user?.used_quota || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <Text type='tertiary' className='text-sm'>{t('剩余额度')}</Text>
+                    <div className='text-lg font-semibold'>
+                      {renderQuota(userQuota)}
+                    </div>
+                  </div>
+                </div>
               </div>
             </Card>
 
-
-
-            {/* 在线充值 */}
+            {/* 在线充值卡片 */}
             <Card
                 style={{
                   marginBottom: isMobile() ? 20 : 24,
                 }}
-            >
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <Title level={3} className="!mb-0">{t('在线充值')}</Title>
-                  <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                    {discountTiersLoaded && discountTiers.length > 0
-                        ? t('限时福利，阶梯折扣，充值越多越划算')
-                        : t('充值越多折扣越大')
-                    }
+                className='!rounded-2xl'
+                shadows='always'
+                bordered={false}
+                header={
+                  <div className='px-5 py-4 pb-0'>
+                    <div className='flex items-center justify-between'>
+                      <div className='flex items-center'>
+                        <Avatar
+                            className='mr-3 shadow-md flex-shrink-0'
+                            color='blue'
+                        >
+                          <CreditCard size={24} />
+                        </Avatar>
+                        <div>
+                          <Title heading={5} style={{ margin: 0 }}>
+                            {t('在线充值')}
+                          </Title>
+                          <Text type='tertiary' className='text-sm'>
+                            {t('支持支付宝、微信支付')}
+                          </Text>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                        {discountTiersLoaded && discountTiers.length > 0
+                            ? t('限时福利，阶梯折扣，充值越多越划算')
+                            : t('充值越多折扣越大')
+                        }
+                      </div>
+                    </div>
                   </div>
-                </div>
+                }
+            >
+              <div className='px-5 pb-4'>
+                <div className="mb-6">
 
                 {/* 新增：活动倒计时显示 */}
                 {(() => {
@@ -1523,6 +1586,11 @@ const TopUp = () => {
                       onClick={() => preTopUp('zfb')}
                       disabled={!amount || amount <= 0 || paymentLoading}
                       className="min-w-[140px]"
+                      style={{
+                        backgroundColor: '#1677FF',
+                        borderColor: '#1677FF',
+                        color: '#fff'
+                      }}
                       icon={
                         <svg
                             t="1687765525122"
@@ -1547,6 +1615,11 @@ const TopUp = () => {
                       onClick={() => preTopUp('wx')}
                       disabled={!amount || amount <= 0 || paymentLoading}
                       className="min-w-[140px]"
+                      style={{
+                        backgroundColor: '#09BB07',
+                        borderColor: '#09BB07',
+                        color: '#fff'
+                      }}
                       icon={
                         <svg
                             t="1687765533353"
@@ -1575,42 +1648,79 @@ const TopUp = () => {
                     </div>
                 )}
               </div>
+              </div>
             </Card>
 
-            {/* 兑换码充值 */}
+            {/* 兑换码充值 - 使用原始样式 */}
             <Card
                 style={{
                   marginBottom: isMobile() ? 20 : 24,
                 }}
+                className='!rounded-2xl'
+                shadows='always'
+                bordered={false}
+                header={
+                  <div className='px-5 py-4 pb-0'>
+                    <div className='flex items-center'>
+                      <Avatar
+                          className='mr-3 shadow-md flex-shrink-0'
+                          color='green'
+                      >
+                        <Gift size={24} />
+                      </Avatar>
+                      <div>
+                        <Title heading={5} style={{ margin: 0 }}>
+                          {t('兑换码充值')}
+                        </Title>
+                        <Text type='tertiary' className='text-sm'>
+                          {t('使用兑换码快速充值')}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                }
             >
-              <Title level={3}>{t('兑换')}</Title>
-              <div style={{ marginTop: 10 }}>
-                <Typography.Text style={{ fontSize: 16 }}>
-                  {t('请输入充值卡密进行充值')}
-                </Typography.Text>
-              </div>
-              <div style={{ marginTop: 20 }}>
-                <Form layout='horizontal' style={{ marginTop: 16 }}>
-                  <Form.Section text={t('兑换卡密')}>
-                    <Form.Input
-                        label={t('卡密')}
-                        placeholder={t('请输入卡密')}
-                        name='redemptionCode'
-                        value={redemptionCode}
-                        onChange={(e) => setRedemptionCode(e)}
-                    />
-                    <Button
-                        theme='solid'
-                        type={'primary'}
-                        htmlType={'submit'}
-                        size='large'
-                        loading={isSubmitting}
-                        onClick={topUp}
-                    >
-                      {t('兑换')}
-                    </Button>
-                  </Form.Section>
-                </Form>
+              <div className='px-5 pb-4'>
+                <div className='mb-4'>
+                  <Input
+                      placeholder={t('请输入兑换码')}
+                      value={redemptionCode}
+                      onChange={(value) => setRedemptionCode(value)}
+                      size='large'
+                      className='w-full'
+                  />
+                </div>
+
+                <div className='flex flex-col sm:flex-row gap-3'>
+                  {topUpLink && (
+                      <Button
+                          type='secondary'
+                          onClick={openTopUpLink}
+                          size='large'
+                          className='flex-1'
+                          icon={<LinkIcon size={16} />}
+                          style={{ height: '40px' }}
+                      >
+                        {t('获取兑换码')}
+                      </Button>
+                  )}
+                  <Button
+                      type='primary'
+                      theme='solid'
+                      onClick={topUp}
+                      disabled={isSubmitting || !redemptionCode}
+                      loading={isSubmitting}
+                      size='large'
+                      className='flex-1'
+                      style={{ 
+                        height: '40px',
+                        backgroundColor: '#52c41a',
+                        borderColor: '#52c41a'
+                      }}
+                  >
+                    {isSubmitting ? t('兑换中...') : t('兑换')}
+                  </Button>
+                </div>
               </div>
             </Card>
 
