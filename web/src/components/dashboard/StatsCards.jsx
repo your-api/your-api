@@ -19,14 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Card, Avatar, Skeleton } from '@douyinfe/semi-ui';
-import { VChart } from '@visactor/react-vchart';
 
 const StatsCards = ({
   groupedStatsData,
-  loading,
-  getTrendSpec,
-  CARD_PROPS,
-  CHART_CONFIG
+  loading
 }) => {
   return (
     <div className="mb-4">
@@ -34,7 +30,6 @@ const StatsCards = ({
         {groupedStatsData.map((group, idx) => (
           <Card
             key={idx}
-            {...CARD_PROPS}
             className={`${group.color} border-0 !rounded-2xl w-full`}
             title={group.title}
           >
@@ -72,14 +67,6 @@ const StatsCards = ({
                       </div>
                     </div>
                   </div>
-                  {(loading || (item.trendData && item.trendData.length > 0)) && (
-                    <div className="w-24 h-10">
-                      <VChart
-                        spec={getTrendSpec(item.trendData, item.trendColor)}
-                        option={CHART_CONFIG}
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

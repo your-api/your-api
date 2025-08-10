@@ -32,7 +32,7 @@ import SetupCheck from './components/layout/SetupCheck.js';
 
 const Home = lazy(() => import('./pages/Home'));
 const Detail = lazy(() => import('./pages/Detail'));
-const Contact = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
 const Document = lazy(() => import('./pages/Document'));
 
 function App() {
