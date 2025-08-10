@@ -197,6 +197,32 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
+	
+	// 处理消息中的图片URL，转换为base64以防止探测
+	for i, message := range request.Messages {
+		if mediaMessages := message.ParseContent(); mediaMessages != nil {
+			for j, mediaMessage := range mediaMessages {
+				if mediaMessage.Type == dto.ContentTypeImageURL {
+					imageUrl := mediaMessage.GetImageMedia()
+					// 判断是否是url
+					if strings.HasPrefix(imageUrl.Url, "http") {
+						// 是url，获取图片的类型和base64编码的数据
+						fileData, err := service.GetFileBase64FromUrl(imageUrl.Url)
+						if err != nil {
+							return nil, fmt.Errorf("get file base64 from url failed: %s", err.Error())
+						}
+						// 将URL替换为base64格式
+						imageUrl.Url = fmt.Sprintf("data:%s;base64,%s", fileData.MimeType, fileData.Base64Data)
+						mediaMessage.ImageUrl = imageUrl
+						mediaMessages[j] = mediaMessage
+					}
+				}
+			}
+			message.SetMediaContent(mediaMessages)
+			request.Messages[i] = message
+		}
+	}
+	
 	if info.ChannelType != constant.ChannelTypeOpenAI && info.ChannelType != constant.ChannelTypeAzure {
 		request.StreamOptions = nil
 	}
