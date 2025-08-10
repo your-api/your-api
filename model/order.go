@@ -37,6 +37,13 @@ func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmo
 		return nil, errors.New("支付金额必须大于0")
 	}
 
+	// 先检查订单是否已存在
+	var existingOrder OrderInfo
+	if err := DB.Where("out_trade_no = ?", outTradeNo).First(&existingOrder).Error; err == nil {
+		common.SysLog(fmt.Sprintf("订单已存在，跳过创建: OutTradeNo=%s, Status=%d", outTradeNo, existingOrder.Status))
+		return &existingOrder, nil
+	}
+
 	order := &OrderInfo{
 		OutTradeNo: outTradeNo,
 		UserId:     userId,
@@ -48,10 +55,16 @@ func CreateOrder(outTradeNo string, qrCode string, userId int, payAmount, getAmo
 		CreateTime: time.Now(),
 	}
 
+	common.SysLog(fmt.Sprintf("创建订单: OutTradeNo=%s, UserId=%d, PayAmount=%.2f, GetAmount=%.2f, PayWay=%d", 
+		outTradeNo, userId, payAmount, getAmount, payWay))
+
 	err := DB.Create(order).Error
 	if err != nil {
+		common.SysLog(fmt.Sprintf("订单创建失败: %v", err))
 		return nil, err
 	}
+	
+	common.SysLog(fmt.Sprintf("订单创建成功: OutTradeNo=%s", outTradeNo))
 	return order, nil
 }
 
@@ -61,14 +74,108 @@ func CompleteOrder(outTradeNo string) error {
 		return errors.New("订单号不能为空")
 	}
 
-	// 查询订单（支持状态为0或999的订单）
+	// 先查询订单，不限制状态
 	var order OrderInfo
-	if err := DB.Where("out_trade_no = ? AND (status = ? OR status = ?)", outTradeNo, 0, 999).First(&order).Error; err != nil {
+	if err := DB.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.SysLog(fmt.Sprintf("订单不存在或已处理: %s", outTradeNo))
-			return errors.New("订单不存在或已被处理")
+			common.SysLog(fmt.Sprintf("订单不存在: %s", outTradeNo))
+			return errors.New("订单不存在")
 		}
 		return errors.New("订单未找到: " + err.Error())
+	}
+
+	// 如果订单已经完成，检查用户额度是否已经增加
+	if order.Status == 2 {
+		// 检查用户是否已经收到额度
+		user, err := GetUserById(order.UserId, true)
+		if err != nil {
+			common.SysLog(fmt.Sprintf("查询用户失败: %s, 用户ID: %d", outTradeNo, order.UserId))
+			return err
+		}
+		
+		// 检查充值日志是否存在
+		var logCount int64
+		DB.Model(&Log{}).Where("user_id = ? AND type = ? AND content LIKE ?", 
+			order.UserId, LogTypeTopup, "%"+outTradeNo+"%").Count(&logCount)
+		
+		if logCount > 0 {
+			// 如果日志存在，说明额度已经加过了
+			common.SysLog(fmt.Sprintf("订单已经完成且额度已添加，忽略重复处理: %s", outTradeNo))
+			return nil
+		}
+		
+		// 如果订单状态是完成但是没有日志，说明可能是之前处理失败了，需要补充添加额度
+		common.SysLog(fmt.Sprintf("订单状态已完成但额度未添加，开始补充处理: %s", outTradeNo))
+		
+		// 开始事务补充添加额度
+		tx := DB.Begin()
+		if tx.Error != nil {
+			return tx.Error
+		}
+		defer tx.Rollback()
+		
+		// 计算并添加额度
+		dAmount := decimal.NewFromFloat(order.GetAmount)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
+		
+		common.SysLog(fmt.Sprintf("补充处理-计算额度: GetAmount=%.2f, QuotaPerUnit=%.0f, quotaToAdd=%d", 
+			order.GetAmount, common.QuotaPerUnit, quotaToAdd))
+		
+		oldQuota := user.Quota
+		user.Quota += quotaToAdd
+		user.PayCount++
+		
+		common.SysLog(fmt.Sprintf("补充处理-更新用户额度: UserId=%d, 原额度=%d, 新额度=%d, 增加额度=%d", 
+			user.Id, oldQuota, user.Quota, quotaToAdd))
+		
+		if err := tx.Save(&user).Error; err != nil {
+			common.SysLog(fmt.Sprintf("补充更新用户额度失败: 订单=%s, 用户ID=%d, 错误=%v", outTradeNo, user.Id, err))
+			return errors.New("补充订单失败: " + err.Error())
+		}
+		
+		// 处理邀请充值返利：与正常流程保持一致
+		if user.InviterId > 0 && user.PayCount <= 3000000 {
+			commissionQuota := int(float64(quotaToAdd) * 0.02)
+			if commissionQuota > 0 {
+				err = tx.Model(&User{}).
+					Where("id = ?", user.InviterId).
+					Update("reward_quota", gorm.Expr("reward_quota + ?", commissionQuota)).Error
+				if err != nil {
+					return fmt.Errorf("补充分配邀请充值返利失败: %v", err)
+				}
+				
+				RecordLog(user.InviterId, LogTypeSystem,
+					fmt.Sprintf("邀请用户充值返利 %s (补充处理，来自某位邀请用户的第%d次充值)",
+						common.LogQuota(commissionQuota), user.PayCount))
+			}
+		}
+		
+		// 提交事务
+		if err := tx.Commit().Error; err != nil {
+			common.SysLog(fmt.Sprintf("补充处理事务提交失败: 订单=%s, 错误=%v", outTradeNo, err))
+			return err
+		}
+		
+		common.SysLog(fmt.Sprintf("订单补充处理成功: %s, 用户ID: %d, 增加额度: %d", outTradeNo, order.UserId, quotaToAdd))
+		
+		// 记录用户充值日志
+		RecordLog(order.UserId, LogTypeTopup,
+			fmt.Sprintf("使用在线充值成功（补充处理），订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, common.LogQuota(quotaToAdd), order.PayAmount))
+		
+		return nil
+	}
+
+	// 如果订单状态不是0、1或999，则不能处理
+	// 状态1是终止状态，但如果用户实际已支付，我们仍需要处理
+	if order.Status != 0 && order.Status != 1 && order.Status != 999 {
+		common.SysLog(fmt.Sprintf("订单状态不正确，无法处理: %s, 状态: %d", outTradeNo, order.Status))
+		return errors.New("订单状态不正确")
+	}
+	
+	// 如果是状态1（终止），记录日志说明这是补救处理
+	if order.Status == 1 {
+		common.SysLog(fmt.Sprintf("订单已被标记为终止，但用户已支付，开始补救处理: %s", outTradeNo))
 	}
 
 	common.SysLog(fmt.Sprintf("开始处理订单: %s, 用户ID: %d, 支付金额: %.2f, 到账金额: %.2f", 
@@ -91,8 +198,16 @@ func CompleteOrder(outTradeNo string) error {
 	dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 	quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
 	
+	common.SysLog(fmt.Sprintf("计算额度: GetAmount=%.2f, QuotaPerUnit=%.0f, quotaToAdd=%d", 
+		order.GetAmount, common.QuotaPerUnit, quotaToAdd))
+	
+	oldQuota := user.Quota
 	user.Quota += quotaToAdd
 	user.PayCount++
+	
+	common.SysLog(fmt.Sprintf("更新用户额度: UserId=%d, 原额度=%d, 新额度=%d, 增加额度=%d", 
+		user.Id, oldQuota, user.Quota, quotaToAdd))
+	
 	if err := tx.Save(&user).Error; err != nil {
 		common.SysLog(fmt.Sprintf("更新用户额度失败: 订单=%s, 用户ID=%d, 错误=%v", outTradeNo, user.Id, err))
 		return errors.New("订单失败: " + err.Error())
@@ -120,12 +235,22 @@ func CompleteOrder(outTradeNo string) error {
 	}
 
 	// 更新订单状态为完成（状态2）
-	err = tx.Model(&OrderInfo{}).
-		Where("out_trade_no = ? AND (status = ? OR status = ?)", outTradeNo, 0, 999).
-		Update("status", 2).Error
-	if err != nil {
-		return errors.New("更新订单状态失败: " + err.Error())
+	// 允许从状态0、1、999更新到状态2
+	result := tx.Model(&OrderInfo{}).
+		Where("out_trade_no = ? AND (status = ? OR status = ? OR status = ?)", outTradeNo, 0, 1, 999).
+		Update("status", 2)
+	
+	if result.Error != nil {
+		common.SysLog(fmt.Sprintf("更新订单状态失败: 订单=%s, 错误=%v", outTradeNo, result.Error))
+		return errors.New("更新订单状态失败: " + result.Error.Error())
 	}
+	
+	if result.RowsAffected == 0 {
+		common.SysLog(fmt.Sprintf("更新订单状态失败: 订单=%s, 没有行被更新（可能状态不正确）", outTradeNo))
+		return errors.New("更新订单状态失败: 没有行被更新")
+	}
+	
+	common.SysLog(fmt.Sprintf("订单状态更新成功: 订单=%s, 更新行数=%d", outTradeNo, result.RowsAffected))
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
@@ -142,11 +267,11 @@ func CompleteOrder(outTradeNo string) error {
 	return nil
 }
 
-// ProcessTimeoutOrders 处理超时订单：查询创建时间超过5分钟且状态为0的订单，检查支付状态并更新 订单补偿
+// ProcessTimeoutOrders 处理超时订单：查询创建时间超过10分钟且状态为0的订单，检查支付状态并更新 订单补偿
 func ProcessTimeoutOrders() error {
-	// 查询创建时间超过5分钟且状态为0的订单，使用 FOR UPDATE 行锁防止并发处理
+	// 查询创建时间超过10分钟且状态为0的订单，使用 FOR UPDATE 行锁防止并发处理
 	var timeoutOrders []OrderInfo
-	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+	tenMinutesAgo := time.Now().Add(-10 * time.Minute) // 改为10分钟，给用户更多支付时间
 
 	// 开始事务并使用 FOR UPDATE 锁
 	tx := DB.Begin()
@@ -156,7 +281,7 @@ func ProcessTimeoutOrders() error {
 	defer tx.Rollback()
 
 	err := tx.Set("gorm:query_option", "FOR UPDATE").
-		Where("status = ? AND create_time < ?", 0, fiveMinutesAgo).
+		Where("status = ? AND create_time < ?", 0, tenMinutesAgo).
 		Find(&timeoutOrders).Error
 	if err != nil {
 		return fmt.Errorf("查询超时订单失败: %v", err)

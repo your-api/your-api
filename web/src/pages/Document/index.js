@@ -14,9 +14,9 @@ const Document = () => {
     };
 
     return (
-        <Layout style={{ padding: '20px' }}>
+        <Layout style={{ paddingTop: '64px', padding: '84px 20px 20px 20px', height: '100vh' }}>
             {docsLink ? (
-                <div className="relative w-full h-[800px]">
+                <div className="relative w-full h-full">
                     {isLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded-md">
                             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
@@ -26,7 +26,7 @@ const Document = () => {
                         src={docsLink}
                         title="Documentation"
                         width="100%"
-                        height="800px"
+                        height="100%"
                         className={`rounded-md shadow-md ${isLoading ? 'invisible' : 'visible'}`}
                         style={{ border: 'none' }}
                         allowFullScreen

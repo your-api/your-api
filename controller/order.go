@@ -133,10 +133,17 @@ func GetOrderInfo(c *gin.Context) {
 		return
 	}
 
+	// 创建订单前记录日志
+	fmt.Printf("准备创建订单: OutTradeNo=%s, UserId=%d, PayAmount=%.2f, GetAmount=%.2f, PayWay=%d\n", 
+		td.OutTradeNo, userId, discountPayAmount, creditAmount, req.PayWay)
+
 	if _, err := model.CreateOrder(td.OutTradeNo, td.QRCode, userId, discountPayAmount, creditAmount, req.PayWay); err != nil {
-		respondError(c, "订单创建失败")
+		fmt.Printf("订单创建失败: %v\n", err)
+		respondError(c, "订单创建失败: " + err.Error())
 		return
 	}
+
+	fmt.Printf("订单创建成功: OutTradeNo=%s\n", td.OutTradeNo)
 
 	// 返回前端
 	c.JSON(http.StatusOK, gin.H{
@@ -162,10 +169,29 @@ func QueryTradeStatus(c *gin.Context) {
 
 	// 判断status是否等于OK
 	if strings.EqualFold(resp.Status, "OK") {
+		// 先记录日志
+		fmt.Printf("支付状态查询成功，开始处理订单: %s\n", outTradeNo)
+		
 		err := model.CompleteOrder(outTradeNo)
 		if err != nil {
+			// 如果是重复处理或已经完成，仍然返回成功
+			if strings.Contains(err.Error(), "已经完成") || strings.Contains(err.Error(), "已添加") {
+				fmt.Printf("订单已处理: %s\n", outTradeNo)
+				c.JSON(http.StatusOK, gin.H{
+					"message": "",
+					"success": true,
+					"data":    "OK",
+				})
+				return
+			}
+			// 其他错误，记录详细日志
+			fmt.Printf("CompleteOrder 失败: outTradeNo=%s, error=%v\n", outTradeNo, err)
+			// 返回错误给前端，让用户知道出了问题
+			respondError(c, "订单处理失败，请联系管理员: " + err.Error())
 			return
 		}
+		
+		fmt.Printf("订单处理成功: %s\n", outTradeNo)
 		// 返回前端
 		c.JSON(http.StatusOK, gin.H{
 			"message": "",
@@ -267,6 +293,55 @@ func queryQRStatusAll(ctx context.Context, outTradeNo string, payWay string) (*q
 	}
 
 	return qrResp.Data, nil
+}
+
+// PaymentCallback 处理支付回调
+func PaymentCallback(c *gin.Context) {
+	// 支付回调结构体
+	type CallbackData struct {
+		OutTradeNo string `json:"outTradeNo"`
+		Status     string `json:"status"`
+		PayWay     int    `json:"payWay"`
+		Amount     float64 `json:"amount"`
+		Sign       string `json:"sign"`
+	}
+
+	var data CallbackData
+	if err := c.ShouldBindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Invalid callback data",
+		})
+		return
+	}
+
+	// TODO: 验证签名
+	// if !verifySignature(data) {
+	//     c.JSON(http.StatusUnauthorized, gin.H{
+	//         "success": false,
+	//         "message": "Invalid signature",
+	//     })
+	//     return
+	// }
+
+	// 如果状态是成功
+	if strings.EqualFold(data.Status, "OK") || strings.EqualFold(data.Status, "SUCCESS") {
+		err := model.CompleteOrder(data.OutTradeNo)
+		if err != nil && !strings.Contains(err.Error(), "已经完成") {
+			fmt.Printf("PaymentCallback CompleteOrder error: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Failed to process order",
+			})
+			return
+		}
+	}
+
+	// 返回成功响应给支付网关
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Callback processed",
+	})
 }
 
 // —— 错误统一响应 ——

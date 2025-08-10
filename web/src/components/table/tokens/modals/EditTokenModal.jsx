@@ -65,10 +65,10 @@ const EditTokenModal = (props) => {
   const isEdit = props.editingToken.id !== undefined;
 
   const getInitValues = () => ({
-    name: '',
-    remain_quota: 500000,
+    name: '默认未命名令牌',
+    remain_quota: 500000000,
     expired_time: -1,
-    unlimited_quota: false,
+    unlimited_quota: true,
     model_limits_enabled: false,
     model_limits: [],
     allow_ips: '',
@@ -239,7 +239,7 @@ const EditTokenModal = (props) => {
       let successCount = 0;
       for (let i = 0; i < count; i++) {
         let { tokenCount: _tc, ...localInputs } = values;
-        const baseName = values.name.trim() === '' ? 'default' : values.name.trim();
+        const baseName = values.name.trim() === '' ? '默认未命名令牌' : values.name.trim();
         if (i !== 0 || values.name.trim() === '') {
           localInputs.name = `${baseName}-${generateRandomSuffix()}`;
         } else {
@@ -351,7 +351,7 @@ const EditTokenModal = (props) => {
                     <Form.Input
                       field='name'
                       label={t('名称')}
-                      placeholder={t('请输入名称')}
+                      placeholder={t('默认未命名令牌')}
                       rules={[{ required: true, message: t('请输入名称') }]}
                       showClear
                     />

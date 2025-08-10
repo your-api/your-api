@@ -123,6 +123,14 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
 		if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 			// Use PostgreSQL
 			common.SysLog("using PostgreSQL as database")
+			// Add timezone setting for PostgreSQL
+			if !strings.Contains(dsn, "timezone=") {
+				if strings.Contains(dsn, "?") {
+					dsn += "&timezone=Asia/Shanghai"
+				} else {
+					dsn += "?timezone=Asia/Shanghai"
+				}
+			}
 			if !isLog {
 				common.UsingPostgreSQL = true
 			} else {
@@ -148,13 +156,20 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, error) {
 		}
 		// Use MySQL
 		common.SysLog("using MySQL as database")
-		// check parseTime
+		// check parseTime and loc
 		if !strings.Contains(dsn, "parseTime") {
 			if strings.Contains(dsn, "?") {
 				dsn += "&parseTime=true"
 			} else {
 				dsn += "?parseTime=true"
 			}
+		}
+		// Add timezone setting for MySQL
+		if !strings.Contains(dsn, "loc=") {
+			dsn += "&loc=Asia%2FShanghai"
+		}
+		if !strings.Contains(dsn, "charset=") {
+			dsn += "&charset=utf8mb4"
 		}
 		if !isLog {
 			common.UsingMySQL = true
@@ -256,6 +271,7 @@ func migrateDB() error {
 		&Setup{},
 		&TwoFA{},
 		&TwoFABackupCode{},
+		&OrderInfo{},
 	)
 	if err != nil {
 		return err
@@ -287,6 +303,7 @@ func migrateDBFast() error {
 		{&Setup{}, "Setup"},
 		{&TwoFA{}, "TwoFA"},
 		{&TwoFABackupCode{}, "TwoFABackupCode"},
+		{&OrderInfo{}, "OrderInfo"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))

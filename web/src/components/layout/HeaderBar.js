@@ -25,7 +25,8 @@ import {
   IconInfoCircle,
   IconCreditCard,
   IconTerminal,
- IconFilpVertical,
+  IconFilpVertical,
+  IconCode,
 } from '@douyinfe/semi-icons';
 import {
   Avatar,
@@ -200,6 +201,14 @@ const HeaderBar = () => {
           },
         ]
       : []),
+    // Claude Code link
+    {
+      text: 'Claude Code',
+      itemKey: 'claude-code',
+      isExternal: true,
+      externalLink: 'https://doc.yourapi.cn/',
+      icon: <IconCode style={headerIconStyle} />,
+    },
     // Add custom navigation links from the backend
     ...custemNavLinks.map(link => ({
       text: t(link.text),

@@ -60,6 +60,9 @@ func SetApiRouter(router *gin.Engine) {
 			orderRoute.POST("/getTradeInfo", middleware.CriticalRateLimit(), controller.GetOrderInfo)
 			orderRoute.GET("/queryTradeStatus", controller.QueryTradeStatus)
 		}
+		
+		// 支付回调路由（不需要认证）
+		apiRouter.POST("/order/callback", controller.PaymentCallback)
 
 		apiRouter.POST("/stripe/webhook", controller.StripeWebhook)
 

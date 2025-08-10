@@ -487,11 +487,12 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
-	// 用户日志也从logs_all视图查询，但加上user_id过滤
+	// 普通用户直接查询对应的分片表，提高查询效率
+	tableName := getLogTableByUser(userId)
 	if logType == LogTypeUnknown {
-		tx = LOG_DB.Table("logs_all").Where("user_id = ?", userId)
+		tx = LOG_DB.Table(tableName).Where("user_id = ?", userId)
 	} else {
-		tx = LOG_DB.Table("logs_all").Where("user_id = ? and type = ?", userId, logType)
+		tx = LOG_DB.Table(tableName).Where("user_id = ? and type = ?", userId, logType)
 	}
 
 	if modelName != "" {
@@ -528,7 +529,9 @@ func SearchAllLogs(keyword string) (logs []*Log, err error) {
 }
 
 func SearchUserLogs(userId int, keyword string) (logs []*Log, err error) {
-	err = LOG_DB.Table("logs_all").Where("user_id = ? and type = ?", userId, keyword).Order("id desc").Limit(common.MaxRecentItems).Find(&logs).Error
+	// 普通用户直接查询对应的分片表，提高查询效率
+	tableName := getLogTableByUser(userId)
+	err = LOG_DB.Table(tableName).Where("user_id = ? and type = ?", userId, keyword).Order("id desc").Limit(common.MaxRecentItems).Find(&logs).Error
 	formatUserLogs(logs)
 	return logs, err
 }
@@ -627,28 +630,41 @@ func formatRetryInfo(c *gin.Context) string {
 func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
 	var total int64 = 0
 
-	// 从logs_all视图中删除旧日志（实际会从分片表中删除）
-	for {
+	// 遍历所有分片表删除旧日志
+	for i := 0; i < shardCount; i++ {
 		if ctx.Err() != nil {
 			return total, ctx.Err()
 		}
 
-		result := LOG_DB.Where("created_at < ?", targetTimestamp).
-			Limit(limit).
-			Delete(&Log{})
+		tableName := fmt.Sprintf("logs_%02d", i)
+		
+		// 每个分片表单独删除
+		for {
+			if ctx.Err() != nil {
+				return total, ctx.Err()
+			}
 
-		if result.Error != nil {
-			return total, result.Error
+			result := LOG_DB.Table(tableName).Where("created_at < ?", targetTimestamp).
+				Limit(limit).
+				Delete(&Log{})
+
+			if result.Error != nil {
+				// 如果表不存在，继续下一个
+				if strings.Contains(result.Error.Error(), "doesn't exist") {
+					break
+				}
+				return total, result.Error
+			}
+
+			total += result.RowsAffected
+
+			if result.RowsAffected < int64(limit) {
+				break
+			}
+
+			// 添加短暂延迟，避免过度占用数据库资源
+			time.Sleep(50 * time.Millisecond)
 		}
-
-		total += result.RowsAffected
-
-		if result.RowsAffected < int64(limit) {
-			break
-		}
-
-		// 添加短暂延迟，避免过度占用数据库资源
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	return total, nil
