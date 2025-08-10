@@ -80,6 +80,7 @@ import { Bell, Shield, Webhook, Globe, Settings, UserPlus, ShieldCheck } from 'l
 import TelegramLoginButton from 'react-telegram-login';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
+import ImageCaptcha from '../ImageCaptcha';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -91,6 +92,8 @@ const PersonalSetting = () => {
     wechat_verification_code: '',
     email_verification_code: '',
     email: '',
+    phone: '',
+    phone_verification_code: '',
     self_account_deletion_confirmation: '',
     original_password: '',
     set_new_password: '',
@@ -100,6 +103,7 @@ const PersonalSetting = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showWeChatBindModal, setShowWeChatBindModal] = useState(false);
   const [showEmailBindModal, setShowEmailBindModal] = useState(false);
+  const [showPhoneBindModal, setShowPhoneBindModal] = useState(false);
   const [showAccountDeleteModal, setShowAccountDeleteModal] = useState(false);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
@@ -107,6 +111,8 @@ const PersonalSetting = () => {
   const [loading, setLoading] = useState(false);
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [phoneDisableButton, setPhoneDisableButton] = useState(false);
+  const [phoneCountdown, setPhoneCountdown] = useState(60);
   const [systemToken, setSystemToken] = useState('');
   const [models, setModels] = useState([]);
   const [isModelsExpanded, setIsModelsExpanded] = useState(() => {
@@ -134,6 +140,12 @@ const PersonalSetting = () => {
   const [isCheckingWechatLogin, setIsCheckingWechatLogin] = useState(false);
   const [wechatBindStatus, setWechatBindStatus] = useState('waiting'); // waiting, success, error
   const [wechatBindError, setWechatBindError] = useState('');
+  
+  // 图片验证码相关状态
+  const [showPhoneImageCaptcha, setShowPhoneImageCaptcha] = useState(false);
+  const [imageCaptchaData, setImageCaptchaData] = useState(null);
+  const [showEmailImageCaptcha, setShowEmailImageCaptcha] = useState(false);
+  const [emailImageCaptchaData, setEmailImageCaptchaData] = useState(null);
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -163,6 +175,19 @@ const PersonalSetting = () => {
     }
     return () => clearInterval(countdownInterval); // Clean up on unmount
   }, [disableButton, countdown]);
+
+  useEffect(() => {
+    let phoneCountdownInterval = null;
+    if (phoneDisableButton && phoneCountdown > 0) {
+      phoneCountdownInterval = setInterval(() => {
+        setPhoneCountdown(phoneCountdown - 1);
+      }, 1000);
+    } else if (phoneCountdown === 0) {
+      setPhoneDisableButton(false);
+      setPhoneCountdown(60);
+    }
+    return () => clearInterval(phoneCountdownInterval);
+  }, [phoneDisableButton, phoneCountdown]);
 
   useEffect(() => {
     if (userState?.user?.setting) {
@@ -413,27 +438,197 @@ const PersonalSetting = () => {
     setShowChangePasswordModal(false);
   };
 
+  // 处理手机号绑定的图片验证码验证成功
+  const handlePhoneImageCaptchaVerified = (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowPhoneImageCaptcha(false);
+    // 验证成功后自动发送手机验证码
+    sendPhoneVerificationAfterCaptcha(captchaData);
+  };
+
+  // 手机号绑定的图片验证码验证失败或错误
+  const handlePhoneImageCaptchaError = (error) => {
+    console.error('手机号绑定图片验证码错误:', error);
+    setImageCaptchaData(null);
+    // 重新显示验证码
+    setShowPhoneImageCaptcha(true);
+  };
+
+  // 发送手机验证码（在图片验证码验证成功后）
+  const sendPhoneVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.phone === '') return;
+    
+    setLoading(true);
+    try {
+      // 注意：后端需要实现 /api/verification/phone 接口
+      // 目前后端有 SendPhoneVerification 函数但未注册路由
+      // 需要在 router/api-router.go 中添加:
+      // apiRouter.POST("/verification/phone", controller.SendPhoneVerification)
+      const res = await API.post('/api/verification/phone', {
+        phone: inputs.phone,
+        purpose: 'bind',
+        image_captcha_id: captchaData.captcha_id,
+        image_captcha_code: captchaData.captcha_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('验证码发送成功，请检查手机！'));
+        setPhoneCountdown(60);
+        setPhoneDisableButton(true);
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo(t('请重新完成图片验证码验证'));
+          setImageCaptchaData(null);
+          setShowPhoneImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      // 如果接口不存在，提示用户
+      if (error.response && error.response.status === 404) {
+        showError(t('手机验证功能暂未开放，请联系管理员'));
+      } else {
+        showError(t('发送验证码失败，请重试'));
+      }
+      // 网络错误时也提示重新验证
+      setImageCaptchaData(null);
+      setShowPhoneImageCaptcha(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 发送手机验证码
+  const sendPhoneVerificationCode = async () => {
+    if (inputs.phone === '') {
+      showError(t('请输入手机号！'));
+      return;
+    }
+    
+    // 验证手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(inputs.phone)) {
+      showError(t('请输入正确的手机号格式'));
+      return;
+    }
+    
+    // 在手机号绑定模态框内显示图片验证码
+    setShowPhoneImageCaptcha(true);
+  };
+
+  // 绑定手机号
+  const bindPhone = async () => {
+    if (inputs.phone_verification_code === '') {
+      showError(t('请输入手机验证码！'));
+      return;
+    }
+    setLoading(true);
+    
+    try {
+      // 注意：后端需要实现 /api/oauth/phone/bind 接口
+      // 需要创建 PhoneBind 函数并在路由中注册
+      const res = await API.post('/api/oauth/phone/bind', {
+        phone: inputs.phone,
+        code: inputs.phone_verification_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('手机号绑定成功！'));
+        setShowPhoneBindModal(false);
+        setShowPhoneImageCaptcha(false);
+        setImageCaptchaData(null);
+        // 重置输入
+        setInputs(prev => ({
+          ...prev,
+          phone: '',
+          phone_verification_code: ''
+        }));
+        if (userState.user) {
+          userState.user.phone = inputs.phone;
+        }
+        getUserData(); // 刷新用户数据
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      // 如果接口不存在，提示用户
+      if (error.response && error.response.status === 404) {
+        showError(t('手机绑定功能暂未开放，请联系管理员'));
+      } else {
+        showError(t('绑定失败，请重试'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 处理邮箱绑定的图片验证码验证成功
+  const handleEmailImageCaptchaVerified = (captchaData) => {
+    setEmailImageCaptchaData(captchaData);
+    setShowEmailImageCaptcha(false);
+    // 验证成功后自动发送邮箱验证码
+    sendEmailVerificationAfterCaptcha(captchaData);
+  };
+
+  // 邮箱绑定的图片验证码验证失败或错误
+  const handleEmailImageCaptchaError = (error) => {
+    console.error('邮箱绑定图片验证码错误:', error);
+    setEmailImageCaptchaData(null);
+    // 重新显示验证码
+    setShowEmailImageCaptcha(true);
+  };
+
+  // 发送邮箱验证码（在图片验证码验证成功后）
+  const sendEmailVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.email === '') return;
+    
+    setLoading(true);
+    setDisableButton(true);
+    try {
+      const res = await API.get(
+        `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}&image_captcha_id=${captchaData.captcha_id}&image_captcha_code=${captchaData.captcha_code}`,
+      );
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('验证码发送成功，请检查邮箱！'));
+        setCountdown(30);
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo(t('请重新完成图片验证码验证'));
+          setEmailImageCaptchaData(null);
+          setShowEmailImageCaptcha(true);
+        }
+        setDisableButton(false);
+      }
+    } catch (error) {
+      showError(t('发送验证码失败，请重试'));
+      // 网络错误时也提示重新验证
+      setEmailImageCaptchaData(null);
+      setShowEmailImageCaptcha(true);
+      setDisableButton(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendVerificationCode = async () => {
     if (inputs.email === '') {
       showError(t('请输入邮箱！'));
       return;
     }
-    setDisableButton(true);
-    if (turnstileEnabled && turnstileToken === '') {
-      showInfo(t('请稍后几秒重试，Turnstile 正在检查用户环境！'));
+    
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inputs.email)) {
+      showError(t('请输入正确的邮箱格式'));
       return;
     }
-    setLoading(true);
-    const res = await API.get(
-      `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
-    );
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('验证码发送成功，请检查邮箱！'));
-    } else {
-      showError(message);
-    }
-    setLoading(false);
+    
+    // 显示图片验证码
+    setShowEmailImageCaptcha(true);
   };
 
   const bindEmail = async () => {
@@ -449,7 +644,16 @@ const PersonalSetting = () => {
     if (success) {
       showSuccess(t('邮箱账户绑定成功！'));
       setShowEmailBindModal(false);
+      setShowEmailImageCaptcha(false);
+      setEmailImageCaptchaData(null);
+      // 重置输入
+      setInputs(prev => ({
+        ...prev,
+        email: '',
+        email_verification_code: ''
+      }));
       userState.user.email = inputs.email;
+      getUserData(); // 刷新用户数据
     } else {
       showError(message);
     }
@@ -905,14 +1109,33 @@ const PersonalSetting = () => {
                         <Typography.Text strong>{t('手机号')}</Typography.Text>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                           <Input
-                            value={t('未绑定')}
+                            value={
+                              userState.user && userState.user.phone !== ''
+                                ? userState.user.phone
+                                : t('未绑定')
+                            }
                             readOnly={true}
                             style={{ maxWidth: 200 }}
                           />
-                          <Button disabled={true}>
-                            {t('暂不支持')}
-                          </Button>
+                          {userState.user && userState.user.phone !== '' ? (
+                            <Button disabled={true} type='secondary'>
+                              {t('已绑定')}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => setShowPhoneBindModal(true)}
+                            >
+                              {t('绑定手机号')}
+                            </Button>
+                          )}
                         </div>
+                        {userState.user && userState.user.phone !== '' && (
+                          <div style={{ marginTop: 10 }}>
+                            <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                              {t('手机号已绑定，为了账户安全，不支持解绑或修改操作')}
+                            </Typography.Text>
+                          </div>
+                        )}
                       </div>
 
                       {/* 邮箱绑定 */}
@@ -1350,7 +1573,11 @@ const PersonalSetting = () => {
           </div>
         }
         visible={showEmailBindModal}
-        onCancel={() => setShowEmailBindModal(false)}
+        onCancel={() => {
+          setShowEmailBindModal(false);
+          setShowEmailImageCaptcha(false);
+          setEmailImageCaptchaData(null);
+        }}
         onOk={bindEmail}
         size={'small'}
         centered={true}
@@ -1358,47 +1585,140 @@ const PersonalSetting = () => {
         className="modern-modal"
       >
         <div className="space-y-4 py-4">
-          <div className="flex gap-3">
-            <Input
-              placeholder={t('输入邮箱地址')}
-              onChange={(value) => handleInputChange('email', value)}
-              name='email'
-              type='email'
-              size="large"
-              className="!rounded-lg flex-1"
-              prefix={<IconMail />}
-            />
-            <Button
-              onClick={sendVerificationCode}
-              disabled={disableButton || loading}
-              className="!rounded-lg"
-              type="primary"
-              theme="outline"
-              size='large'
-            >
-              {disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}
-            </Button>
+          {!showEmailImageCaptcha ? (
+            <>
+              <div className="flex gap-3">
+                <Input
+                  placeholder={t('输入邮箱地址')}
+                  onChange={(value) => handleInputChange('email', value)}
+                  name='email'
+                  type='email'
+                  value={inputs.email}
+                  size="large"
+                  className="!rounded-lg flex-1"
+                  prefix={<IconMail />}
+                />
+                <Button
+                  onClick={sendVerificationCode}
+                  disabled={disableButton || loading}
+                  className="!rounded-lg"
+                  type="primary"
+                  theme="outline"
+                  size='large'
+                >
+                  {disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}
+                </Button>
+              </div>
+
+              <Input
+                placeholder={t('验证码')}
+                name='email_verification_code'
+                value={inputs.email_verification_code}
+                onChange={(value) =>
+                  handleInputChange('email_verification_code', value)
+                }
+                size="large"
+                className="!rounded-lg"
+                prefix={<IconKey />}
+              />
+
+              {turnstileEnabled && (
+                <div className="flex justify-center">
+                  <Turnstile
+                    sitekey={turnstileSiteKey}
+                    onVerify={(token) => {
+                      setTurnstileToken(token);
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  {t('请完成图片验证码验证')}
+                </span>
+              </div>
+              <ImageCaptcha
+                onVerified={handleEmailImageCaptchaVerified}
+                onError={handleEmailImageCaptchaError}
+                style={{ display: 'flex', justifyContent: 'center' }}
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 手机号绑定模态框 */}
+      <Modal
+        title={
+          <div className="flex items-center">
+            <IconUser className="mr-2 text-blue-500" />
+            {t('绑定手机号')}
           </div>
+        }
+        visible={showPhoneBindModal}
+        onCancel={() => {
+          setShowPhoneBindModal(false);
+          setShowPhoneImageCaptcha(false);
+          setImageCaptchaData(null);
+        }}
+        onOk={bindPhone}
+        size={'small'}
+        centered={true}
+        maskClosable={false}
+        className="modern-modal"
+      >
+        <div className="space-y-4 py-4">
+          {!showPhoneImageCaptcha ? (
+            <>
+              <div className="flex gap-3">
+                <Input
+                  placeholder={t('输入手机号')}
+                  onChange={(value) => handleInputChange('phone', value)}
+                  name='phone'
+                  type='tel'
+                  value={inputs.phone}
+                  size="large"
+                  className="!rounded-lg flex-1"
+                  prefix={<IconUser />}
+                />
+                <Button
+                  onClick={sendPhoneVerificationCode}
+                  disabled={phoneDisableButton || loading}
+                  className="!rounded-lg"
+                  type="primary"
+                  theme="outline"
+                  size='large'
+                >
+                  {phoneDisableButton ? `${t('重新发送')} (${phoneCountdown})` : t('获取验证码')}
+                </Button>
+              </div>
 
-          <Input
-            placeholder={t('验证码')}
-            name='email_verification_code'
-            value={inputs.email_verification_code}
-            onChange={(value) =>
-              handleInputChange('email_verification_code', value)
-            }
-            size="large"
-            className="!rounded-lg"
-            prefix={<IconKey />}
-          />
-
-          {turnstileEnabled && (
-            <div className="flex justify-center">
-              <Turnstile
-                sitekey={turnstileSiteKey}
-                onVerify={(token) => {
-                  setTurnstileToken(token);
-                }}
+              <Input
+                placeholder={t('验证码')}
+                name='phone_verification_code'
+                value={inputs.phone_verification_code}
+                onChange={(value) =>
+                  handleInputChange('phone_verification_code', value)
+                }
+                size="large"
+                className="!rounded-lg"
+                prefix={<IconKey />}
+              />
+            </>
+          ) : (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  {t('请完成图片验证码验证')}
+                </span>
+              </div>
+              <ImageCaptcha
+                onVerified={handlePhoneImageCaptchaVerified}
+                onError={handlePhoneImageCaptchaError}
+                style={{ display: 'flex', justifyContent: 'center' }}
               />
             </div>
           )}

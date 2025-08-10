@@ -289,6 +289,211 @@ code {
 }
 
 /* ==================== 组件特定样式 ==================== */
+/* 修复 Semi Design 按钮样式被 Tailwind 重置的问题 */
+.semi-button {
+  border-width: 1px !important;
+  border-style: solid !important;
+  margin: 0 4px !important; /* 按钮之间添加间距 */
+  padding: 6px 16px !important; /* 合适的内边距 */
+  min-height: 32px !important; /* 最小高度 */
+  font-weight: 500 !important; /* 字体稍微加粗 */
+  transition: all 0.2s ease !important;
+}
+
+.semi-button-size-large {
+  padding: 8px 20px !important;
+  min-height: 40px !important;
+  font-size: 15px !important;
+}
+
+.semi-button-size-small {
+  padding: 4px 12px !important;
+  min-height: 28px !important;
+  font-size: 13px !important;
+}
+
+.semi-button-primary {
+  background-color: var(--semi-color-primary) !important;
+  border-color: var(--semi-color-primary) !important;
+  color: var(--semi-color-white) !important;
+}
+
+.semi-button-primary:hover:not(:disabled) {
+  background-color: var(--semi-color-primary-hover) !important;
+  border-color: var(--semi-color-primary-hover) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(0, 100, 250, 0.2) !important;
+}
+
+.semi-button-secondary {
+  background-color: var(--semi-color-fill-0) !important;
+  border-color: var(--semi-color-border) !important;
+  color: var(--semi-color-text-0) !important;
+}
+
+.semi-button-secondary:hover:not(:disabled) {
+  background-color: var(--semi-color-fill-1) !important;
+  border-color: var(--semi-color-border) !important;
+}
+
+.semi-button-tertiary {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--semi-color-text-0) !important;
+}
+
+.semi-button-tertiary:hover:not(:disabled) {
+  background-color: var(--semi-color-fill-0) !important;
+}
+
+.semi-button-danger {
+  background-color: var(--semi-color-danger) !important;
+  border-color: var(--semi-color-danger) !important;
+  color: var(--semi-color-white) !important;
+}
+
+.semi-button-danger:hover:not(:disabled) {
+  background-color: var(--semi-color-danger-hover) !important;
+  border-color: var(--semi-color-danger-hover) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(250, 100, 100, 0.2) !important;
+}
+
+.semi-button-warning {
+  background-color: var(--semi-color-warning) !important;
+  border-color: var(--semi-color-warning) !important;
+  color: var(--semi-color-white) !important;
+}
+
+.semi-button-theme-solid.semi-button-primary {
+  background-color: var(--semi-color-primary) !important;
+  border-color: var(--semi-color-primary) !important;
+  color: var(--semi-color-white) !important;
+}
+
+.semi-button-theme-light.semi-button-primary {
+  background-color: var(--semi-color-primary-light-default) !important;
+  border-color: transparent !important;
+  color: var(--semi-color-primary) !important;
+}
+
+.semi-button-theme-light.semi-button-primary:hover:not(:disabled) {
+  background-color: var(--semi-color-primary-light-hover) !important;
+}
+
+.semi-button-theme-borderless.semi-button-primary {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--semi-color-primary) !important;
+  padding: 6px 12px !important;
+}
+
+.semi-button-theme-borderless.semi-button-primary:hover:not(:disabled) {
+  background-color: var(--semi-color-fill-0) !important;
+}
+
+.semi-button-theme-outline.semi-button-primary {
+  background-color: transparent !important;
+  border-color: var(--semi-color-primary) !important;
+  color: var(--semi-color-primary) !important;
+}
+
+.semi-button-theme-outline.semi-button-primary:hover:not(:disabled) {
+  background-color: var(--semi-color-primary-light-default) !important;
+}
+
+/* 按钮组内的按钮不需要外边距 */
+.semi-button-group .semi-button {
+  margin: 0 !important;
+}
+
+/* Space 组件内的按钮边距由 Space 控制 */
+.semi-space-align-center .semi-button,
+.semi-space-align-start .semi-button,
+.semi-space-align-end .semi-button,
+.semi-space-align-baseline .semi-button {
+  margin: 0 !important;
+}
+
+/* 修复输入框样式 */
+.semi-input-wrapper {
+  margin: 4px 0 !important;
+}
+
+.semi-input {
+  padding: 6px 12px !important;
+  min-height: 32px !important;
+  line-height: 1.5 !important;
+}
+
+.semi-input-size-large {
+  padding: 8px 16px !important;
+  min-height: 40px !important;
+  font-size: 15px !important;
+}
+
+.semi-input-size-small {
+  padding: 4px 12px !important;
+  min-height: 28px !important;
+  font-size: 13px !important;
+}
+
+/* 修复 Modal 内容的间距 */
+.semi-modal-content {
+  padding: 20px 24px !important;
+}
+
+.semi-modal-body {
+  margin-top: 16px !important;
+  margin-bottom: 20px !important;
+}
+
+.semi-modal-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--semi-color-border) !important;
+}
+
+.semi-modal-footer {
+  padding: 16px 24px !important;
+  border-top: 1px solid var(--semi-color-border) !important;
+}
+
+.semi-modal-footer .semi-button {
+  margin: 0 0 0 12px !important;
+}
+
+.semi-modal-footer .semi-button:first-child {
+  margin-left: 0 !important;
+}
+
+/* 卡片内容间距优化 */
+.semi-card-body {
+  padding: 20px !important;
+}
+
+/* 表单项间距 */
+.semi-form-field {
+  margin-bottom: 20px !important;
+}
+
+/* Typography 间距优化 */
+.semi-typography {
+  line-height: 1.6 !important;
+}
+
+.semi-typography-title {
+  margin-bottom: 16px !important;
+  margin-top: 24px !important;
+}
+
+.semi-typography-title:first-child {
+  margin-top: 0 !important;
+}
+
+.semi-typography-paragraph {
+  margin-bottom: 12px !important;
+}
+
 /* Tabs组件样式 */
 .semi-tabs-content {
   padding: 0 !important;

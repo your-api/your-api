@@ -9,6 +9,7 @@ import (
 	"one-api/dto"
 	"one-api/model"
 	"one-api/setting"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -835,6 +836,75 @@ func EmailBind(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
+	})
+	return
+}
+
+func PhoneBind(c *gin.Context) {
+	var req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+	
+	// 验证手机号格式
+	phoneRegex := regexp.MustCompile(`^1[3-9]\d{9}$`)
+	if !phoneRegex.MatchString(req.Phone) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "手机号格式不正确",
+		})
+		return
+	}
+	
+	// 验证手机验证码
+	if !common.VerifyCodeWithKey(req.Phone, req.Code, common.PhoneVerificationPurpose) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "验证码错误或已过期",
+		})
+		return
+	}
+	
+	// 检查手机号是否已被其他用户绑定
+	id := c.GetInt("id")
+	if model.IsPhoneAlreadyTaken(req.Phone, id) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该手机号已被其他用户绑定",
+		})
+		return
+	}
+	
+	user := model.User{
+		Id: id,
+	}
+	err := user.FillUserById()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	
+	user.Phone = req.Phone
+	err = user.Update(false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "手机号绑定成功",
 	})
 	return
 }

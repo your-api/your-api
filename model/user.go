@@ -484,6 +484,13 @@ func (user *User) FillUserByTelegramId() error {
 	return nil
 }
 
+func IsPhoneAlreadyTaken(phone string, excludeUserId int) bool {
+	if excludeUserId > 0 {
+		return DB.Unscoped().Where("phone = ? AND id != ?", phone, excludeUserId).Find(&User{}).RowsAffected >= 1
+	}
+	return DB.Unscoped().Where("phone = ?", phone).Find(&User{}).RowsAffected >= 1
+}
+
 func IsEmailAlreadyTaken(email string) bool {
 	return DB.Unscoped().Where("email = ?", email).Find(&User{}).RowsAffected == 1
 }
@@ -514,6 +521,34 @@ func ResetUserPasswordByEmail(email string, password string) error {
 	}
 	err = DB.Model(&User{}).Where("email = ?", email).Update("password", hashedPassword).Error
 	return err
+}
+
+func ResetUserPasswordByPhone(phone string, password string) error {
+	if phone == "" || password == "" {
+		return errors.New("手机号或密码为空！")
+	}
+	err := DB.Model(&User{}).Where("phone = ?", phone).Update("password", password).Error
+	return err
+}
+
+func GetUserByPhone(phone string) (*User, error) {
+	if phone == "" {
+		return nil, errors.New("手机号为空")
+	}
+	user := User{}
+	err := DB.Where("phone = ?", phone).First(&user).Error
+	return &user, err
+}
+
+func (user *User) FillUserByPhone() error {
+	if user.Phone == "" {
+		return errors.New("手机号为空！")
+	}
+	err := DB.Where(User{Phone: user.Phone}).First(user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("该手机号未注册")
+	}
+	return nil
 }
 
 func IsAdmin(userId int) bool {
@@ -833,28 +868,6 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
-}
-
-// IsPhoneAlreadyTaken 检查手机号是否已被使用
-func IsPhoneAlreadyTaken(phone string) bool {
-	var count int64
-	DB.Model(&User{}).Where("phone = ?", phone).Count(&count)
-	return count > 0
-}
-
-// ResetUserPasswordByPhone 通过手机号重置用户密码
-func ResetUserPasswordByPhone(phone string, password string) error {
-	return DB.Model(&User{}).Where("phone = ?", phone).Update("password", password).Error
-}
-
-// GetUserByPhone 通过手机号获取用户
-func GetUserByPhone(phone string) (*User, error) {
-	var user User
-	err := DB.Where("phone = ?", phone).First(&user).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
 }
 
 // TransferWithdrawingQuotaToQuota 将待提现额度转移到可用额度

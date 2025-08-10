@@ -14,6 +14,7 @@ import (
 	"one-api/setting/console_setting"
 	"one-api/setting/operation_setting"
 	"one-api/setting/system_setting"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -368,7 +369,7 @@ func SendPhoneVerification(c *gin.Context) {
 	}
 
 	// 根据用途检查手机号状态
-	phoneExists := model.IsPhoneAlreadyTaken(req.Phone)
+	phoneExists := model.IsPhoneAlreadyTaken(req.Phone, 0)
 
 	switch purpose {
 	case "register":
@@ -489,6 +490,86 @@ func sendSMSCode(phone, code string) error {
 	return nil
 }
 
+type PhonePasswordResetRequest struct {
+	Phone       string `json:"phone"`
+	PhoneCode   string `json:"phone_code"`
+	NewPassword string `json:"new_password"`
+}
+
+func ResetPasswordByPhone(c *gin.Context) {
+	var req PhonePasswordResetRequest
+	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	if err != nil || req.Phone == "" || req.PhoneCode == "" || req.NewPassword == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+
+	// 验证新密码长度
+	if len(req.NewPassword) < 6 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "密码长度至少6位",
+		})
+		return
+	}
+
+	// 验证手机号格式
+	phoneRegex := regexp.MustCompile(`^1[3-9]\d{9}$`)
+	if !phoneRegex.MatchString(req.Phone) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "手机号格式不正确",
+		})
+		return
+	}
+
+	// 验证手机验证码
+	if !common.VerifyCodeWithKey(req.Phone, req.PhoneCode, common.PhoneVerificationPurpose) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "验证码错误或已过期",
+		})
+		return
+	}
+
+	// 检查手机号是否注册
+	if !model.IsPhoneAlreadyTaken(req.Phone, 0) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该手机号未注册",
+		})
+		return
+	}
+
+	// 使用用户提供的新密码
+	hashedPassword, err := common.Password2Hash(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "密码处理失败",
+		})
+		return
+	}
+
+	err = model.ResetUserPasswordByPhone(req.Phone, hashedPassword)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码重置成功",
+	})
+	return
+}
+
 func SendPasswordResetEmail(c *gin.Context) {
 	email := c.Query("email")
 	if err := common.Validate.Var(email, "required,email"); err != nil {
@@ -562,78 +643,6 @@ func ResetPassword(c *gin.Context) {
 	return
 }
 
-type PhonePasswordResetRequest struct {
-	Phone       string `json:"phone"`
-	PhoneCode   string `json:"phone_code"`
-	NewPassword string `json:"new_password"`
-}
-
-func ResetPasswordByPhone(c *gin.Context) {
-	var req PhonePasswordResetRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&req)
-	if req.Phone == "" || req.PhoneCode == "" || req.NewPassword == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "无效的参数",
-		})
-		return
-	}
-
-	// 验证新密码长度
-	if len(req.NewPassword) < 6 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "密码长度至少6位",
-		})
-		return
-	}
-
-	// 验证手机号格式
-	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "手机号格式不正确",
-		})
-		return
-	}
-
-	// 验证手机验证码
-	if !common.VerifyCodeWithKey(req.Phone, req.PhoneCode, common.PhoneVerificationPurpose) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "验证码错误或已过期",
-		})
-		return
-	}
-
-	// 检查手机号是否注册
-	if !model.IsPhoneAlreadyTaken(req.Phone) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "该手机号未注册",
-		})
-		return
-	}
-
-	// 使用用户提供的新密码
-	err = model.ResetUserPasswordByPhone(req.Phone, req.NewPassword)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	// 删除已使用的验证码
-	common.DeleteKey(req.Phone, common.PhoneVerificationPurpose)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "密码重置成功",
-	})
-	return
-}
 
 func TestIP(c *gin.Context) {
 	clientIP := common.GetClientIP(c)
