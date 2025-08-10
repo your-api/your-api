@@ -133,6 +133,137 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 	}
 }
 
+func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string,
+	contentUpstream string, tokenId int, useTimeSeconds int,
+	isStream bool, group string, other map[string]interface{}) {
+
+	// 从context中获取token信息
+	promptTokens := 0
+	if value, exists := c.Get("prompt_tokens"); exists {
+		if tokens, ok := value.(int); ok {
+			promptTokens = tokens
+		}
+	}
+
+	completionTokens := 0
+	if value, exists := c.Get("completion_tokens"); exists {
+		if tokens, ok := value.(int); ok {
+			completionTokens = tokens
+		}
+	}
+
+	// 判断contentUpstream是否不为空
+	if contentUpstream != "" {
+		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+			userId, channelId, modelName, tokenName, content))
+		
+		username := c.GetString("username")
+		userIdRecord := userId
+
+		// 判断contentUpstream是否包含敏感关键词
+		contentUpstreamLower := strings.ToLower(contentUpstream)
+		if strings.Contains(contentUpstreamLower, "quota") || 
+			strings.Contains(contentUpstream, "配额") || 
+			strings.Contains(contentUpstream, "无可用") ||
+			strings.Contains(contentUpstreamLower, "poe") || 
+			strings.Contains(contentUpstream, "额度") || 
+			strings.Contains(contentUpstreamLower, "credit") || 
+			strings.Contains(contentUpstreamLower, "enough") ||
+			strings.Contains(contentUpstreamLower, "insufficient") ||
+			strings.Contains(contentUpstreamLower, "balance") ||
+			strings.Contains(contentUpstreamLower, "limit") ||
+			strings.Contains(contentUpstreamLower, "exceeded") ||
+			strings.Contains(contentUpstreamLower, "exhausted") ||
+			strings.Contains(contentUpstream, "非流") ||
+			strings.Contains(contentUpstreamLower, "tenclock") ||
+			strings.Contains(contentUpstream, "服务超时") {
+			username = c.GetString("username") + "_root显示"
+			userIdRecord = 1
+		}
+		
+		contentUpstream += "，如有任何问题，请联系我们"
+		
+		// 判断是否需要记录 IP
+		needRecordIp := false
+		if settingMap, err := GetUserSetting(userIdRecord, false); err == nil {
+			if settingMap.RecordIpLog {
+				needRecordIp = true
+			}
+		}
+		
+		log := &Log{
+			UserId:           userIdRecord,
+			Username:         username,
+			CreatedAt:        common.GetTimestamp(),
+			Type:             LogTypeError,
+			Content:          contentUpstream + formatRetryInfo(c),
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TokenName:        tokenName,
+			ModelName:        modelName,
+			Quota:            0,
+			ChannelId:        channelId,
+			TokenId:          tokenId,
+			UseTime:          useTimeSeconds,
+			IsStream:         isStream,
+			Group:            group,
+			Ip: func() string {
+				if needRecordIp {
+					return c.ClientIP()
+				}
+				return ""
+			}(),
+			Other:            common.MapToJsonStr(other),
+		}
+		if err := LOG_DB.Create(log).Error; err != nil {
+			common.LogError(c, "failed to record log: "+err.Error())
+		}
+	}
+
+	// 如果是最后一次重试，记录用户的错误日志
+	if isLast, exists := c.Get("is_last"); exists && isLast == true {
+		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+			userId, channelId, modelName, tokenName, content))
+		username := c.GetString("username")
+		
+		// 判断是否需要记录 IP
+		needRecordIp := false
+		if settingMap, err := GetUserSetting(userId, false); err == nil {
+			if settingMap.RecordIpLog {
+				needRecordIp = true
+			}
+		}
+		
+		log := &Log{
+			UserId:           userId,
+			Username:         username,
+			CreatedAt:        common.GetTimestamp(),
+			Type:             LogTypeError,
+			Content:          content,
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TokenName:        tokenName,
+			ModelName:        modelName,
+			Quota:            0,
+			ChannelId:        channelId,
+			TokenId:          tokenId,
+			UseTime:          useTimeSeconds,
+			IsStream:         isStream,
+			Group:            group,
+			Ip: func() string {
+				if needRecordIp {
+					return c.ClientIP()
+				}
+				return ""
+			}(),
+			Other:            common.MapToJsonStr(other),
+		}
+		if err := LOG_DB.Create(log).Error; err != nil {
+			common.LogError(c, "failed to record log: "+err.Error())
+		}
+	}
+}
+
 type RecordConsumeLogParams struct {
 	ChannelId        int                    `json:"channel_id"`
 	PromptTokens     int                    `json:"prompt_tokens"`
@@ -385,6 +516,15 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	tx.Where("type = ?", LogTypeConsume).Scan(&token)
 	return token
+}
+
+// formatRetryInfo 格式化重试信息
+func formatRetryInfo(c *gin.Context) string {
+	retryTimes := c.GetString("retry_times")
+	if retryTimes == "" {
+		return ""
+	}
+	return fmt.Sprintf("， 重试 %s 次", retryTimes)
 }
 
 func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {

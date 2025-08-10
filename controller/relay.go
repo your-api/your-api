@@ -70,7 +70,10 @@ func relayHandler(c *gin.Context, relayMode int) *types.NewAPIError {
 			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
 		}
 		other["admin_info"] = adminInfo
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveError(), tokenId, 0, false, userGroup, other)
+
+		// 使用RecordErrorLogDouble进行脱敏处理
+		// content是展示给用户的错误信息，contentUpstream是需要脱敏的上游错误信息
+		model.RecordErrorLogDouble(c, userId, channelId, modelName, tokenName, err.Error(), err.MaskSensitiveError(), tokenId, 0, false, userGroup, other)
 	}
 
 	return err
@@ -84,6 +87,14 @@ func Relay(c *gin.Context) {
 	var newAPIError *types.NewAPIError
 
 	for i := 0; i <= common.RetryTimes; i++ {
+		// 设置重试次数到上下文中
+		c.Set("retry_times", fmt.Sprintf("%d", i))
+		if i == common.RetryTimes {
+			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
+		} else {
+			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
+		}
+		
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -110,10 +121,35 @@ func Relay(c *gin.Context) {
 	}
 
 	if newAPIError != nil {
-		//if newAPIError.StatusCode == http.StatusTooManyRequests {
-		//	common.LogError(c, fmt.Sprintf("origin 429 error: %s", newAPIError.Error()))
-		//	newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
-		//}
+		if newAPIError.StatusCode == http.StatusTooManyRequests {
+			common.LogError(c, fmt.Sprintf("origin 429 error: %s", newAPIError.Error()))
+			newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
+		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
+			// 上游错误，根据错误类型决定是否暴露具体信息
+			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", newAPIError.StatusCode, newAPIError.Error()))
+			errorMessage := newAPIError.Error()
+			errorMessageLower := strings.ToLower(errorMessage)
+			if strings.Contains(errorMessageLower, "quota") || 
+				strings.Contains(errorMessage, "配额") || 
+				strings.Contains(errorMessage, "非流") ||
+				strings.Contains(errorMessageLower, "poe") || 
+				strings.Contains(errorMessageLower, "tenclock") || 
+				strings.Contains(errorMessage, "服务超时") ||
+				strings.Contains(errorMessage, "额度") || 
+				strings.Contains(errorMessageLower, "credit") || 
+				strings.Contains(errorMessageLower, "enough") ||
+				strings.Contains(errorMessage, "无可用") ||
+				strings.Contains(errorMessageLower, "insufficient") ||
+				strings.Contains(errorMessageLower, "balance") ||
+				strings.Contains(errorMessageLower, "limit") ||
+				strings.Contains(errorMessageLower, "exceeded") ||
+				strings.Contains(errorMessageLower, "exhausted") {
+				newAPIError.SetMessage("当前模型负载较大，请稍后重试，如有任何问题，请联系我们")
+			}
+			// 非配额相关错误保持原始错误信息
+		}
+		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
+		
 		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 		c.JSON(newAPIError.StatusCode, gin.H{
 			"error": newAPIError.ToOpenAIError(),
@@ -147,6 +183,14 @@ func WssRelay(c *gin.Context) {
 	var newAPIError *types.NewAPIError
 
 	for i := 0; i <= common.RetryTimes; i++ {
+		// 设置重试次数到上下文中
+		c.Set("retry_times", fmt.Sprintf("%d", i))
+		if i == common.RetryTimes {
+			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
+		} else {
+			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
+		}
+		
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -173,9 +217,34 @@ func WssRelay(c *gin.Context) {
 	}
 
 	if newAPIError != nil {
-		//if newAPIError.StatusCode == http.StatusTooManyRequests {
-		//	newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
-		//}
+		if newAPIError.StatusCode == http.StatusTooManyRequests {
+			newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
+		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
+			// 上游错误，根据错误类型决定是否暴露具体信息
+			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", newAPIError.StatusCode, newAPIError.Error()))
+			errorMessage := newAPIError.Error()
+			errorMessageLower := strings.ToLower(errorMessage)
+			if strings.Contains(errorMessageLower, "quota") || 
+				strings.Contains(errorMessage, "配额") || 
+				strings.Contains(errorMessage, "非流") ||
+				strings.Contains(errorMessageLower, "poe") || 
+				strings.Contains(errorMessageLower, "tenclock") || 
+				strings.Contains(errorMessage, "服务超时") ||
+				strings.Contains(errorMessage, "额度") || 
+				strings.Contains(errorMessageLower, "credit") || 
+				strings.Contains(errorMessageLower, "enough") ||
+				strings.Contains(errorMessage, "无可用") ||
+				strings.Contains(errorMessageLower, "insufficient") ||
+				strings.Contains(errorMessageLower, "balance") ||
+				strings.Contains(errorMessageLower, "limit") ||
+				strings.Contains(errorMessageLower, "exceeded") ||
+				strings.Contains(errorMessageLower, "exhausted") {
+				newAPIError.SetMessage("当前模型负载较大，请稍后重试，如有任何问题，请联系我们")
+			}
+			// 非配额相关错误保持原始错误信息
+		}
+		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
+		
 		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 		helper.WssError(c, ws, newAPIError.ToOpenAIError())
 	}
@@ -189,6 +258,14 @@ func RelayClaude(c *gin.Context) {
 	var newAPIError *types.NewAPIError
 
 	for i := 0; i <= common.RetryTimes; i++ {
+		// 设置重试次数到上下文中
+		c.Set("retry_times", fmt.Sprintf("%d", i))
+		if i == common.RetryTimes {
+			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
+		} else {
+			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
+		}
+		
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
 			common.LogError(c, err.Error())
@@ -215,10 +292,44 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if newAPIError != nil {
-		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
+		// 首先检查并转换Claude错误
+		claudeErr := &types.ClaudeError{
+			Message: newAPIError.Error(),
+			Type:    "error",
+		}
+		
+		if newAPIError.StatusCode == http.StatusTooManyRequests {
+			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Message))
+			claudeErr.Message = "当前分组上游负载已饱和，请稍后再试"
+		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
+			// 上游错误，根据错误类型决定是否暴露具体信息
+			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", newAPIError.StatusCode, claudeErr.Message))
+			errorMessageLower := strings.ToLower(claudeErr.Message)
+			if strings.Contains(errorMessageLower, "quota") || 
+				strings.Contains(claudeErr.Message, "配额") || 
+				strings.Contains(claudeErr.Message, "非流") ||
+				strings.Contains(errorMessageLower, "poe") || 
+				strings.Contains(errorMessageLower, "tenclock") || 
+				strings.Contains(claudeErr.Message, "服务超时") ||
+				strings.Contains(claudeErr.Message, "额度") || 
+				strings.Contains(errorMessageLower, "credit") || 
+				strings.Contains(errorMessageLower, "enough") ||
+				strings.Contains(claudeErr.Message, "无可用") ||
+				strings.Contains(errorMessageLower, "insufficient") ||
+				strings.Contains(errorMessageLower, "balance") ||
+				strings.Contains(errorMessageLower, "limit") ||
+				strings.Contains(errorMessageLower, "exceeded") ||
+				strings.Contains(errorMessageLower, "exhausted") {
+				claudeErr.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+			}
+			// 非配额相关错误保持原始错误信息
+		}
+		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
+		
+		claudeErr.Message = common.MessageWithRequestId(claudeErr.Message, requestId)
 		c.JSON(newAPIError.StatusCode, gin.H{
 			"type":  "error",
-			"error": newAPIError.ToClaudeError(),
+			"error": claudeErr,
 		})
 	}
 }
