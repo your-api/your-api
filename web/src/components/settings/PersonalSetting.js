@@ -36,7 +36,6 @@ import {
   renderModelTag,
   getModelCategories
 } from '../../helpers';
-import TwoFASetting from './TwoFASetting';
 import Turnstile from 'react-turnstile';
 import { UserContext } from '../../context/User';
 import { useTheme } from '../../context/Theme';
@@ -80,6 +79,7 @@ import { SiTelegram, SiWechat, SiLinux } from 'react-icons/si';
 import { Bell, Shield, Webhook, Globe, Settings, UserPlus, ShieldCheck } from 'lucide-react';
 import TelegramLoginButton from 'react-telegram-login';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG } from 'qrcode.react';
 
 const PersonalSetting = () => {
   const [userState, userDispatch] = useContext(UserContext);
@@ -127,6 +127,13 @@ const PersonalSetting = () => {
   });
   const [modelsLoading, setModelsLoading] = useState(true);
   const [showWebhookDocs, setShowWebhookDocs] = useState(true);
+  
+  // 微信二维码绑定相关状态
+  const [wechatQRCode, setWechatQRCode] = useState('');
+  const [wechatTicket, setWechatTicket] = useState('');
+  const [isCheckingWechatLogin, setIsCheckingWechatLogin] = useState(false);
+  const [wechatBindStatus, setWechatBindStatus] = useState('waiting'); // waiting, success, error
+  const [wechatBindError, setWechatBindError] = useState('');
 
   useEffect(() => {
     let status = localStorage.getItem('status');
@@ -251,18 +258,128 @@ const PersonalSetting = () => {
     }
   };
 
-  const bindWeChat = async () => {
-    if (inputs.wechat_verification_code === '') return;
-    const res = await API.get(
-      `/api/oauth/wechat/bind?code=${inputs.wechat_verification_code}`,
-    );
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('微信账户绑定成功！'));
-      setShowWeChatBindModal(false);
-    } else {
-      showError(message);
+  // 获取微信二维码
+  const getWeChatQRCode = async () => {
+    try {
+      console.log('开始获取微信二维码...');
+      const res = await API.get('/api/oauth/wechat/qr');
+      console.log('API响应:', res);
+      const { success, data, message } = res.data;
+      
+      if (success && data) {
+        console.log('二维码数据:', data);
+        setWechatQRCode(data.qr_url || data.url);
+        setWechatTicket(data.ticket);
+        setWechatBindStatus('waiting');
+        startCheckWeChatLogin(data.ticket);
+      } else {
+        console.error('获取二维码失败:', message);
+        showError(message || t('获取二维码失败'));
+        setWechatBindStatus('error');
+      }
+    } catch (error) {
+      console.error('API调用失败:', error);
+      showError(t('获取二维码失败') + ': ' + error.message);
+      setWechatBindStatus('error');
     }
+  };
+
+  // 开始检查微信扫码状态
+  const startCheckWeChatLogin = (ticket) => {
+    setIsCheckingWechatLogin(true);
+    setWechatBindError(''); // 清除之前的错误信息
+    let checkCount = 0;
+    const maxChecks = 15; // 30秒 / 2秒 = 15次检查
+    let isActive = true; // 用来控制轮询是否继续
+    
+    const checkInterval = setInterval(async () => {
+      if (!isActive) {
+        clearInterval(checkInterval);
+        return;
+      }
+      
+      checkCount++;
+      
+      try {
+        const res = await API.get(`/api/oauth/wechat/qr/bind?ticket=${ticket}`);
+        console.log('微信绑定检查响应:', res.data);
+        const { success, status, message, data } = res.data;
+        
+        if (success && status === 'success') {
+          // 扫码绑定成功
+          isActive = false; // 立即停止轮询
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('success');
+          setShowWeChatBindModal(false);
+          
+          // 根据操作类型显示不同的成功消息
+          if (data && data.action === 'merged') {
+            showSuccess(
+              t('微信账号合并成功！') + '\n' +
+              t('合并账号') + ': ' + data.wechat_username + '\n' +
+              t('合并余额') + ': ' + renderQuota(data.merged_quota) + '\n' +
+              t('合并历史消耗') + ': ' + renderQuota(data.merged_used_quota) + '\n' +
+              t('合并请求次数') + ': ' + data.merged_request_count
+            );
+          } else if (data && data.action === 'already_bound') {
+            showSuccess(message || t('微信已绑定'));
+          } else {
+            showSuccess(message || t('微信绑定成功'));
+          }
+          
+          getUserData(); // 刷新用户数据
+        } else if (status === 'waiting') {
+          // 等待扫码，继续轮询，不做任何操作
+          console.log('等待用户扫码...');
+        } else if (status === 'expired') {
+          // 二维码过期
+          isActive = false;
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('expired');
+          setWechatBindError(t('二维码已过期，请重新获取'));
+        } else if (status === 'error') {
+          // 绑定失败
+          isActive = false;
+          clearInterval(checkInterval);
+          setIsCheckingWechatLogin(false);
+          setWechatBindStatus('error');
+          setWechatBindError(message || t('绑定失败'));
+        }
+      } catch (error) {
+        console.log('检查微信绑定状态时出错:', error);
+        // 不要在这里停止轮询，因为可能只是暂时的网络问题
+      }
+      
+      // 达到最大检查次数，停止轮询
+      if (checkCount >= maxChecks) {
+        isActive = false;
+        clearInterval(checkInterval);
+        setIsCheckingWechatLogin(false);
+        if (wechatBindStatus === 'waiting') {
+          setWechatBindStatus('expired');
+          setWechatBindError(t('扫码超时，请重新获取二维码'));
+        }
+      }
+    }, 2000); // 每2秒检查一次
+    
+    // 确保在组件卸载时清理定时器
+    return () => {
+      isActive = false;
+      clearInterval(checkInterval);
+    };
+  };
+
+  // 处理微信绑定弹窗打开
+  const handleWeChatBindClick = () => {
+    setShowWeChatBindModal(true);
+    setWechatBindStatus('waiting');
+    setWechatQRCode('');
+    setWechatTicket('');
+    setWechatBindError('');
+    setIsCheckingWechatLogin(false);
+    getWeChatQRCode();
   };
 
   const changePassword = async () => {
@@ -649,11 +766,13 @@ const PersonalSetting = () => {
                                 return (
                                   <Space wrap>
                                     {filteredModels.map((model) => (
-                                      renderModelTag(model, {
-                                        size: 'large',
-                                        shape: 'circle',
-                                        onClick: () => copyText(model),
-                                      })
+                                      <React.Fragment key={model}>
+                                        {renderModelTag(model, {
+                                          size: 'large',
+                                          shape: 'circle',
+                                          onClick: () => copyText(model),
+                                        })}
+                                      </React.Fragment>
                                     ))}
                                   </Space>
                                 );
@@ -663,11 +782,13 @@ const PersonalSetting = () => {
                                     <Collapsible isOpen={isModelsExpanded}>
                                       <Space wrap>
                                         {filteredModels.map((model) => (
-                                          renderModelTag(model, {
-                                            size: 'large',
-                                            shape: 'circle',
-                                            onClick: () => copyText(model),
-                                          })
+                                          <React.Fragment key={model}>
+                                            {renderModelTag(model, {
+                                              size: 'large',
+                                              shape: 'circle',
+                                              onClick: () => copyText(model),
+                                            })}
+                                          </React.Fragment>
                                         ))}
                                         <Tag
                                           color='grey'
@@ -685,11 +806,13 @@ const PersonalSetting = () => {
                                         {filteredModels
                                           .slice(0, MODELS_DISPLAY_COUNT)
                                           .map((model) => (
-                                            renderModelTag(model, {
-                                              size: 'large',
-                                              shape: 'circle',
-                                              onClick: () => copyText(model),
-                                            })
+                                            <React.Fragment key={model}>
+                                              {renderModelTag(model, {
+                                                size: 'large',
+                                                shape: 'circle',
+                                                onClick: () => copyText(model),
+                                              })}
+                                            </React.Fragment>
                                           ))}
                                         <Tag
                                           color='grey'
@@ -713,370 +836,165 @@ const PersonalSetting = () => {
                   </div>
                 </TabPane>
 
-                {/* 账户绑定Tab */}
+                {/* 账户绑定Tab - 恢复原始版本 */}
                 <TabPane
                   tab={
                     <div className="flex items-center">
                       <UserPlus size={16} className="mr-2" />
-                      {t('账户绑定')}
+                      {t('账号设置')}
                     </div>
                   }
                   itemKey='account'
                 >
-                  <div className="py-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* 邮箱绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <IconMail size="default" className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('邮箱')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.email !== ''
-                                  ? userState.user.email
-                                  : t('未绑定')}
-                              </div>
-                            </div>
+                  <div style={{ marginTop: 20 }}>
+                    {/* 账号绑定部分 */}
+                    <Typography.Title heading={5}>{t('账号绑定')}</Typography.Title>
+                    <div style={{ marginTop: 20 }}>
+                      {/* 微信绑定 */}
+                      <div style={{ marginBottom: 20 }}>
+                        <Typography.Text strong>{t('微信')}</Typography.Text>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                          <Input
+                            value={
+                              userState.user && userState.user.wechat_id !== ''
+                                ? t('已绑定')
+                                : t('未绑定')
+                            }
+                            readOnly={true}
+                            style={{ maxWidth: 200 }}
+                          />
+                          {userState.user && userState.user.wechat_id === '' ? (
+                            <Button
+                              disabled={!status.wechat_login}
+                              onClick={handleWeChatBindClick}
+                              type='primary'
+                            >
+                              {status.wechat_login ? t('绑定微信') : t('未启用')}
+                            </Button>
+                          ) : (
+                            <Button disabled={true} type='secondary'>
+                              {t('已绑定')}
+                            </Button>
+                          )}
+                        </div>
+                        {userState.user && userState.user.wechat_id === '' && (
+                          <div style={{ marginTop: 10 }}>
+                            <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                              {t('扫码绑定微信，如果您之前通过微信登录创建了账号，系统将自动合并数据到当前账号')}
+                            </Typography.Text>
                           </div>
+                        )}
+                        {userState.user && userState.user.wechat_id !== '' && (
+                          <div style={{ marginTop: 10 }}>
+                            <Typography.Text type='secondary' style={{ fontSize: '12px' }}>
+                              {t('微信已绑定，为了账户安全，不支持解绑操作')}
+                            </Typography.Text>
+                          </div>
+                        )}
+                        {wechatBindError && (
+                          <div style={{ marginTop: 10 }}>
+                            <Typography.Text type='danger' style={{ fontSize: '12px' }}>
+                              {wechatBindError}
+                            </Typography.Text>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 手机号绑定 */}
+                      <div style={{ marginBottom: 20 }}>
+                        <Typography.Text strong>{t('手机号')}</Typography.Text>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                          <Input
+                            value={t('未绑定')}
+                            readOnly={true}
+                            style={{ maxWidth: 200 }}
+                          />
+                          <Button disabled={true}>
+                            {t('暂不支持')}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 邮箱绑定 */}
+                      <div style={{ marginBottom: 20 }}>
+                        <Typography.Text strong>{t('邮箱')}</Typography.Text>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                          <Input
+                            value={
+                              userState.user && userState.user.email !== ''
+                                ? userState.user.email
+                                : t('未绑定')
+                            }
+                            readOnly={true}
+                            style={{ maxWidth: 200 }}
+                          />
                           <Button
-                            type="primary"
-                            theme="outline"
-                            size="small"
                             onClick={() => setShowEmailBindModal(true)}
-                            className="!rounded-lg"
                           >
                             {userState.user && userState.user.email !== ''
                               ? t('修改绑定')
-                              : t('绑定')}
+                              : t('绑定邮箱')}
                           </Button>
                         </div>
-                      </Card>
-
-                      {/* 微信绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <SiWechat size={20} className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('微信')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.wechat_id !== ''
-                                  ? t('已绑定')
-                                  : t('未绑定')}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            type="primary"
-                            theme="outline"
-                            size="small"
-                            disabled={!status.wechat_login}
-                            onClick={() => setShowWeChatBindModal(true)}
-                            className="!rounded-lg"
-                          >
-                            {userState.user && userState.user.wechat_id !== ''
-                              ? t('修改绑定')
-                              : status.wechat_login
-                                ? t('绑定')
-                                : t('未启用')}
-                          </Button>
-                        </div>
-                      </Card>
+                      </div>
 
                       {/* GitHub绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <IconGithubLogo size="default" className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('GitHub')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.github_id !== ''
-                                  ? userState.user.github_id
-                                  : t('未绑定')}
-                              </div>
-                            </div>
-                          </div>
+                      <div style={{ marginBottom: 20 }}>
+                        <Typography.Text strong>{t('GitHub')}</Typography.Text>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                          <Input
+                            value={
+                              userState.user && userState.user.github_id !== ''
+                                ? userState.user.github_id
+                                : t('未绑定')
+                            }
+                            readOnly={true}
+                            style={{ maxWidth: 200 }}
+                          />
                           <Button
-                            type="primary"
-                            theme="outline"
-                            size="small"
-                            onClick={() => onGitHubOAuthClicked(status.github_client_id)}
+                            onClick={() => {
+                              onGitHubOAuthClicked(status.github_client_id);
+                            }}
                             disabled={
                               (userState.user && userState.user.github_id !== '') ||
                               !status.github_oauth
                             }
-                            className="!rounded-lg"
                           >
                             {status.github_oauth ? t('绑定') : t('未启用')}
                           </Button>
                         </div>
-                      </Card>
-
-                      {/* OIDC绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <IconShield size="default" className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('OIDC')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.oidc_id !== ''
-                                  ? userState.user.oidc_id
-                                  : t('未绑定')}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            type="primary"
-                            theme="outline"
-                            size="small"
-                            onClick={() => onOIDCClicked(
-                              status.oidc_authorization_endpoint,
-                              status.oidc_client_id,
-                            )}
-                            disabled={
-                              (userState.user && userState.user.oidc_id !== '') ||
-                              !status.oidc_enabled
-                            }
-                            className="!rounded-lg"
-                          >
-                            {status.oidc_enabled ? t('绑定') : t('未启用')}
-                          </Button>
-                        </div>
-                      </Card>
-
-                      {/* Telegram绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <SiTelegram size={20} className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('Telegram')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.telegram_id !== ''
-                                  ? userState.user.telegram_id
-                                  : t('未绑定')}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0">
-                            {status.telegram_oauth ? (
-                              userState.user.telegram_id !== '' ? (
-                                <Button disabled={true} size="small" className="!rounded-lg">
-                                  {t('已绑定')}
-                                </Button>
-                              ) : (
-                                <div className="scale-75">
-                                  <TelegramLoginButton
-                                    dataAuthUrl='/api/oauth/telegram/bind'
-                                    botName={status.telegram_bot_name}
-                                  />
-                                </div>
-                              )
-                            ) : (
-                              <Button disabled={true} size="small" className="!rounded-lg">
-                                {t('未启用')}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* LinuxDO绑定 */}
-                      <Card
-                        className="!rounded-xl transition-shadow"
-                        bodyStyle={{ padding: '16px' }}
-                        shadows='hover'
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3">
-                              <SiLinux size={20} className="text-slate-600 dark:text-slate-300" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900">{t('LinuxDO')}</div>
-                              <div className="text-sm text-gray-500 truncate">
-                                {userState.user && userState.user.linux_do_id !== ''
-                                  ? userState.user.linux_do_id
-                                  : t('未绑定')}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            type="primary"
-                            theme="outline"
-                            size="small"
-                            onClick={() => onLinuxDOOAuthClicked(status.linuxdo_client_id)}
-                            disabled={
-                              (userState.user && userState.user.linux_do_id !== '') ||
-                              !status.linuxdo_oauth
-                            }
-                            className="!rounded-lg"
-                          >
-                            {status.linuxdo_oauth ? t('绑定') : t('未启用')}
-                          </Button>
-                        </div>
-                      </Card>
+                      </div>
                     </div>
-                  </div>
-                </TabPane>
 
-                {/* 安全设置Tab */}
-                <TabPane
-                  tab={
-                    <div className="flex items-center">
-                      <ShieldCheck size={16} className="mr-2" />
-                      {t('安全设置')}
-                    </div>
-                  }
-                  itemKey='security'
-                >
-                  <div className="py-4">
-                    <div className="space-y-6">
-                      <Space vertical className='w-full'>
-                        {/* 系统访问令牌 */}
-                        <Card
-                          className="!rounded-xl w-full"
-                          bodyStyle={{ padding: '20px' }}
-                          shadows='hover'
+                    {/* 系统设置部分 */}
+                    <Typography.Title heading={5} style={{ marginTop: 30 }}>{t('系统设置')}</Typography.Title>
+                    <div style={{ marginTop: 20 }}>
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <Button onClick={generateAccessToken} type="primary">
+                          {t('生成系统访问令牌')}
+                        </Button>
+                        <Button
+                          onClick={() => setShowChangePasswordModal(true)}
                         >
-                          <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-4">
-                            <div className="flex items-start w-full sm:w-auto">
-                              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mr-4 flex-shrink-0">
-                                <IconKey size="large" className="text-slate-600" />
-                              </div>
-                              <div className="flex-1">
-                                <Typography.Title heading={6} className="mb-1">
-                                  {t('系统访问令牌')}
-                                </Typography.Title>
-                                <Typography.Text type="tertiary" className="text-sm">
-                                  {t('用于API调用的身份验证令牌，请妥善保管')}
-                                </Typography.Text>
-                                {systemToken && (
-                                  <div className="mt-3">
-                                    <Input
-                                      readonly
-                                      value={systemToken}
-                                      onClick={handleSystemTokenClick}
-                                      size="large"
-                                      className="!rounded-lg"
-                                      prefix={<IconKey />}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <Button
-                              type="primary"
-                              theme="solid"
-                              onClick={generateAccessToken}
-                              className="!rounded-lg !bg-slate-600 hover:!bg-slate-700 w-full sm:w-auto"
-                              icon={<IconKey />}
-                            >
-                              {systemToken ? t('重新生成') : t('生成令牌')}
-                            </Button>
-                          </div>
-                        </Card>
-
-                        {/* 密码管理 */}
-                        <Card
-                          className="!rounded-xl w-full"
-                          bodyStyle={{ padding: '20px' }}
-                          shadows='hover'
+                          {t('修改密码')}
+                        </Button>
+                        <Button
+                          type="danger"
+                          onClick={() => setShowAccountDeleteModal(true)}
                         >
-                          <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-4">
-                            <div className="flex items-start w-full sm:w-auto">
-                              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mr-4 flex-shrink-0">
-                                <IconLock size="large" className="text-slate-600" />
-                              </div>
-                              <div>
-                                <Typography.Title heading={6} className="mb-1">
-                                  {t('密码管理')}
-                                </Typography.Title>
-                                <Typography.Text type="tertiary" className="text-sm">
-                                  {t('定期更改密码可以提高账户安全性')}
-                                </Typography.Text>
-                              </div>
-                            </div>
-                            <Button
-                              type="primary"
-                              theme="solid"
-                              onClick={() => setShowChangePasswordModal(true)}
-                              className="!rounded-lg !bg-slate-600 hover:!bg-slate-700 w-full sm:w-auto"
-                              icon={<IconLock />}
-                            >
-                              {t('修改密码')}
-                            </Button>
-                          </div>
-                        </Card>
-
-                        {/* 两步验证设置 */}
-                        <TwoFASetting />
-
-                        {/* 危险区域 */}
-                        <Card
-                          className="!rounded-xl border-red-200 w-full"
-                          bodyStyle={{ padding: '20px' }}
-                          shadows='hover'
-                        >
-                          <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-4">
-                            <div className="flex items-start w-full sm:w-auto">
-                              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mr-4 flex-shrink-0">
-                                <IconDelete size="large" className="text-slate-600" />
-                              </div>
-                              <div>
-                                <Typography.Title heading={6} className="mb-1 text-slate-700">
-                                  {t('删除账户')}
-                                </Typography.Title>
-                                <Typography.Text type="tertiary" className="text-sm">
-                                  {t('此操作不可逆，所有数据将被永久删除')}
-                                </Typography.Text>
-                              </div>
-                            </div>
-                            <Button
-                              type="danger"
-                              theme="solid"
-                              onClick={() => setShowAccountDeleteModal(true)}
-                              className="!rounded-lg w-full sm:w-auto !bg-slate-500 hover:!bg-slate-600"
-                              icon={<IconDelete />}
-                            >
-                              {t('删除账户')}
-                            </Button>
-                          </div>
-                        </Card>
+                          {t('删除账户')}
+                        </Button>
                       </Space>
+
+                      {systemToken && (
+                        <Input
+                          readOnly
+                          value={systemToken}
+                          onClick={handleSystemTokenClick}
+                          style={{ marginTop: '10px' }}
+                          placeholder={t('点击复制令牌')}
+                        />
+                      )}
                     </div>
                   </div>
                 </TabPane>
@@ -1345,6 +1263,84 @@ const PersonalSetting = () => {
         </div>
       </div>
 
+      {/* 微信绑定模态框 - 二维码扫码 */}
+      <Modal
+        title={t('绑定微信')}
+        visible={showWeChatBindModal}
+        onCancel={() => {
+          setShowWeChatBindModal(false);
+          setIsCheckingWechatLogin(false);
+        }}
+        footer={null}
+        width={400}
+        centered={true}
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          {wechatQRCode ? (
+            <>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                marginBottom: 20,
+                padding: 20,
+                backgroundColor: '#f8f9fa',
+                borderRadius: 8,
+                border: '1px solid #e9ecef'
+              }}>
+                <QRCodeSVG 
+                  value={wechatQRCode} 
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                  style={{
+                    backgroundColor: 'white',
+                    padding: 8,
+                    borderRadius: 4
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: 20 }}>
+                {wechatBindStatus === 'waiting' && (
+                  <div>
+                    <Typography.Text type='secondary'>
+                      {t('请使用微信扫描上方二维码进行绑定')}
+                    </Typography.Text>
+                    {isCheckingWechatLogin && (
+                      <div style={{ marginTop: 10 }}>
+                        <Typography.Text type='secondary'>
+                          {t('正在检查扫码状态...')}
+                        </Typography.Text>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {wechatBindStatus === 'success' && (
+                  <div>
+                    <Typography.Text type='success'>
+                      {t('绑定成功！')}
+                    </Typography.Text>
+                  </div>
+                )}
+                {wechatBindStatus === 'error' && (
+                  <div>
+                    <Typography.Text type='danger'>
+                      {wechatBindError || t('绑定失败')}
+                    </Typography.Text>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '40px 0' }}>
+              <Typography.Text type='secondary'>
+                {t('正在获取二维码...')}
+              </Typography.Text>
+            </div>
+          )}
+        </div>
+      </Modal>
+
       {/* 邮箱绑定模态框 */}
       <Modal
         title={
@@ -1406,50 +1402,6 @@ const PersonalSetting = () => {
               />
             </div>
           )}
-        </div>
-      </Modal>
-
-      {/* 微信绑定模态框 */}
-      <Modal
-        title={
-          <div className="flex items-center">
-            <SiWechat className="mr-2 text-green-500" size={20} />
-            {t('绑定微信账户')}
-          </div>
-        }
-        visible={showWeChatBindModal}
-        onCancel={() => setShowWeChatBindModal(false)}
-        footer={null}
-        size={'small'}
-        centered={true}
-        className="modern-modal"
-      >
-        <div className="space-y-4 py-4 text-center">
-          <Image src={status.wechat_qrcode} className="mx-auto" />
-          <div className="text-gray-600">
-            <p>{t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}</p>
-          </div>
-          <Input
-            placeholder={t('验证码')}
-            name='wechat_verification_code'
-            value={inputs.wechat_verification_code}
-            onChange={(v) =>
-              handleInputChange('wechat_verification_code', v)
-            }
-            size="large"
-            className="!rounded-lg"
-            prefix={<IconKey />}
-          />
-          <Button
-            type="primary"
-            theme="solid"
-            size='large'
-            onClick={bindWeChat}
-            className="!rounded-lg w-full !bg-slate-600 hover:!bg-slate-700"
-            icon={<SiWechat size={16} />}
-          >
-            {t('绑定')}
-          </Button>
         </div>
       </Modal>
 
