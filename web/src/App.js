@@ -21,6 +21,7 @@ import Chat2Link from './pages/Chat2Link';
 import { Layout } from '@douyinfe/semi-ui';
 import Midjourney from './pages/Midjourney';
 import Pricing from './pages/Pricing/index.js';
+import Prices from './pages/Prices/index.js';
 import Task from './pages/Task/index.js';
 import ModelPage from './pages/Model/index.js';
 import Playground from './pages/Playground/index.js';
@@ -275,6 +276,14 @@ function App() {
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
               <Pricing />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/prices'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <Prices />
             </Suspense>
           }
         />

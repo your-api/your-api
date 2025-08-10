@@ -184,7 +184,7 @@ const HeaderBar = () => {
       icon: <IconTerminal style={headerIconStyle} />,
     },
     {
-      text: t('价格'),
+      text: t('定价'),
       itemKey: 'prices',
       to: '/prices',
       icon: <IconPriceTag style={headerIconStyle} />,

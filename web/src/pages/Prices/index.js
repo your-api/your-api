@@ -17,10 +17,6 @@ const Prices = () => {
     <Layout>
       <Content style={{ padding: '24px' }}>
         <div className="prices-container">
-          <div className="prices-header">
-            <h1 className="prices-title">模型价格</h1>
-            <p className="prices-subtitle">查看所有模型的详细价格信息</p>
-          </div>
           
           <div className="prices-content">
             <ModelPricing onInitialize={handleModelPricingInit} />
