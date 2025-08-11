@@ -861,7 +861,7 @@ const TopUp = () => {
   }, []);
 
   return (
-      <div>
+      <div className="mt-[60px]">
         <Layout>
           <Layout.Header>
             <h3>{t('我的钱包')}</h3>

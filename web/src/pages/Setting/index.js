@@ -10,6 +10,11 @@ import PersonalSetting from '../../components/settings/PersonalSetting';
 import OperationSetting from '../../components/settings/OperationSetting';
 import RateLimitSetting from '../../components/settings/RateLimitSetting.js';
 import ModelSetting from '../../components/settings/ModelSetting.js';
+import DashboardSetting from '../../components/settings/DashboardSetting.js';
+import RatioSetting from '../../components/settings/RatioSetting.js';
+import ChatsSetting from '../../components/settings/ChatsSetting.js';
+import DrawingSetting from '../../components/settings/DrawingSetting.js';
+import PaymentSetting from '../../components/settings/PaymentSetting.js';
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -23,6 +28,31 @@ const Setting = () => {
       tab: t('运营设置'),
       content: <OperationSetting />,
       itemKey: 'operation',
+    });
+    panes.push({
+      tab: t('仪表盘设置'),
+      content: <DashboardSetting />,
+      itemKey: 'dashboard',
+    });
+    panes.push({
+      tab: t('聊天设置'),
+      content: <ChatsSetting />,
+      itemKey: 'chats',
+    });
+    panes.push({
+      tab: t('绘图设置'),
+      content: <DrawingSetting />,
+      itemKey: 'drawing',
+    });
+    panes.push({
+      tab: t('支付设置'),
+      content: <PaymentSetting />,
+      itemKey: 'payment',
+    });
+    panes.push({
+      tab: t('倍率设置'),
+      content: <RatioSetting />,
+      itemKey: 'ratio',
     });
     panes.push({
       tab: t('速率限制设置'),
@@ -59,7 +89,7 @@ const Setting = () => {
     }
   }, [location.search]);
   return (
-    <div>
+    <div className="mt-[60px]">
       <Layout>
         <Layout.Content>
           <Tabs

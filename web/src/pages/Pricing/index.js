@@ -21,9 +21,9 @@ import React from 'react';
 import ModelPricingPage from '../../components/table/model-pricing/layout/PricingPage';
 
 const Pricing = () => (
-  <>
+  <div className="mt-[60px]">
     <ModelPricingPage />
-  </>
+  </div>
 );
 
 export default Pricing;
