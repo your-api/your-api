@@ -86,8 +86,19 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 		return
 	}
 	common.CloseResponseBodyGracefully(resp)
+	
+	// 先尝试解析为 Claude 错误格式
+	var claudeErrResponse dto.ClaudeResponse
+	claudeErr := common.Unmarshal(responseBody, &claudeErrResponse)
+	if claudeErr == nil && claudeErrResponse.Error != nil {
+		// 成功解析为 Claude 错误格式
+		if claudeError := claudeErrResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
+			return types.WithClaudeError(*claudeError, resp.StatusCode)
+		}
+	}
+	
+	// 尝试解析为通用错误格式
 	var errResponse dto.GeneralErrorResponse
-
 	err = common.Unmarshal(responseBody, &errResponse)
 	if err != nil {
 		if showBodyWhenFail {
