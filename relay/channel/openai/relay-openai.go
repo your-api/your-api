@@ -11,6 +11,7 @@ import (
 	"one-api/constant"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
+	relayconstant "one-api/relay/constant"
 	"one-api/relay/helper"
 	"one-api/service"
 	"os"
@@ -236,6 +237,29 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	common.IOCopyBytesGracefully(c, resp, responseBody)
+	
+	// 检查是否为空响应（仅对chat/completions非流式请求）
+	if info.RelayMode == relayconstant.RelayModeChatCompletions && !info.IsStream {
+		// 检查choices是否为空
+		if len(simpleResponse.Choices) == 0 {
+			common.LogError(c, "empty response: no choices in response")
+			return nil, types.NewError(errors.New("upstream returned empty response (no choices)"), types.ErrorCodeEmptyResponse)
+		}
+		// 检查第一个choice的内容是否为空
+		if len(simpleResponse.Choices) > 0 {
+			firstChoice := simpleResponse.Choices[0]
+			// 检查是否没有内容且没有工具调用
+			if firstChoice.Message.Content == nil && len(firstChoice.Message.ToolCalls) == 0 {
+				common.LogError(c, "empty response: no content or tool calls in first choice")
+				return nil, types.NewError(errors.New("upstream returned empty response (no content)"), types.ErrorCodeEmptyResponse)
+			}
+			// 如果是字符串类型的content，检查是否为空字符串
+			if contentStr, ok := firstChoice.Message.Content.(string); ok && strings.TrimSpace(contentStr) == "" && len(firstChoice.Message.ToolCalls) == 0 {
+				common.LogError(c, "empty response: empty content string and no tool calls")
+				return nil, types.NewError(errors.New("upstream returned empty response (empty content)"), types.ErrorCodeEmptyResponse)
+			}
+		}
+	}
 
 	return &simpleResponse.Usage, nil
 }
