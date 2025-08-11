@@ -238,7 +238,7 @@ const LoginForm = () => {
             centered: true,
           });
         }
-        navigate('/token');
+        navigate('/console/token');
       } else {
         showError(message);
       }
@@ -412,7 +412,7 @@ const LoginForm = () => {
         setUserData(data);
         updateAPI();
         showSuccess(t('登录成功！'));
-        navigate('/token');
+        navigate('/console/token');
       } else {
         showError(message || t('登录失败'));
       }

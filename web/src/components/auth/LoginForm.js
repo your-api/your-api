@@ -295,7 +295,7 @@ const LoginForm = () => {
     setUserData(data);
     updateAPI();
     showSuccess('登录成功！');
-    navigate('/token');
+    navigate('/console/token');
   };
 
   // 返回登录页面
