@@ -292,12 +292,13 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if newAPIError != nil {
-		// 首先检查并转换Claude错误
+		// 构建原有的错误格式
 		claudeErr := &types.ClaudeError{
 			Message: newAPIError.Error(),
 			Type:    "error",
 		}
 		
+		// 处理错误信息（保持原有逻辑）
 		if newAPIError.StatusCode == http.StatusTooManyRequests {
 			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Message))
 			claudeErr.Message = "当前分组上游负载已饱和，请稍后再试"
@@ -327,10 +328,43 @@ func RelayClaude(c *gin.Context) {
 		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
 		
 		claudeErr.Message = common.MessageWithRequestId(claudeErr.Message, requestId)
-		c.JSON(newAPIError.StatusCode, gin.H{
-			"type":  "error",
-			"error": claudeErr,
-		})
+		
+		// 检查是否是 Claude Code CLI
+		userAgent := c.Request.Header.Get("User-Agent")
+		isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
+		
+		if isClaudeCLI {
+			// 为 Claude Code CLI 增强错误格式，同时保持向后兼容
+			errorType := claudeErr.Type
+			if newAPIError.GetErrorType() == types.ErrorTypeClaudeError {
+				if claudeError, ok := newAPIError.RelayError.(types.ClaudeError); ok && claudeError.Type != "" {
+					errorType = claudeError.Type
+				}
+			}
+			
+			// 构建兼容格式：既包含原有格式，又包含 Claude Code 需要的字段
+			c.JSON(newAPIError.StatusCode, gin.H{
+				// 原有格式
+				"type":  "error",
+				"error": claudeErr,
+				// Claude Code CLI 需要的额外字段
+				"error_code":   503130,
+				"message_key":  "claudeClient.httpError",
+				"status_code":  newAPIError.StatusCode,
+				"context": map[string]interface{}{
+					"url":          fmt.Sprintf("https://%s%s", c.Request.Host, c.Request.URL.Path),
+					"status_code":  newAPIError.StatusCode,
+					"error_type":   errorType,
+					"error_message": claudeErr.Message,
+				},
+			})
+		} else {
+			// 非 CLI 请求，返回原有格式
+			c.JSON(newAPIError.StatusCode, gin.H{
+				"type":  "error",
+				"error": claudeErr,
+			})
+		}
 	}
 }
 

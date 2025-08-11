@@ -17,7 +17,6 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
-		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/test-ip", controller.TestIP)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
@@ -54,6 +53,16 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/oauth/telegram/login", middleware.CriticalRateLimit(), controller.TelegramLogin)
 		apiRouter.GET("/oauth/telegram/bind", middleware.CriticalRateLimit(), controller.TelegramBind)
 
+		// Stripe支付路由
+		stripeRoute := apiRouter.Group("/stripe")
+		stripeRoute.Use(middleware.UserAuth())
+		{
+			stripeRoute.POST("/pay", controller.RequestStripePay)
+			stripeRoute.POST("/amount", controller.RequestStripeAmount)
+		}
+		// Stripe Webhook不需要认证
+		apiRouter.POST("/stripe/webhook", controller.StripeWebhook)
+
 		orderRoute := apiRouter.Group("/order")
 		orderRoute.Use(middleware.UserAuth())
 		{
@@ -65,6 +74,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)
 			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Login)
+			userRoute.POST("/login/2fa", middleware.CriticalRateLimit(), controller.Verify2FALogin)
 			userRoute.POST("/phone-login", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.PhoneLogin)
 			//userRoute.POST("/tokenlog", middleware.CriticalRateLimit(), controller.TokenLog)
 			userRoute.GET("/logout", controller.Logout)
@@ -93,6 +103,13 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/withdraw_status", controller.GetWithdrawStatus)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
+				// 2FA双因子认证路由
+				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
+				selfRoute.POST("/2fa/setup", controller.Setup2FA)
+				selfRoute.POST("/2fa/enable", controller.Enable2FA)
+				selfRoute.POST("/2fa/disable", controller.Disable2FA)
+				selfRoute.POST("/2fa/backup_codes", controller.RegenerateBackupCodes)
+
 				// 签到相关路由
 				selfRoute.POST("/check_in", controller.CheckInUser)
 				selfRoute.GET("/check_in/status", controller.GetCheckInStatus)
@@ -110,10 +127,13 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.POST("/manage", controller.ManageUser)
 				adminRoute.PUT("/", controller.UpdateUser)
 				adminRoute.DELETE("/:id", controller.DeleteUser)
+				// 2FA管理员功能
+				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
+				adminRoute.POST("/2fa/disable/:id", controller.AdminDisable2FA)
 			}
 		}
 		optionRoute := apiRouter.Group("/option")
-		optionRoute.GET("/getModelProviders", middleware.TryUserAuth(), controller.GetProviders)
+		optionRoute.GET("/getModelProviders", middleware.TryUserAuth(), controller.GetModelProviders)
 		optionRoute.GET("/getAdvantages", middleware.TryUserAuth(), controller.GetAdvantages)
 		optionRoute.GET("/getTypingList", middleware.TryUserAuth(), controller.GetTypingList)
 		optionRoute.GET("/getModelDescriptions", middleware.TryUserAuth(), controller.GetModelDescriptions)
@@ -127,6 +147,15 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.POST("/rest_model_ratio", controller.ResetModelRatio)
 		}
+		prefillGroupRoute := apiRouter.Group("/prefill_group")
+		prefillGroupRoute.Use(middleware.AdminAuth())
+		{
+			prefillGroupRoute.GET("", controller.GetPrefillGroups)
+			prefillGroupRoute.POST("", controller.CreatePrefillGroup)
+			prefillGroupRoute.PUT("/:id", controller.UpdatePrefillGroup)
+			prefillGroupRoute.DELETE("/:id", controller.DeletePrefillGroup)
+		}
+		
 		channelRoute := apiRouter.Group("/channel")
 		channelRoute.Use(middleware.AdminAuth())
 		{
@@ -148,11 +177,13 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.PUT("/tag", controller.EditTagChannels)
 			channelRoute.DELETE("/:id", controller.DeleteChannel)
 			channelRoute.POST("/batch", controller.DeleteChannelBatch)
+			channelRoute.POST("/copy/:id", controller.CopyChannel)
 			channelRoute.POST("/fix", controller.FixChannelsAbilities)
 			channelRoute.GET("/fetch_models/:id", controller.FetchUpstreamModels)
 			channelRoute.POST("/fetch_models", controller.FetchModels)
 			channelRoute.POST("/batch/tag", controller.BatchSetChannelTag)
 		}
+		// 删除不存在的路由配置
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
 		{
@@ -204,17 +235,6 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
-		}
-
-		vendorRoute := apiRouter.Group("/vendors")
-		vendorRoute.Use(middleware.AdminAuth())
-		{
-			vendorRoute.GET("/", controller.GetAllVendors)
-			vendorRoute.GET("/search", controller.SearchVendors)
-			vendorRoute.GET("/:id", controller.GetVendorMeta)
-			vendorRoute.POST("/", controller.CreateVendorMeta)
-			vendorRoute.PUT("/", controller.UpdateVendorMeta)
-			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
 		}
 	}
 }

@@ -104,12 +104,6 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 	var err error
 	selectGroup := group
 	
-	// 获取请求路径来判断是否是OpenAI的endpoints
-	requestPath := c.Request.URL.Path
-	isOpenAIEndpoint := strings.HasPrefix(requestPath, "/v1/chat/completions") || 
-		strings.HasPrefix(requestPath, "/v1/embeddings") ||
-		strings.HasPrefix(requestPath, "/v1/responses")
-	
 	if group == "auto" {
 		if len(setting.AutoGroups) == 0 {
 			return nil, selectGroup, errors.New("auto groups is not enabled")
@@ -118,7 +112,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			if common.DebugEnabled {
 				println("autoGroup:", autoGroup)
 			}
-			channel, _ = getRandomSatisfiedChannelWithFilter(c, autoGroup, model, retry, isOpenAIEndpoint)
+			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry)
 			if channel == nil {
 				continue
 			} else {
@@ -131,7 +125,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			}
 		}
 	} else {
-		channel, err = getRandomSatisfiedChannelWithFilter(c, group, model, retry, isOpenAIEndpoint)
+		channel, err = getRandomSatisfiedChannel(group, model, retry)
 		if err != nil {
 			return nil, group, err
 		}
@@ -139,110 +133,6 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 	return channel, selectGroup, nil
 }
 
-func getRandomSatisfiedChannelWithFilter(c *gin.Context, group string, model string, retry int, isOpenAIEndpoint bool) (*Channel, error) {
-	// if memory cache is disabled, get channel directly from database with filter
-	if !common.MemoryCacheEnabled {
-		return GetRandomSatisfiedChannelWithFilter(group, model, retry, isOpenAIEndpoint)
-	}
-
-	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
-
-	// First, try to find channels with the exact model name.
-	channels := group2model2channels[group][model]
-
-	// If no channels found, try to find channels with the normalized model name.
-	if len(channels) == 0 {
-		normalizedModel := ratio_setting.FormatMatchingModelName(model)
-		channels = group2model2channels[group][normalizedModel]
-	}
-
-	if len(channels) == 0 {
-		return nil, nil
-	}
-	
-	// 如果是OpenAI的endpoint，过滤掉Anthropic Claude渠道
-	// 但保持原有的优先级和权重选择逻辑
-	if isOpenAIEndpoint {
-		var filteredChannels []int
-		for _, channelId := range channels {
-			if channel, ok := channelsIDM[channelId]; ok {
-				// 排除Anthropic Claude类型的渠道 (Type == 14)
-				if channel.Type != constant.ChannelTypeAnthropic {
-					filteredChannels = append(filteredChannels, channelId)
-				}
-			}
-		}
-		channels = filteredChannels
-		
-		if len(channels) == 0 {
-			return nil, errors.New("没有可用的非Claude渠道处理此OpenAI请求")
-		}
-	}
-
-	// 以下逻辑与原始的getRandomSatisfiedChannel保持完全一致
-	if len(channels) == 1 {
-		if channel, ok := channelsIDM[channels[0]]; ok {
-			return channel, nil
-		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
-	}
-
-	// 收集所有唯一的优先级
-	uniquePriorities := make(map[int]bool)
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			uniquePriorities[int(channel.GetPriority())] = true
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
-	}
-	
-	// 将优先级排序（从高到低）
-	var sortedUniquePriorities []int
-	for priority := range uniquePriorities {
-		sortedUniquePriorities = append(sortedUniquePriorities, priority)
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
-
-	// 根据retry次数选择对应的优先级层级
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
-	}
-	targetPriority := int64(sortedUniquePriorities[retry])
-
-	// 获取目标优先级的所有渠道
-	var targetChannels []*Channel
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			if channel.GetPriority() == targetPriority {
-				targetChannels = append(targetChannels, channel)
-			}
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
-	}
-
-	// 平滑系数
-	smoothingFactor := 10
-	// 计算总权重
-	totalWeight := 0
-	for _, channel := range targetChannels {
-		totalWeight += channel.GetWeight() + smoothingFactor
-	}
-	// 生成随机数
-	randomWeight := rand.Intn(totalWeight)
-
-	// 根据权重选择渠道
-	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight() + smoothingFactor
-		if randomWeight < 0 {
-			return channel, nil
-		}
-	}
-	// 如果没有找到渠道
-	return nil, errors.New("channel not found")
-}
 
 func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database

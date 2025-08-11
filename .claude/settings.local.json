@@ -45,7 +45,8 @@
       "Bash(/tmp/test_mysql_query.sh:*)",
       "Bash(git fetch:*)",
       "Bash(go test:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
