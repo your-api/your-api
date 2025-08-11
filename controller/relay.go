@@ -339,78 +339,79 @@ func RelayClaude(c *gin.Context) {
 	}
 
 	if newAPIError != nil {
-		// 构建原有的错误格式
-		claudeErr := &types.ClaudeError{
-			Message: newAPIError.Error(),
-			Type:    "error",
-		}
-		
-		// 处理错误信息（保持原有逻辑）
-		if newAPIError.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Message))
-			claudeErr.Message = "当前分组上游负载已饱和，请稍后再试"
-		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
-			// 上游错误，根据错误类型决定是否暴露具体信息
-			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", newAPIError.StatusCode, claudeErr.Message))
-			errorMessageLower := strings.ToLower(claudeErr.Message)
-			if strings.Contains(errorMessageLower, "quota") || 
-				strings.Contains(claudeErr.Message, "配额") || 
-				strings.Contains(claudeErr.Message, "非流") ||
-				strings.Contains(errorMessageLower, "poe") || 
-				strings.Contains(errorMessageLower, "tenclock") || 
-				strings.Contains(claudeErr.Message, "服务超时") ||
-				strings.Contains(claudeErr.Message, "额度") || 
-				strings.Contains(errorMessageLower, "credit") || 
-				strings.Contains(errorMessageLower, "enough") ||
-				strings.Contains(claudeErr.Message, "无可用") ||
-				strings.Contains(errorMessageLower, "insufficient") ||
-				strings.Contains(errorMessageLower, "balance") ||
-				strings.Contains(errorMessageLower, "limit") ||
-				strings.Contains(errorMessageLower, "exceeded") ||
-				strings.Contains(errorMessageLower, "exhausted") {
-				claudeErr.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
-			}
-			// 非配额相关错误保持原始错误信息
-		}
-		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
-		
-		claudeErr.Message = common.MessageWithRequestId(claudeErr.Message, requestId)
-		
 		// 检查是否是 Claude Code CLI
 		userAgent := c.Request.Header.Get("User-Agent")
 		isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
 		
+		// 使用 SysError 确保日志输出
+		common.SysError(fmt.Sprintf("[RelayClaude] User-Agent: %s, isCLIRequest: %v, ErrorType: %v, StatusCode: %d, Error: %s", 
+			userAgent, isClaudeCLI, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
+		
 		if isClaudeCLI {
-			// Claude Code CLI 需要标准的Claude错误格式
-			errorType := "api_error"
-			if newAPIError.GetErrorType() == types.ErrorTypeClaudeError {
-				if claudeError, ok := newAPIError.RelayError.(types.ClaudeError); ok && claudeError.Type != "" {
-					errorType = claudeError.Type
-				}
-			} else if newAPIError.StatusCode == http.StatusBadRequest {
-				errorType = "invalid_request_error"
-			} else if newAPIError.StatusCode == http.StatusUnauthorized {
-				errorType = "authentication_error"
-			} else if newAPIError.StatusCode == http.StatusForbidden {
-				errorType = "permission_error"
-			} else if newAPIError.StatusCode == http.StatusNotFound {
-				errorType = "not_found_error"
-			} else if newAPIError.StatusCode == http.StatusTooManyRequests {
-				errorType = "rate_limit_error"
-			} else if newAPIError.StatusCode >= 500 {
-				errorType = "api_error"
+			// Claude Code CLI 需要 clove 格式的错误
+			// 1:1 返回，不添加任何额外信息
+			errorMessage := newAPIError.Error()
+			
+			// 构建 context
+			errorContext := map[string]interface{}{
+				"url":          "https://api.anthropic.com/v1/messages",
+				"status_code":  newAPIError.StatusCode,
+				"error_type":   "invalid_request_error",
+				"error_message": errorMessage,
 			}
 			
-			// 返回标准的Claude错误格式
-			c.JSON(newAPIError.StatusCode, gin.H{
-				"type": "error",
-				"error": gin.H{
-					"type":    errorType,
-					"message": claudeErr.Message,
+			responseData := gin.H{
+				"detail": gin.H{
+					"code":    503130,
+					"message": "claudeClient.httpError",
+					"context": errorContext,
 				},
-			})
+			}
+			
+			// 记录最终返回给客户端的响应
+			responseBytes, _ := json.Marshal(responseData)
+			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			
+			c.JSON(newAPIError.StatusCode, responseData)
 		} else {
-			// 非 CLI 请求，返回原有格式
+			// 非 CLI 请求，构建原有的错误格式
+			claudeErr := &types.ClaudeError{
+				Message: newAPIError.Error(),
+				Type:    "error",
+			}
+			
+			// 处理错误信息（保持原有逻辑）
+			if newAPIError.StatusCode == http.StatusTooManyRequests {
+				common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Message))
+				claudeErr.Message = "当前分组上游负载已饱和，请稍后再试"
+			} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
+				// 上游错误，根据错误类型决定是否暴露具体信息
+				common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", newAPIError.StatusCode, claudeErr.Message))
+				errorMessageLower := strings.ToLower(claudeErr.Message)
+				if strings.Contains(errorMessageLower, "quota") || 
+					strings.Contains(claudeErr.Message, "配额") || 
+					strings.Contains(claudeErr.Message, "非流") ||
+					strings.Contains(errorMessageLower, "poe") || 
+					strings.Contains(errorMessageLower, "tenclock") || 
+					strings.Contains(claudeErr.Message, "服务超时") ||
+					strings.Contains(claudeErr.Message, "额度") || 
+					strings.Contains(errorMessageLower, "credit") || 
+					strings.Contains(errorMessageLower, "enough") ||
+					strings.Contains(claudeErr.Message, "无可用") ||
+					strings.Contains(errorMessageLower, "insufficient") ||
+					strings.Contains(errorMessageLower, "balance") ||
+					strings.Contains(errorMessageLower, "limit") ||
+					strings.Contains(errorMessageLower, "exceeded") ||
+					strings.Contains(errorMessageLower, "exhausted") {
+					claudeErr.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
+				}
+				// 非配额相关错误保持原始错误信息
+			}
+			// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
+			
+			claudeErr.Message = common.MessageWithRequestId(claudeErr.Message, requestId)
+			
+			// 返回原有格式
 			c.JSON(newAPIError.StatusCode, gin.H{
 				"type":  "error",
 				"error": claudeErr,
