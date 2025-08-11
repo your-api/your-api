@@ -50,7 +50,7 @@ func GetStatus(c *gin.Context) {
 			"system_name":                 common.SystemName,
 			"logo":                        common.Logo,
 			"footer_html":                 common.Footer,
-			"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
+			"wechat_qrcode":               "", // 不再返回静态二维码，强制前端动态获取
 			"wechat_login":                common.WeChatAuthEnabled,
 			"server_address":              setting.ServerAddress,
 			"price":                       setting.Price,

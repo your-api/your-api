@@ -72,6 +72,9 @@ const RegisterForm = () => {
   const [loading, setLoading] = useState(false);
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
   const [status, setStatus] = useState({});
+  const [wechatQRData, setWechatQRData] = useState(null);
+  const [checkingQRLogin, setCheckingQRLogin] = useState(false);
+  const [qrLoginInterval, setQrLoginInterval] = useState(null);
   const [imageCaptchaData, setImageCaptchaData] = useState(null);
   const [showImageCaptcha, setShowImageCaptcha] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -140,31 +143,76 @@ const RegisterForm = () => {
     };
   }, [phoneCountdown]);
 
-  const onWeChatLoginClicked = () => {
-    setShowWeChatLoginModal(true);
+  const onWeChatLoginClicked = async () => {
+    try {
+      // 动态获取二维码
+      const res = await API.get('/api/oauth/wechat/qr');
+      if (res.data.success) {
+        setWechatQRData(res.data.data);
+        setShowWeChatLoginModal(true);
+        // 开始轮询检查登录状态
+        startQRLoginCheck(res.data.data.ticket);
+      } else {
+        showError(res.data.message || '获取二维码失败');
+      }
+    } catch (error) {
+      showError('获取微信二维码失败，请稍后重试');
+    }
   };
 
-  const onSubmitWeChatVerificationCode = async () => {
-    if (turnstileEnabled && turnstileToken === '') {
-      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
-      return;
+  // 开始轮询检查二维码登录状态
+  const startQRLoginCheck = (ticket) => {
+    if (qrLoginInterval) {
+      clearInterval(qrLoginInterval);
     }
-    const res = await API.get(
-      `/api/oauth/wechat?code=${inputs.wechat_verification_code}`,
-    );
-    const { success, message, data } = res.data;
-    if (success) {
-      userDispatch({ type: 'login', payload: data });
-      localStorage.setItem('user', JSON.stringify(data));
-      setUserData(data);
-      updateAPI();
-      navigate('/');
-      showSuccess('登录成功！');
-      setShowWeChatLoginModal(false);
-    } else {
-      showError(message);
-    }
+    
+    setCheckingQRLogin(true);
+    const interval = setInterval(async () => {
+      try {
+        const res = await API.get(`/api/oauth/wechat/qr/login?ticket=${ticket}`);
+        if (res.data.success && res.data.status === 'success') {
+          // 登录成功
+          clearInterval(interval);
+          setCheckingQRLogin(false);
+          userDispatch({ type: 'login', payload: res.data.data });
+          localStorage.setItem('user', JSON.stringify(res.data.data));
+          setUserData(res.data.data);
+          updateAPI();
+          navigate('/console/token');
+          showSuccess('登录成功！');
+          setShowWeChatLoginModal(false);
+        } else if (res.data.status === 'error') {
+          // 出错了
+          clearInterval(interval);
+          setCheckingQRLogin(false);
+          showError(res.data.message || '登录失败');
+        }
+        // status === 'waiting' 时继续轮询
+      } catch (error) {
+        console.error('检查登录状态失败:', error);
+      }
+    }, 2000); // 每2秒检查一次
+    
+    setQrLoginInterval(interval);
   };
+
+  // 清理轮询
+  const stopQRLoginCheck = () => {
+    if (qrLoginInterval) {
+      clearInterval(qrLoginInterval);
+      setQrLoginInterval(null);
+    }
+    setCheckingQRLogin(false);
+  };
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (qrLoginInterval) {
+        clearInterval(qrLoginInterval);
+      }
+    };
+  }, [qrLoginInterval]);
 
   function handleChange(name, value) {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -416,6 +464,14 @@ const RegisterForm = () => {
 
   return (
     <div>
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
       <Layout>
         <Layout.Header></Layout.Header>
         <Layout.Content>
@@ -842,9 +898,11 @@ const RegisterForm = () => {
                 title={t('微信扫码登录')}
                 visible={showWeChatLoginModal}
                 maskClosable={true}
-                onOk={onSubmitWeChatVerificationCode}
-                onCancel={() => setShowWeChatLoginModal(false)}
-                okText={t('登录')}
+                onCancel={() => {
+                  setShowWeChatLoginModal(false);
+                  stopQRLoginCheck();
+                }}
+                footer={null}
                 size={'small'}
                 centered={true}
               >
@@ -855,26 +913,24 @@ const RegisterForm = () => {
                     flexDirection: 'column',
                   }}
                 >
-                  <img src={status.wechat_qrcode} />
+                  {wechatQRData && wechatQRData.qr_url ? (
+                    <img src={wechatQRData.qr_url} alt="微信二维码" style={{ width: '256px', height: '256px' }} />
+                  ) : (
+                    <div style={{ width: '256px', height: '256px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+                      <Text type="tertiary">加载二维码中...</Text>
+                    </div>
+                  )}
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p>
-                    {t(
-                      '微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）',
-                    )}
-                  </p>
+                <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                  {checkingQRLogin ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '16px', height: '16px', border: '2px solid #1890ff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: '8px' }}></div>
+                      <Text>{t('等待扫码中...')}</Text>
+                    </div>
+                  ) : (
+                    <p>{t('请使用微信扫描二维码登录')}</p>
+                  )}
                 </div>
-                <Form size='large'>
-                  <Form.Input
-                    field={'wechat_verification_code'}
-                    placeholder={t('验证码')}
-                    label={t('验证码')}
-                    value={inputs.wechat_verification_code}
-                    onChange={(value) =>
-                      handleChange('wechat_verification_code', value)
-                    }
-                  />
-                </Form>
               </Modal>
               {turnstileEnabled ? (
                 <div

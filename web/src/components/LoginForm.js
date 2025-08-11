@@ -99,15 +99,23 @@ const LoginForm = () => {
     }
   }, []);
 
+  // 组件加载时立即获取二维码
+  useEffect(() => {
+    // 页面加载时，如果是扫码登录tab，直接获取二维码
+    if (activeTabKey === 'qr') {
+      getWeChatQRCode();
+    }
+  }, []); // 只在组件挂载时执行一次
+
   // 新增：tab切换时的处理
   useEffect(() => {
-    if (activeTabKey === 'qr' && status.wechat_login) {
-      // 切换到扫码登录时获取二维码
+    if (activeTabKey === 'qr') {
+      // 切换到扫码登录时直接获取二维码，不判断是否启用
       if (!qrCodeData) {
         getWeChatQRCode();
       }
     }
-  }, [activeTabKey, status.wechat_login]);
+  }, [activeTabKey]);
 
   // 新增：获取微信二维码
   const getWeChatQRCode = async () => {

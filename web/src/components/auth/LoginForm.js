@@ -90,17 +90,40 @@ const LoginForm = () => {
     localStorage.setItem('aff', affCode);
   }
 
-  const [status] = useState(() => {
-    const savedStatus = localStorage.getItem('status');
-    return savedStatus ? JSON.parse(savedStatus) : {};
-  });
+  const [status, setStatus] = useState({});
+  const [statusLoaded, setStatusLoaded] = useState(false);
 
+  // 组件加载时获取系统状态
   useEffect(() => {
-    if (status.turnstile_check) {
-      setTurnstileEnabled(true);
-      setTurnstileSiteKey(status.turnstile_site_key);
-    }
-  }, [status]);
+    const loadStatus = async () => {
+      try {
+        const res = await API.get('/api/status');
+        if (res.data.success) {
+          const statusData = res.data.data;
+          setStatus(statusData);
+          setStatusLoaded(true);
+          localStorage.setItem('status', JSON.stringify(statusData));
+          
+          // 设置 Turnstile
+          if (statusData.turnstile_check) {
+            setTurnstileEnabled(true);
+            setTurnstileSiteKey(statusData.turnstile_site_key);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load status:', error);
+        // 如果加载失败，尝试使用 localStorage 中的缓存
+        const cachedStatus = localStorage.getItem('status');
+        if (cachedStatus) {
+          const statusData = JSON.parse(cachedStatus);
+          setStatus(statusData);
+          setStatusLoaded(true);
+        }
+      }
+    };
+    
+    loadStatus();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('expired')) {
@@ -108,7 +131,43 @@ const LoginForm = () => {
     }
   }, []);
 
+  // 组件加载时，直接获取微信二维码并开始轮询
+  useEffect(() => {
+    const loadWeChatQRCode = async () => {
+      try {
+        console.log('正在获取微信二维码...');
+        const res = await API.get('/api/oauth/wechat/qr');
+        if (res.data.success) {
+          console.log('获取二维码成功:', res.data.data);
+          setWechatQRData(res.data.data);
+          // 自动开始轮询检查登录状态
+          startQRLoginCheck(res.data.data.ticket);
+        } else {
+          console.error('获取二维码失败:', res.data.message);
+        }
+      } catch (error) {
+        console.error('获取微信二维码失败:', error);
+      }
+    };
+    
+    // 直接加载二维码，不需要等待或判断
+    loadWeChatQRCode();
+    
+    // 清理函数
+    return () => {
+      stopQRLoginCheck();
+    };
+  }, []); // 只在组件挂载时执行一次
+
   const onWeChatLoginClicked = async () => {
+    // 如果已经有二维码数据，直接显示弹窗并开始轮询
+    if (wechatQRData && wechatQRData.ticket) {
+      setShowWeChatLoginModal(true);
+      startQRLoginCheck(wechatQRData.ticket);
+      return;
+    }
+    
+    // 没有二维码数据，需要获取
     setWechatLoading(true);
     try {
       // 动态获取二维码
@@ -358,21 +417,43 @@ const LoginForm = () => {
               <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('登 录')}</Title>
             </div>
             <div className="px-2 py-8">
-              <div className="space-y-3">
-                {status.wechat_login && (
-                  <Button
-                    theme='outline'
-                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
-                    type="tertiary"
-                    icon={<Icon svg={<WeChatIcon />} style={{ color: '#07C160' }} />}
-                    size="large"
-                    onClick={onWeChatLoginClicked}
-                    loading={wechatLoading}
-                  >
-                    <span className="ml-3">{t('使用 微信 继续')}</span>
-                  </Button>
+              {/* 直接显示微信二维码 */}
+              <div className="mb-6">
+                <div className="flex flex-col items-center">
+                  {wechatQRData && wechatQRData.qr_url ? (
+                    <>
+                      <img src={wechatQRData.qr_url} alt="微信二维码" className="w-48 h-48 mb-4" />
+                      <div className="text-center">
+                        {checkingQRLogin ? (
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                            <Text type="tertiary">{t('等待扫码中...')}</Text>
+                          </div>
+                        ) : (
+                          <Text type="tertiary">{t('请使用微信扫描二维码登录')}</Text>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-48 h-48 flex items-center justify-center bg-gray-50 rounded-lg">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                        <Text type="tertiary">{t('加载二维码中...')}</Text>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* 分隔线 */}
+                {(status.github_oauth || status.oidc_enabled || status.linuxdo_oauth || status.telegram_oauth) && (
+                  <Divider margin='20px' align='center'>
+                    {t('或使用其他方式登录')}
+                  </Divider>
                 )}
+              </div>
 
+              {/* 其他OAuth选项按钮 */}
+              <div className="space-y-3">
                 {status.github_oauth && (
                   <Button
                     theme='outline'
@@ -423,42 +504,43 @@ const LoginForm = () => {
                     />
                   </div>
                 )}
-
-                <Divider margin='12px' align='center'>
-                  {t('或')}
-                </Divider>
-
-                <Button
-                  theme="solid"
-                  type="primary"
-                  className="w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors"
-                  icon={<IconMail size="large" />}
-                  size="large"
-                  onClick={handleEmailLoginClick}
-                  loading={emailLoginLoading}
-                >
-                  <span className="ml-3">{t('使用 邮箱或用户名 登录')}</span>
-                </Button>
               </div>
 
-              {!status.self_use_mode_enabled && (
-                <div className="mt-6 text-center text-sm">
-                  <Text>
-                    {t('没有账户？')}
-                  </Text>
-                  <div style={{ marginTop: '8px' }}>
-                    <Button
-                      theme="solid"
-                      type="primary"
-                      size="small"
-                      onClick={() => navigate('/register')}
-                    >
-                      {t('点击注册')}
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Divider margin='12px' align='center'>
+                {t('或')}
+              </Divider>
+
+              <Button
+                theme="solid"
+                type="primary"
+                className="w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors"
+                icon={<IconMail size="large" />}
+                size="large"
+                onClick={handleEmailLoginClick}
+                loading={emailLoginLoading}
+              >
+                <span className="ml-3">{t('使用 邮箱或用户名 登录')}</span>
+              </Button>
             </div>
+
+            {!status.self_use_mode_enabled && (
+              <div className="mt-6 text-center text-sm">
+                <Text>
+                  {t('没有账户？')}
+                </Text>
+                <div style={{ marginTop: '8px' }}>
+                  <Button
+                    theme="solid"
+                    type="primary"
+                    size="small"
+                    onClick={() => navigate('/register')}
+                  >
+                    {t('点击注册')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
           </Card>
         </div>
       </div>
@@ -587,6 +669,10 @@ const LoginForm = () => {
         onCancel={() => {
           setShowWeChatLoginModal(false);
           stopQRLoginCheck();
+          // 关闭弹窗时清除二维码数据，下次打开时重新获取
+          setTimeout(() => {
+            setWechatQRData(null);
+          }, 300); // 延迟清除，避免关闭动画时闪烁
         }}
         footer={null}
         size="small"
