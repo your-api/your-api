@@ -155,6 +155,9 @@ func Relay(c *gin.Context) {
 		userAgent := c.Request.Header.Get("User-Agent")
 		isCLIRequest := strings.Contains(strings.ToLower(userAgent), "cli")
 		
+		// 使用 SysError 确保日志输出
+		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v", userAgent, isCLIRequest))
+		
 		if isCLIRequest {
 			// 对于 CLI 请求，返回 Claude CLI 期望的错误格式
 			// ClaudeHttpError(error_code=503130, message_key='claudeClient.httpError', 
@@ -188,9 +191,9 @@ func Relay(c *gin.Context) {
 				},
 			}
 			
-			// 记录最终返回给客户端的响应
+			// 记录最终返回给客户端的响应 - 使用 SysError 确保输出
 			responseBytes, _ := json.Marshal(responseData)
-			common.LogError(c, fmt.Sprintf("[Relay] CLI error response: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			common.SysError(fmt.Sprintf("[Relay] CLI error response: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
 			
 			c.JSON(newAPIError.StatusCode, responseData)
 		} else {
@@ -201,9 +204,9 @@ func Relay(c *gin.Context) {
 				"error": openAIError,
 			}
 			
-			// 记录最终返回给客户端的响应
+			// 记录最终返回给客户端的响应 - 使用 SysError 确保输出
 			responseBytes, _ := json.Marshal(responseData)
-			common.LogError(c, fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			common.SysError(fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
 			
 			c.JSON(newAPIError.StatusCode, responseData)
 		}

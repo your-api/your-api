@@ -83,33 +83,33 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Failed to read response body: %v", err))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to read response body: %v", err))
 		return
 	}
 	common.CloseResponseBodyGracefully(resp)
 	
-	// 记录原始响应
-	common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Status Code: %d, Response Body: %s", resp.StatusCode, string(responseBody)))
+	// 记录原始响应 - 使用 SysError 确保输出
+	common.SysError(fmt.Sprintf("[RelayErrorHandler] Status Code: %d, Response Body: %s", resp.StatusCode, string(responseBody)))
 	
 	// 先尝试解析为 Claude 错误格式
 	var claudeErrResponse dto.ClaudeResponse
 	claudeErr := common.Unmarshal(responseBody, &claudeErrResponse)
 	if claudeErr == nil && claudeErrResponse.Error != nil {
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Parsed as Claude error: %+v", claudeErrResponse.Error))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Parsed as Claude error: %+v", claudeErrResponse.Error))
 		// 成功解析为 Claude 错误格式
 		if claudeError := claudeErrResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
-			common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Returning Claude error: Type=%s, Message=%s", claudeError.Type, claudeError.Message))
+			common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning Claude error: Type=%s, Message=%s", claudeError.Type, claudeError.Message))
 			return types.WithClaudeError(*claudeError, resp.StatusCode)
 		}
 	} else if claudeErr != nil {
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Failed to parse as Claude error: %v", claudeErr))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to parse as Claude error: %v", claudeErr))
 	}
 	
 	// 尝试解析为通用错误格式
 	var errResponse dto.GeneralErrorResponse
 	err = common.Unmarshal(responseBody, &errResponse)
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Failed to parse as GeneralError: %v", err))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to parse as GeneralError: %v", err))
 		if showBodyWhenFail {
 			newApiErr.Err = fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody))
 		} else {
@@ -121,14 +121,14 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 		return
 	}
 	
-	common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Parsed as GeneralError: %+v", errResponse))
+	common.SysError(fmt.Sprintf("[RelayErrorHandler] Parsed as GeneralError: %+v", errResponse))
 	
 	if errResponse.Error.Message != "" {
 		// General format error (OpenAI, Anthropic, Gemini, etc.)
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Returning OpenAI error from GeneralError"))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning OpenAI error from GeneralError"))
 		newApiErr = types.WithOpenAIError(errResponse.Error, resp.StatusCode)
 	} else {
-		common.LogError(nil, fmt.Sprintf("[RelayErrorHandler] Returning error from ToMessage: %s", errResponse.ToMessage()))
+		common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning error from ToMessage: %s", errResponse.ToMessage()))
 		newApiErr = types.NewOpenAIError(errors.New(errResponse.ToMessage()), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
 	}
 	return
