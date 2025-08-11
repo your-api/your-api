@@ -348,30 +348,35 @@ func RelayClaude(c *gin.Context) {
 			userAgent, isClaudeCLI, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
 		
 		if isClaudeCLI {
-			// Claude Code CLI 需要 clove 格式的错误
+			// Claude Code CLI - 尝试返回标准 Claude API 错误格式
 			// 1:1 返回，不添加任何额外信息
 			errorMessage := newAPIError.Error()
 			
-			// 构建 context
-			errorContext := map[string]interface{}{
-				"url":          "https://api.anthropic.com/v1/messages",
-				"status_code":  newAPIError.StatusCode,
-				"error_type":   "invalid_request_error",
-				"error_message": errorMessage,
+			// 确定错误类型
+			errorType := "invalid_request_error"
+			if newAPIError.StatusCode == http.StatusTooManyRequests {
+				errorType = "rate_limit_error"
+			} else if newAPIError.StatusCode == http.StatusUnauthorized {
+				errorType = "authentication_error"
+			} else if newAPIError.StatusCode >= 500 {
+				errorType = "api_error"
 			}
 			
+			// 返回标准 Claude API 错误格式
 			responseData := gin.H{
-				"detail": gin.H{
-					"code":    503130,
-					"message": "claudeClient.httpError",
-					"context": errorContext,
+				"type": "error",
+				"error": gin.H{
+					"type":    errorType,
+					"message": errorMessage,
 				},
 			}
 			
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (Claude API format): StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
 			
+			// 设置正确的 Content-Type
+			c.Header("Content-Type", "application/json")
 			c.JSON(newAPIError.StatusCode, responseData)
 		} else {
 			// 非 CLI 请求，构建原有的错误格式
