@@ -7,12 +7,33 @@ import (
 	"one-api/model"
 	"one-api/setting"
 	"one-api/setting/console_setting"
+	"one-api/setting/operation_setting"
 	"one-api/setting/ratio_setting"
 	"one-api/setting/system_setting"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
+
+func GetProviders(c *gin.Context) {
+	providers := operation_setting.GetProviders()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    providers,
+	})
+	return
+}
+
+func GetImageReadProxy(c *gin.Context) {
+	imageReadProxy := operation_setting.GetImageReadProxy()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    imageReadProxy,
+	})
+	return
+}
 
 func GetOptions(c *gin.Context) {
 	var options []*model.Option

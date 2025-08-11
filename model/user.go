@@ -24,6 +24,8 @@ type User struct {
 	Role             int            `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
+	Phone            string         `json:"phone" gorm:"index" validate:"max=20"`
+	PhoneCode        string         `json:"phone_code" gorm:"-:all"`                                           // this field is only for Phone verification, don't save it to database!
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
@@ -49,7 +51,6 @@ type User struct {
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
-	Phone            string         `json:"phone" gorm:"type:varchar(32);column:phone;index"`              // 手机号
 }
 
 func (user *User) ToBaseUser() *UserBase {

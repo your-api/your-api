@@ -8,13 +8,10 @@ import (
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
-	"one-api/middleware"
 	"one-api/model"
 	"one-api/setting"
-	"one-api/setting/console_setting"
 	"one-api/setting/operation_setting"
 	"one-api/setting/system_setting"
-	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -29,89 +26,57 @@ func TestStatus(c *gin.Context) {
 		})
 		return
 	}
-	// 获取HTTP统计信息
-	httpStats := middleware.GetStats()
 	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"message":    "Server is running",
-		"http_stats": httpStats,
+		"success": true,
+		"message": "Server is running",
 	})
 	return
 }
 
 func GetStatus(c *gin.Context) {
-
-	cs := console_setting.GetConsoleSetting()
-
-	data := gin.H{
-		"version":                  common.Version,
-		"start_time":               common.StartTime,
-		"email_verification":       common.EmailVerificationEnabled,
-		"github_oauth":             common.GitHubOAuthEnabled,
-		"github_client_id":         common.GitHubClientId,
-		"linuxdo_oauth":            common.LinuxDOOAuthEnabled,
-		"linuxdo_client_id":        common.LinuxDOClientId,
-		"telegram_oauth":           common.TelegramOAuthEnabled,
-		"telegram_bot_name":        common.TelegramBotName,
-		"system_name":              common.SystemName,
-		"logo":                     common.Logo,
-		"footer_html":              common.Footer,
-		"wechat_qrcode":            common.WeChatAccountQRCodeImageURL,
-		"wechat_login":             common.WeChatAuthEnabled,
-		"server_address":           setting.ServerAddress,
-		"price":                    setting.Price,
-		"stripe_unit_price":        setting.StripeUnitPrice,
-		"min_topup":                setting.MinTopUp,
-		"stripe_min_topup":         setting.StripeMinTopUp,
-		"turnstile_check":          common.TurnstileCheckEnabled,
-		"turnstile_site_key":       common.TurnstileSiteKey,
-		"top_up_link":              common.TopUpLink,
-		"docs_link":                operation_setting.GetGeneralSetting().DocsLink,
-		"quota_per_unit":           common.QuotaPerUnit,
-		"display_in_currency":      common.DisplayInCurrencyEnabled,
-		"enable_batch_update":      common.BatchUpdateEnabled,
-		"enable_drawing":           common.DrawingEnabled,
-		"enable_task":              common.TaskEnabled,
-		"enable_data_export":       common.DataExportEnabled,
-		"data_export_default_time": common.DataExportDefaultTime,
-		"default_collapse_sidebar": common.DefaultCollapseSidebar,
-		"enable_online_topup":      setting.PayAddress != "" && setting.EpayId != "" && setting.EpayKey != "",
-		"enable_stripe_topup":      setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
-		"mj_notify_enabled":        setting.MjNotifyEnabled,
-		"chats":                    setting.Chats,
-		"demo_site_enabled":        operation_setting.DemoSiteEnabled,
-		"self_use_mode_enabled":    operation_setting.SelfUseModeEnabled,
-		"default_use_auto_group":   setting.DefaultUseAutoGroup,
-		"pay_methods":              setting.PayMethods,
-		"usd_exchange_rate":        setting.USDExchangeRate,
-
-		// 面板启用开关
-		"api_info_enabled":      cs.ApiInfoEnabled,
-		"uptime_kuma_enabled":   cs.UptimeKumaEnabled,
-		"announcements_enabled": cs.AnnouncementsEnabled,
-		"faq_enabled":           cs.FAQEnabled,
-
-		"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
-		"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
-		"oidc_authorization_endpoint": system_setting.GetOIDCSettings().AuthorizationEndpoint,
-		"setup":                       constant.Setup,
-	}
-
-	// 根据启用状态注入可选内容
-	if cs.ApiInfoEnabled {
-		data["api_info"] = console_setting.GetApiInfo()
-	}
-	if cs.AnnouncementsEnabled {
-		data["announcements"] = console_setting.GetAnnouncements()
-	}
-	if cs.FAQEnabled {
-		data["faq"] = console_setting.GetFAQ()
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    data,
+		"data": gin.H{
+			"version":                     common.Version,
+			"start_time":                  common.StartTime,
+			"email_verification":          common.EmailVerificationEnabled,
+			"github_oauth":                common.GitHubOAuthEnabled,
+			"github_client_id":            common.GitHubClientId,
+			"linuxdo_oauth":               common.LinuxDOOAuthEnabled,
+			"linuxdo_client_id":           common.LinuxDOClientId,
+			"telegram_oauth":              common.TelegramOAuthEnabled,
+			"telegram_bot_name":           common.TelegramBotName,
+			"system_name":                 common.SystemName,
+			"logo":                        common.Logo,
+			"footer_html":                 common.Footer,
+			"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
+			"wechat_login":                common.WeChatAuthEnabled,
+			"server_address":              setting.ServerAddress,
+			"price":                       setting.Price,
+			"min_topup":                   setting.MinTopUp,
+			"turnstile_check":             common.TurnstileCheckEnabled,
+			"turnstile_site_key":          common.TurnstileSiteKey,
+			"top_up_link":                 common.TopUpLink,
+			"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
+			"quota_per_unit":              common.QuotaPerUnit,
+			"display_in_currency":         common.DisplayInCurrencyEnabled,
+			"enable_batch_update":         common.BatchUpdateEnabled,
+			"enable_drawing":              common.DrawingEnabled,
+			"enable_task":                 common.TaskEnabled,
+			"enable_data_export":          common.DataExportEnabled,
+			"data_export_default_time":    common.DataExportDefaultTime,
+			"default_collapse_sidebar":    common.DefaultCollapseSidebar,
+			"enable_online_topup":         setting.PayAddress != "" && setting.EpayId != "" && setting.EpayKey != "",
+			"mj_notify_enabled":           setting.MjNotifyEnabled,
+			"chats":                       setting.Chats,
+			"demo_site_enabled":           operation_setting.DemoSiteEnabled,
+			"self_use_mode_enabled":       operation_setting.SelfUseModeEnabled,
+			"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
+			"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
+			"oidc_authorization_endpoint": system_setting.GetOIDCSettings().AuthorizationEndpoint,
+			"setup":                       constant.Setup,
+		},
 	})
 	return
 }
@@ -299,7 +264,7 @@ func SendEmailVerification(c *gin.Context) {
 		})
 		return
 	}
-	code := common.GenerateVerificationCode(6)
+	code := common.GenerateNumericVerificationCode(6)
 	common.RegisterVerificationCodeWithKey(email, code, common.EmailVerificationPurpose)
 	subject := fmt.Sprintf("%s邮箱验证邮件", common.SystemName)
 	content := fmt.Sprintf("<p>您好，你正在进行%s邮箱验证。</p>"+
@@ -307,7 +272,10 @@ func SendEmailVerification(c *gin.Context) {
 		"<p>验证码 %d 分钟内有效，如果不是本人操作，请忽略。</p>", common.SystemName, code, common.VerificationValidMinutes)
 	err := common.SendEmail(subject, email, content)
 	if err != nil {
-		common.ApiError(c, err)
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -490,86 +458,6 @@ func sendSMSCode(phone, code string) error {
 	return nil
 }
 
-type PhonePasswordResetRequest struct {
-	Phone       string `json:"phone"`
-	PhoneCode   string `json:"phone_code"`
-	NewPassword string `json:"new_password"`
-}
-
-func ResetPasswordByPhone(c *gin.Context) {
-	var req PhonePasswordResetRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&req)
-	if err != nil || req.Phone == "" || req.PhoneCode == "" || req.NewPassword == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "无效的参数",
-		})
-		return
-	}
-
-	// 验证新密码长度
-	if len(req.NewPassword) < 6 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "密码长度至少6位",
-		})
-		return
-	}
-
-	// 验证手机号格式
-	phoneRegex := regexp.MustCompile(`^1[3-9]\d{9}$`)
-	if !phoneRegex.MatchString(req.Phone) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "手机号格式不正确",
-		})
-		return
-	}
-
-	// 验证手机验证码
-	if !common.VerifyCodeWithKey(req.Phone, req.PhoneCode, common.PhoneVerificationPurpose) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "验证码错误或已过期",
-		})
-		return
-	}
-
-	// 检查手机号是否注册
-	if !model.IsPhoneAlreadyTaken(req.Phone, 0) {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "该手机号未注册",
-		})
-		return
-	}
-
-	// 使用用户提供的新密码
-	hashedPassword, err := common.Password2Hash(req.NewPassword)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "密码处理失败",
-		})
-		return
-	}
-
-	err = model.ResetUserPasswordByPhone(req.Phone, hashedPassword)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "密码重置成功",
-	})
-	return
-}
-
 func SendPasswordResetEmail(c *gin.Context) {
 	email := c.Query("email")
 	if err := common.Validate.Var(email, "required,email"); err != nil {
@@ -586,7 +474,7 @@ func SendPasswordResetEmail(c *gin.Context) {
 		})
 		return
 	}
-	code := common.GenerateVerificationCode(0)
+	code := common.GenerateNumericVerificationCode(6)
 	common.RegisterVerificationCodeWithKey(email, code, common.PasswordResetPurpose)
 	link := fmt.Sprintf("%s/user/reset?email=%s&token=%s", setting.ServerAddress, email, code)
 	subject := fmt.Sprintf("%s密码重置", common.SystemName)
@@ -596,7 +484,10 @@ func SendPasswordResetEmail(c *gin.Context) {
 		"<p>重置链接 %d 分钟内有效，如果不是本人操作，请忽略。</p>", common.SystemName, link, link, common.VerificationValidMinutes)
 	err := common.SendEmail(subject, email, content)
 	if err != nil {
-		common.ApiError(c, err)
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -631,7 +522,10 @@ func ResetPassword(c *gin.Context) {
 	password := common.GenerateVerificationCode(12)
 	err = model.ResetUserPasswordByEmail(req.Email, password)
 	if err != nil {
-		common.ApiError(c, err)
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
 		return
 	}
 	common.DeleteKey(req.Email, common.PasswordResetPurpose)
@@ -643,6 +537,87 @@ func ResetPassword(c *gin.Context) {
 	return
 }
 
+type PhonePasswordResetRequest struct {
+	Phone       string `json:"phone"`
+	PhoneCode   string `json:"phone_code"`
+	NewPassword string `json:"new_password"`
+}
+
+func ResetPasswordByPhone(c *gin.Context) {
+	var req PhonePasswordResetRequest
+	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	if req.Phone == "" || req.PhoneCode == "" || req.NewPassword == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的参数",
+		})
+		return
+	}
+
+	// 验证新密码长度
+	if len(req.NewPassword) < 6 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "密码长度至少6位",
+		})
+		return
+	}
+
+	// 验证手机号格式
+	if len(req.Phone) != 11 || req.Phone[:1] != "1" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "手机号格式不正确",
+		})
+		return
+	}
+
+	// 验证手机验证码
+	if !common.VerifyCodeWithKey(req.Phone, req.PhoneCode, common.PhoneVerificationPurpose) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "验证码错误或已过期",
+		})
+		return
+	}
+
+	// 检查手机号是否注册
+	if !model.IsPhoneAlreadyTaken(req.Phone, 0) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该手机号未注册",
+		})
+		return
+	}
+
+	// 使用用户提供的新密码 - 需要先加密
+	hashedPassword, err := common.Password2Hash(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "密码处理失败",
+		})
+		return
+	}
+	
+	err = model.ResetUserPasswordByPhone(req.Phone, hashedPassword)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// 删除已使用的验证码
+	common.DeleteKey(req.Phone, common.PhoneVerificationPurpose)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码重置成功",
+	})
+	return
+}
 
 func TestIP(c *gin.Context) {
 	clientIP := common.GetClientIP(c)

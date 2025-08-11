@@ -1,14 +1,18 @@
 package controller
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"one-api/common"
 	"one-api/constant"
 	"one-api/model"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -1418,4 +1422,67 @@ func ManageMultiKeys(c *gin.Context) {
 		})
 		return
 	}
+}
+
+func TestProxyIP(c *gin.Context) {
+	proxyURL := c.Query("proxy")
+	if proxyURL == "" {
+		c.JSON(400, gin.H{
+			"success": false,
+			"message": "缺少代理地址参数",
+		})
+		return
+	}
+
+	// 创建HTTP客户端，配置代理
+	proxyURLObj, err := url.Parse(proxyURL)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"success": false,
+			"message": "代理地址格式错误: " + err.Error(),
+		})
+		return
+	}
+
+	transport := &http.Transport{
+		Proxy: http.ProxyURL(proxyURLObj),
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   10 * time.Second,
+	}
+
+	// 发送请求到外部API以验证代理是否工作
+	testURL := "https://ipconfig.io"
+	resp, err := client.Get(testURL)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"success": false,
+			"message": "代理测试失败: " + err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// 读取响应内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"success": false,
+			"message": "读取响应失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"success": true,
+		"message": "代理测试成功",
+		"data": gin.H{
+			"proxy_ip": string(body),
+		},
+	})
 }
