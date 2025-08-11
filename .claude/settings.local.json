@@ -46,7 +46,9 @@
       "Bash(git fetch:*)",
       "Bash(go test:*)",
       "Bash(go vet:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(echo)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   }

@@ -334,28 +334,32 @@ func RelayClaude(c *gin.Context) {
 		isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
 		
 		if isClaudeCLI {
-			// 为 Claude Code CLI 增强错误格式，同时保持向后兼容
-			errorType := claudeErr.Type
+			// Claude Code CLI 需要标准的Claude错误格式
+			errorType := "api_error"
 			if newAPIError.GetErrorType() == types.ErrorTypeClaudeError {
 				if claudeError, ok := newAPIError.RelayError.(types.ClaudeError); ok && claudeError.Type != "" {
 					errorType = claudeError.Type
 				}
+			} else if newAPIError.StatusCode == http.StatusBadRequest {
+				errorType = "invalid_request_error"
+			} else if newAPIError.StatusCode == http.StatusUnauthorized {
+				errorType = "authentication_error"
+			} else if newAPIError.StatusCode == http.StatusForbidden {
+				errorType = "permission_error"
+			} else if newAPIError.StatusCode == http.StatusNotFound {
+				errorType = "not_found_error"
+			} else if newAPIError.StatusCode == http.StatusTooManyRequests {
+				errorType = "rate_limit_error"
+			} else if newAPIError.StatusCode >= 500 {
+				errorType = "api_error"
 			}
 			
-			// 构建兼容格式：既包含原有格式，又包含 Claude Code 需要的字段
+			// 返回标准的Claude错误格式
 			c.JSON(newAPIError.StatusCode, gin.H{
-				// 原有格式
-				"type":  "error",
-				"error": claudeErr,
-				// Claude Code CLI 需要的额外字段
-				"error_code":   503130,
-				"message_key":  "claudeClient.httpError",
-				"status_code":  newAPIError.StatusCode,
-				"context": map[string]interface{}{
-					"url":          fmt.Sprintf("https://%s%s", c.Request.Host, c.Request.URL.Path),
-					"status_code":  newAPIError.StatusCode,
-					"error_type":   errorType,
-					"error_message": claudeErr.Message,
+				"type": "error",
+				"error": gin.H{
+					"type":    errorType,
+					"message": claudeErr.Message,
 				},
 			})
 		} else {
