@@ -60,6 +60,6 @@ RUN apk update && apk upgrade && \
 
 COPY --from=builder2 /build/one-api /one-api
 
-EXPOSE 3000
+EXPOSE 3001
 WORKDIR /data
 ENTRYPOINT ["/one-api"]
