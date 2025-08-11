@@ -75,13 +75,61 @@ body > #root > div:not(.topnav) {
 .semi-chat-inputBox-sendButton,
 .semi-page-item,
 .semi-navigation-item,
-.semi-tag-closable,
 .semi-input-wrapper,
 .semi-tabs-tab-button,
 .semi-select,
-.semi-button,
+.semi-button:not(.rounded-full),
 .semi-datepicker-range-input {
   border-radius: 10px !important;
+}
+
+/* Tag 组件圆角样式 - 保持原有的 circle 形状 */
+.semi-tag-closable,
+.semi-tag-circle {
+  border-radius: 9999px !important;
+}
+
+/* 优化 Tag 组件样式 - 扁平秀气 */
+.semi-tag {
+  padding: 2px 10px !important;
+  height: 22px !important;
+  line-height: 18px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border: 1px solid transparent !important;
+}
+
+.semi-tag-default {
+  padding: 2px 10px !important;
+}
+
+.semi-tag-circle {
+  padding: 2px 12px !important;
+}
+
+/* Tag 图标样式 */
+.semi-tag-prefix-icon {
+  margin-right: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.semi-tag-prefix-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Tag 内容样式 */
+.semi-tag-content {
+  display: inline-flex !important;
+  align-items: center !important;
+  max-width: 200px !important;
+}
+
+.semi-tag-content-ellipsis {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .semi-navigation-item {
@@ -387,7 +435,7 @@ body > #root > div:not(.topnav) {
 }
 
 /* 修复 Semi Design 按钮样式被 Tailwind 重置的问题 */
-.semi-button {
+.semi-button:not([aria-label]) {
   border-width: 1px !important;
   border-style: solid !important;
   margin: 0 4px !important; /* 按钮之间添加间距 */
@@ -395,6 +443,39 @@ body > #root > div:not(.topnav) {
   min-height: 32px !important; /* 最小高度 */
   font-weight: 500 !important; /* 字体稍微加粗 */
   transition: all 0.2s ease !important;
+}
+
+/* aria-label 按钮特殊样式 - 保持小巧圆形 */
+.semi-button[aria-label] {
+  border-width: 1px !important;
+  border-style: solid !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 确保 Tailwind 的圆形按钮样式优先级 */
+.semi-button.rounded-full,
+.semi-button.\!rounded-full {
+  border-radius: 9999px !important;
+}
+
+/* 确保固定宽高的按钮样式 */
+.semi-button.\!w-6.\!h-6 {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  min-height: 1.5rem !important;
+  padding: 0 !important;
+}
+
+.semi-button.\!w-7.\!h-7 {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  padding: 0 !important;
+}
+
+/* 确保无内边距样式 */
+.semi-button.\!p-0 {
+  padding: 0 !important;
 }
 
 /* 覆盖Semi的CSS变量，使用灰色调 */
