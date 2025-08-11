@@ -412,10 +412,6 @@ const LoginForm = () => {
                       type="primary"
                       size="small"
                       onClick={() => navigate('/register')}
-                      style={{
-                        backgroundColor: '#1890ff',
-                        borderColor: '#1890ff'
-                      }}
                     >
                       {t('点击注册')}
                     </Button>
@@ -485,13 +481,9 @@ const LoginForm = () => {
                     <div style={{ marginTop: '8px' }}>
                       <Button
                         theme="solid"
-                        type="danger"
+                        type="primary"
                         size="small"
                         onClick={handleResetPasswordClick}
-                        style={{
-                          backgroundColor: '#ff4d4f',
-                          borderColor: '#ff4d4f'
-                        }}
                       >
                         {t('点击重置')}
                       </Button>
@@ -532,10 +524,6 @@ const LoginForm = () => {
                       type="primary"
                       size="small"
                       onClick={() => navigate('/register')}
-                      style={{
-                        backgroundColor: '#1890ff',
-                        borderColor: '#1890ff'
-                      }}
                     >
                       {t('点击注册')}
                     </Button>

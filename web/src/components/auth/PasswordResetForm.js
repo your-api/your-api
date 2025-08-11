@@ -280,14 +280,9 @@ const PasswordResetForm = () => {
           </Text>
           <Button
             theme="solid"
-            type="secondary"
+            type="primary"
             size="small"
             onClick={() => navigate('/login')}
-            style={{
-              backgroundColor: '#1890ff',
-              borderColor: '#1890ff',
-              fontWeight: 500
-            }}
           >
             {t('返回登录')}
           </Button>
@@ -444,14 +439,9 @@ const PasswordResetForm = () => {
           </Text>
           <Button
             theme="solid"
-            type="secondary"
+            type="primary"
             size="small"
             onClick={() => navigate('/login')}
-            style={{
-              backgroundColor: '#1890ff',
-              borderColor: '#1890ff',
-              fontWeight: 500
-            }}
           >
             {t('返回登录')}
           </Button>
