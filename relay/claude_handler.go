@@ -157,6 +157,18 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 			newAPIError = service.RelayErrorHandler(httpResp, false)
 			// reset status code 重置状态码
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+			
+			// 如果是400错误且UA包含cli，添加有用的提示
+			if httpResp.StatusCode == http.StatusBadRequest {
+				userAgent := strings.ToLower(c.GetHeader("User-Agent"))
+				if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
+					originalMsg := newAPIError.Err.Error()
+					if originalMsg != "" {
+						newAPIError.Err = fmt.Errorf("%s (Tip: Context might be too long. Try using /compact to compress context or start a new conversation)", originalMsg)
+					}
+				}
+			}
+			
 			// 记录失败的日志
 			failedUsage := &dto.Usage{
 				PromptTokens:     promptTokens,
@@ -173,6 +185,18 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+		
+		// 如果是400错误且UA包含cli，添加有用的提示
+		if newAPIError.StatusCode == http.StatusBadRequest {
+			userAgent := strings.ToLower(c.GetHeader("User-Agent"))
+			if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
+				originalMsg := newAPIError.Err.Error()
+				if originalMsg != "" {
+					newAPIError.Err = fmt.Errorf("%s (Tip: Context might be too long. Try using /compact to compress context or start a new conversation)", originalMsg)
+				}
+			}
+		}
+		
 		// 记录失败的日志
 		failedUsage := &dto.Usage{
 			PromptTokens:     promptTokens,
