@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -151,9 +152,16 @@ func Relay(c *gin.Context) {
 		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
 		
 		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-		c.JSON(newAPIError.StatusCode, gin.H{
-			"error": newAPIError.ToOpenAIError(),
-		})
+		openAIError := newAPIError.ToOpenAIError()
+		responseData := gin.H{
+			"error": openAIError,
+		}
+		
+		// 记录最终返回给客户端的响应
+		responseBytes, _ := json.Marshal(responseData)
+		common.LogError(c, fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+		
+		c.JSON(newAPIError.StatusCode, responseData)
 	}
 }
 
