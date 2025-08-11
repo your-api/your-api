@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"one-api/common"
+	"one-api/constant"
 	"strings"
 	"sync"
 
@@ -130,6 +131,66 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		for _, ability_ := range abilities {
 			weight -= int(ability_.Weight) + 10
 			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
+			if weight <= 0 {
+				channel.Id = ability_.ChannelId
+				break
+			}
+		}
+	} else {
+		return nil, nil
+	}
+	err = DB.First(&channel, "id = ?", channel.Id).Error
+	return &channel, err
+}
+
+func GetRandomSatisfiedChannelWithFilter(group string, model string, retry int, isOpenAIEndpoint bool) (*Channel, error) {
+	var abilities []Ability
+
+	var err error = nil
+	channelQuery, err := getChannelQuery(group, model, retry)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 如果是OpenAI端点，需要排除Anthropic Claude渠道
+	// 在数据库查询层面进行过滤，但保持原有的优先级和权重逻辑
+	if isOpenAIEndpoint {
+		// 先获取所有非Anthropic类型且启用的渠道ID
+		var channelIds []int
+		err = DB.Table("channels").
+			Where("type != ?", constant.ChannelTypeAnthropic).
+			Where("status = ?", common.ChannelStatusEnabled).
+			Pluck("id", &channelIds).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(channelIds) == 0 {
+			return nil, errors.New("没有可用的非Claude渠道处理此OpenAI请求")
+		}
+		channelQuery = channelQuery.Where("channel_id IN ?", channelIds)
+	}
+	
+	// 以下逻辑与原始的GetRandomSatisfiedChannel保持完全一致
+	if common.UsingSQLite || common.UsingPostgreSQL {
+		err = channelQuery.Order("weight DESC").Find(&abilities).Error
+	} else {
+		err = channelQuery.Order("weight DESC").Find(&abilities).Error
+	}
+	if err != nil {
+		return nil, err
+	}
+	
+	channel := Channel{}
+	if len(abilities) > 0 {
+		// 按权重随机选择
+		weightSum := uint(0)
+		for _, ability_ := range abilities {
+			weightSum += ability_.Weight + 10
+		}
+		// 随机选择一个
+		weight := common.GetRandomInt(int(weightSum))
+		for _, ability_ := range abilities {
+			weight -= int(ability_.Weight) + 10
 			if weight <= 0 {
 				channel.Id = ability_.ChannelId
 				break

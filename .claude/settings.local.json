@@ -43,7 +43,8 @@
       "Bash(go mod init:*)",
       "Bash(chmod:*)",
       "Bash(/tmp/test_mysql_query.sh:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(go test:*)"
     ],
     "deny": []
   }
