@@ -79,6 +79,7 @@ func Distribute() func(c *gin.Context) {
 				}
 				var selectGroup string
 				userGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+				originalUserGroup := userGroup
 				// check path is /pg/chat/completions
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
 					playgroundRequest := &dto.PlayGroundRequest{}
@@ -95,11 +96,32 @@ func Distribute() func(c *gin.Context) {
 						userGroup = playgroundRequest.Group
 					}
 				}
-				channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0)
+				
+				// 特殊处理: /v1/messages 且分组为 "claudecode官转 0.5元一刀" 且 User-Agent 包含 CLI
+				fallbackAttempted := false
+				userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
+				if strings.Contains(c.Request.URL.Path, "/v1/messages") && 
+					userGroup == "claudecode官转 0.5元一刀" && 
+					strings.Contains(userAgent, "cli") {
+					// 先尝试使用原始分组
+					channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0)
+					if channel == nil {
+						// 如果找不到渠道，尝试使用 default 分组
+						fallbackAttempted = true
+						userGroup = "default"
+						common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+						channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0)
+					}
+				} else {
+					channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0)
+				}
+				
 				if err != nil {
 					showGroup := userGroup
 					if userGroup == "auto" {
 						showGroup = fmt.Sprintf("auto(%s)", selectGroup)
+					} else if fallbackAttempted {
+						showGroup = fmt.Sprintf("%s(已尝试fallback到default)", originalUserGroup)
 					}
 					message := fmt.Sprintf("获取分组 %s 下模型 %s 的可用渠道失败（数据库一致性已被破坏，distributor）: %s", showGroup, modelRequest.Model, err.Error())
 					// 如果错误，但是渠道不为空，说明是数据库一致性问题
@@ -111,7 +133,11 @@ func Distribute() func(c *gin.Context) {
 					return
 				}
 				if channel == nil {
-					abortWithOpenAiMessage(c, http.StatusServiceUnavailable, fmt.Sprintf("分组 %s 下模型 %s 无可用渠道（distributor）", userGroup, modelRequest.Model))
+					showGroup := userGroup
+					if fallbackAttempted {
+						showGroup = fmt.Sprintf("%s 和 default", originalUserGroup)
+					}
+					abortWithOpenAiMessage(c, http.StatusServiceUnavailable, fmt.Sprintf("分组 %s 下模型 %s 无可用渠道（distributor）", showGroup, modelRequest.Model))
 					return
 				}
 			}
