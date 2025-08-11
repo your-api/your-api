@@ -156,10 +156,12 @@ func Relay(c *gin.Context) {
 		isCLIRequest := strings.Contains(strings.ToLower(userAgent), "cli")
 		
 		// 使用 SysError 确保日志输出
-		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v, ErrorType: %v", userAgent, isCLIRequest, newAPIError.GetErrorType()))
+		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v, ErrorType: %v, StatusCode: %d, Error: %s", 
+			userAgent, isCLIRequest, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
 		
 		if isCLIRequest {
 			// 对于 CLI 请求，返回 Claude CLI 期望的错误格式
+			// 1:1 返回，不添加任何额外信息
 			
 			// 提取错误消息
 			errorMessage := newAPIError.Error()
@@ -172,16 +174,11 @@ func Relay(c *gin.Context) {
 				"error_message": errorMessage,
 			}
 			
-			// 特殊处理：如果错误消息已经包含了具体的 token 信息，保持原样
-			if strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens") {
-				// 保持原始错误消息，例如: "input length and `max_tokens` exceed context limit: 186738 + 32000 > 200000"
-			}
-			
 			responseData := gin.H{
 				"detail": gin.H{
-					"code":        503130,
-					"message":     "claudeClient.httpError", 
-					"context":     errorContext,
+					"code":    503130,
+					"message": "claudeClient.httpError", 
+					"context": errorContext,
 				},
 			}
 			
