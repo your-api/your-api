@@ -156,31 +156,25 @@ func Relay(c *gin.Context) {
 		isCLIRequest := strings.Contains(strings.ToLower(userAgent), "cli")
 		
 		// 使用 SysError 确保日志输出
-		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v", userAgent, isCLIRequest))
+		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v, ErrorType: %v", userAgent, isCLIRequest, newAPIError.GetErrorType()))
 		
 		if isCLIRequest {
 			// 对于 CLI 请求，返回 Claude CLI 期望的错误格式
-			// ClaudeHttpError(error_code=503130, message_key='claudeClient.httpError', 
-			// status_code=400, context={'url': 'https://api.anthropic.com/v1/messages', 
-			// 'status_code': 400, 'error_type': 'invalid_request_error', 
-			// 'error_message': 'prompt is too long: 215558 tokens > 200000 maximum'})
+			
+			// 提取错误消息
+			errorMessage := newAPIError.Error()
 			
 			// 构建 context
 			errorContext := map[string]interface{}{
 				"url":          "https://api.anthropic.com/v1/messages",
 				"status_code":  newAPIError.StatusCode,
 				"error_type":   "invalid_request_error",
-				"error_message": newAPIError.Error(),
+				"error_message": errorMessage,
 			}
 			
-			// 特殊处理 token 超限错误
-			errorMessage := newAPIError.Error()
-			if strings.Contains(errorMessage, "prompt is too long") || 
-			   strings.Contains(errorMessage, "tokens") && strings.Contains(errorMessage, "maximum") {
-				// 保持原始错误消息
-			} else if strings.Contains(errorMessage, "Tip: Context might be too long") {
-				// 将提示信息转换为标准的 token 超限错误
-				errorContext["error_message"] = "prompt is too long: 215558 tokens > 200000 maximum"
+			// 特殊处理：如果错误消息已经包含了具体的 token 信息，保持原样
+			if strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens") {
+				// 保持原始错误消息，例如: "input length and `max_tokens` exceed context limit: 186738 + 32000 > 200000"
 			}
 			
 			responseData := gin.H{
@@ -487,6 +481,20 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr == nil {
 		return false
 	}
+	
+	// 检查是否是 token 超限错误，如果是则不重试
+	errorMessage := openaiErr.Error()
+	if strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens") {
+		common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
+		return false
+	}
+	
+	// 检查是否包含 "prompt is too long" 关键字
+	if strings.Contains(errorMessage, "prompt is too long") {
+		common.SysError(fmt.Sprintf("[shouldRetry] Prompt too long, not retrying: %s", errorMessage))
+		return false
+	}
+	
 	if types.IsChannelError(openaiErr) {
 		return true
 	}
