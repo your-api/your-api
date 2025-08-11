@@ -263,7 +263,11 @@ func DeleteTokenById(id int, userId int) (err error) {
 
 func IncreaseTokenQuota(id int, key string, quota int) (err error) {
 	if quota < 0 {
+		common.LogError(nil, fmt.Sprintf("IncreaseTokenQuota called with negative quota: %d for token %d", quota, id))
 		return errors.New("quota 不能为负数！")
+	}
+	if quota == 0 {
+		return nil // No operation needed for zero quota
 	}
 	if common.RedisEnabled {
 		gopool.Go(func() {
@@ -293,7 +297,11 @@ func increaseTokenQuota(id int, quota int) (err error) {
 
 func DecreaseTokenQuota(id int, key string, quota int) (err error) {
 	if quota < 0 {
+		common.LogError(nil, fmt.Sprintf("DecreaseTokenQuota called with negative quota: %d for token %d", quota, id))
 		return errors.New("quota 不能为负数！")
+	}
+	if quota == 0 {
+		return nil // No operation needed for zero quota
 	}
 	if common.RedisEnabled {
 		gopool.Go(func() {

@@ -277,10 +277,20 @@ func PostClaudeConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 
 	quotaDelta := quota - preConsumedQuota
-	if quotaDelta != 0 {
+	// Only process delta if we need to consume more quota
+	if quotaDelta > 0 {
 		err := PostConsumeQuota(relayInfo, quotaDelta, preConsumedQuota, true)
 		if err != nil {
 			common.LogError(ctx, "error consuming token remain quota: "+err.Error())
+		}
+	} else if quotaDelta < 0 {
+		// If actual consumption is less than pre-consumed, refund the difference
+		refundAmount := -quotaDelta // Convert to positive for refund
+		err := RefundQuota(relayInfo, refundAmount)
+		if err != nil {
+			common.LogError(ctx, fmt.Sprintf("error refunding excess pre-consumed quota %d: %s", refundAmount, err.Error()))
+		} else {
+			common.LogInfo(ctx, fmt.Sprintf("refunded excess pre-consumed quota: %d", refundAmount))
 		}
 	}
 
@@ -372,10 +382,20 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 
 	quotaDelta := quota - preConsumedQuota
-	if quotaDelta != 0 {
+	// Only process delta if we need to consume more quota
+	if quotaDelta > 0 {
 		err := PostConsumeQuota(relayInfo, quotaDelta, preConsumedQuota, true)
 		if err != nil {
 			common.LogError(ctx, "error consuming token remain quota: "+err.Error())
+		}
+	} else if quotaDelta < 0 {
+		// If actual consumption is less than pre-consumed, refund the difference
+		refundAmount := -quotaDelta // Convert to positive for refund
+		err := RefundQuota(relayInfo, refundAmount)
+		if err != nil {
+			common.LogError(ctx, fmt.Sprintf("error refunding excess pre-consumed quota %d: %s", refundAmount, err.Error()))
+		} else {
+			common.LogInfo(ctx, fmt.Sprintf("refunded excess pre-consumed quota: %d", refundAmount))
 		}
 	}
 
@@ -414,33 +434,65 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 }
 
 func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) (err error) {
-
-	if quota > 0 {
-		err = model.DecreaseUserQuota(relayInfo.UserId, quota)
-	} else {
-		err = model.IncreaseUserQuota(relayInfo.UserId, -quota, false)
+	// Only allow positive quota for consumption
+	// Negative quota should never be processed as consumption
+	if quota <= 0 {
+		if quota < 0 {
+			common.LogWarn(nil, fmt.Sprintf("Attempted to consume negative quota: %d for user %d, this should not happen", quota, relayInfo.UserId))
+		}
+		return nil // Return early for zero or negative quota
 	}
+
+	// Decrease user quota
+	err = model.DecreaseUserQuota(relayInfo.UserId, quota)
 	if err != nil {
 		return err
 	}
 
+	// Decrease token quota if not playground
 	if !relayInfo.IsPlayground {
-		if quota > 0 {
-			err = model.DecreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota)
-		} else {
-			err = model.IncreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, -quota)
-		}
+		err = model.DecreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota)
 		if err != nil {
+			// Rollback user quota if token quota decrease fails
+			model.IncreaseUserQuota(relayInfo.UserId, quota, false)
 			return err
 		}
 	}
 
-	if sendEmail {
-		if (quota + preConsumedQuota) != 0 {
-			checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+	// Send notification if needed
+	if sendEmail && (quota + preConsumedQuota) > 0 {
+		checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+	}
+
+	return nil
+}
+
+// RefundQuota is specifically for refunding quota (e.g., when returning pre-consumed quota)
+func RefundQuota(relayInfo *relaycommon.RelayInfo, refundAmount int) (err error) {
+	// Only allow positive refund amounts
+	if refundAmount <= 0 {
+		if refundAmount < 0 {
+			common.LogWarn(nil, fmt.Sprintf("Attempted to refund negative amount: %d for user %d", refundAmount, relayInfo.UserId))
+		}
+		return nil
+	}
+
+	// Increase user quota
+	err = model.IncreaseUserQuota(relayInfo.UserId, refundAmount, false)
+	if err != nil {
+		return err
+	}
+
+	// Increase token quota if not playground
+	if !relayInfo.IsPlayground {
+		err = model.IncreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, refundAmount)
+		if err != nil {
+			// Log error but don't rollback user quota increase
+			common.LogError(nil, fmt.Sprintf("Failed to refund token quota: %d for token %d: %s", refundAmount, relayInfo.TokenId, err.Error()))
 		}
 	}
 
+	common.LogInfo(nil, fmt.Sprintf("Refunded quota: %d for user %d", refundAmount, relayInfo.UserId))
 	return nil
 }
 

@@ -343,13 +343,17 @@ func preConsumeQuota(c *gin.Context, preConsumedQuota int, relayInfo *relaycommo
 }
 
 func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, userQuota int, preConsumedQuota int) {
-	if preConsumedQuota != 0 {
+	// Only refund if there was pre-consumed quota
+	if preConsumedQuota > 0 {
 		gopool.Go(func() {
 			relayInfoCopy := *relayInfo
 
-			err := service.PostConsumeQuota(&relayInfoCopy, -preConsumedQuota, 0, false)
+			// Use the new RefundQuota function for proper refunding
+			err := service.RefundQuota(&relayInfoCopy, preConsumedQuota)
 			if err != nil {
-				common.SysError("error return pre-consumed quota: " + err.Error())
+				common.SysError(fmt.Sprintf("error returning pre-consumed quota %d: %s", preConsumedQuota, err.Error()))
+			} else {
+				common.LogInfo(c, fmt.Sprintf("successfully returned pre-consumed quota: %d for user %d", preConsumedQuota, relayInfo.UserId))
 			}
 		})
 	}
@@ -523,10 +527,21 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 
 	quotaDelta := quota - preConsumedQuota
-	if quotaDelta != 0 {
+	// Only process delta if we need to consume more quota
+	// If delta is negative or zero, we don't need to consume additional quota
+	if quotaDelta > 0 {
 		err := service.PostConsumeQuota(relayInfo, quotaDelta, preConsumedQuota, true)
 		if err != nil {
 			common.LogError(ctx, "error consuming token remain quota: "+err.Error())
+		}
+	} else if quotaDelta < 0 {
+		// If actual consumption is less than pre-consumed, refund the difference
+		refundAmount := -quotaDelta // Convert to positive for refund
+		err := service.RefundQuota(relayInfo, refundAmount)
+		if err != nil {
+			common.LogError(ctx, fmt.Sprintf("error refunding excess pre-consumed quota %d: %s", refundAmount, err.Error()))
+		} else {
+			common.LogInfo(ctx, fmt.Sprintf("refunded excess pre-consumed quota: %d", refundAmount))
 		}
 	}
 

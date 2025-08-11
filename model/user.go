@@ -706,7 +706,11 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 
 func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 	if quota < 0 {
+		common.LogError(nil, fmt.Sprintf("IncreaseUserQuota called with negative quota: %d for user %d", quota, id))
 		return errors.New("quota 不能为负数！")
+	}
+	if quota == 0 {
+		return nil // No operation needed for zero quota
 	}
 	gopool.Go(func() {
 		err := cacheIncrUserQuota(id, int64(quota))
@@ -731,7 +735,11 @@ func increaseUserQuota(id int, quota int) (err error) {
 
 func DecreaseUserQuota(id int, quota int) (err error) {
 	if quota < 0 {
+		common.LogError(nil, fmt.Sprintf("DecreaseUserQuota called with negative quota: %d for user %d", quota, id))
 		return errors.New("quota 不能为负数！")
+	}
+	if quota == 0 {
+		return nil // No operation needed for zero quota
 	}
 	gopool.Go(func() {
 		err := cacheDecrUserQuota(id, int64(quota))
