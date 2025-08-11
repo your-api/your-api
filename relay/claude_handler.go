@@ -158,13 +158,18 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 			// reset status code 重置状态码
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 			
-			// 如果是400错误且UA包含cli，添加有用的提示
-			if httpResp.StatusCode == http.StatusBadRequest {
-				userAgent := strings.ToLower(c.GetHeader("User-Agent"))
-				if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
-					originalMsg := newAPIError.Err.Error()
-					if originalMsg != "" {
+			// 如果UA包含cli，为所有错误添加有用的提示
+			userAgent := strings.ToLower(c.GetHeader("User-Agent"))
+			if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
+				originalMsg := newAPIError.Err.Error()
+				if originalMsg != "" {
+					// 根据不同的错误类型提供不同的提示
+					if httpResp.StatusCode == http.StatusBadRequest {
 						newAPIError.Err = fmt.Errorf("%s (Tip: Context might be too long. Try using /compact to compress context or start a new conversation)", originalMsg)
+					} else if httpResp.StatusCode == http.StatusTooManyRequests {
+						newAPIError.Err = fmt.Errorf("%s (Tip: Rate limit reached. Please wait a moment or try using /compact to reduce token usage)", originalMsg)
+					} else {
+						newAPIError.Err = fmt.Errorf("%s (Tip: Try using /compact to compress context or start a new conversation with /new)", originalMsg)
 					}
 				}
 			}
@@ -186,13 +191,18 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		
-		// 如果是400错误且UA包含cli，添加有用的提示
-		if newAPIError.StatusCode == http.StatusBadRequest {
-			userAgent := strings.ToLower(c.GetHeader("User-Agent"))
-			if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
-				originalMsg := newAPIError.Err.Error()
-				if originalMsg != "" {
+		// 如果UA包含cli，为所有错误添加有用的提示
+		userAgent := strings.ToLower(c.GetHeader("User-Agent"))
+		if strings.Contains(userAgent, "cli") && newAPIError.Err != nil {
+			originalMsg := newAPIError.Err.Error()
+			if originalMsg != "" {
+				// 根据不同的错误类型提供不同的提示
+				if newAPIError.StatusCode == http.StatusBadRequest {
 					newAPIError.Err = fmt.Errorf("%s (Tip: Context might be too long. Try using /compact to compress context or start a new conversation)", originalMsg)
+				} else if newAPIError.StatusCode == http.StatusTooManyRequests {
+					newAPIError.Err = fmt.Errorf("%s (Tip: Rate limit reached. Please wait a moment or try using /compact to reduce token usage)", originalMsg)
+				} else {
+					newAPIError.Err = fmt.Errorf("%s (Tip: Try using /compact to compress context or start a new conversation with /new)", originalMsg)
 				}
 			}
 		}
