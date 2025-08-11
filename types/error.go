@@ -64,7 +64,7 @@ const (
 	ErrorCodeBadResponseStatusCode  ErrorCode = "bad_response_status_code"
 	ErrorCodeBadResponse            ErrorCode = "bad_response"
 	ErrorCodeBadResponseBody        ErrorCode = "bad_response_body"
-	ErrorCodeEmptyResponse          ErrorCode = "empty_response"
+	ErrorCodeEmptyResponse          ErrorCode = "channel:empty_response"
 
 	// sql error
 	ErrorCodeQueryDataError  ErrorCode = "query_data_error"

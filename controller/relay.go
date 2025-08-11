@@ -151,17 +151,62 @@ func Relay(c *gin.Context) {
 		}
 		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
 		
-		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-		openAIError := newAPIError.ToOpenAIError()
-		responseData := gin.H{
-			"error": openAIError,
+		// 检查是否是 CLI 请求
+		userAgent := c.Request.Header.Get("User-Agent")
+		isCLIRequest := strings.Contains(strings.ToLower(userAgent), "cli")
+		
+		if isCLIRequest {
+			// 对于 CLI 请求，返回 Claude CLI 期望的错误格式
+			// ClaudeHttpError(error_code=503130, message_key='claudeClient.httpError', 
+			// status_code=400, context={'url': 'https://api.anthropic.com/v1/messages', 
+			// 'status_code': 400, 'error_type': 'invalid_request_error', 
+			// 'error_message': 'prompt is too long: 215558 tokens > 200000 maximum'})
+			
+			// 构建 context
+			errorContext := map[string]interface{}{
+				"url":          "https://api.anthropic.com/v1/messages",
+				"status_code":  newAPIError.StatusCode,
+				"error_type":   "invalid_request_error",
+				"error_message": newAPIError.Error(),
+			}
+			
+			// 特殊处理 token 超限错误
+			errorMessage := newAPIError.Error()
+			if strings.Contains(errorMessage, "prompt is too long") || 
+			   strings.Contains(errorMessage, "tokens") && strings.Contains(errorMessage, "maximum") {
+				// 保持原始错误消息
+			} else if strings.Contains(errorMessage, "Tip: Context might be too long") {
+				// 将提示信息转换为标准的 token 超限错误
+				errorContext["error_message"] = "prompt is too long: 215558 tokens > 200000 maximum"
+			}
+			
+			responseData := gin.H{
+				"detail": gin.H{
+					"code":        503130,
+					"message":     "claudeClient.httpError", 
+					"context":     errorContext,
+				},
+			}
+			
+			// 记录最终返回给客户端的响应
+			responseBytes, _ := json.Marshal(responseData)
+			common.LogError(c, fmt.Sprintf("[Relay] CLI error response: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			
+			c.JSON(newAPIError.StatusCode, responseData)
+		} else {
+			// 非 CLI 请求，返回 OpenAI 格式
+			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
+			openAIError := newAPIError.ToOpenAIError()
+			responseData := gin.H{
+				"error": openAIError,
+			}
+			
+			// 记录最终返回给客户端的响应
+			responseBytes, _ := json.Marshal(responseData)
+			common.LogError(c, fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			
+			c.JSON(newAPIError.StatusCode, responseData)
 		}
-		
-		// 记录最终返回给客户端的响应
-		responseBytes, _ := json.Marshal(responseData)
-		common.LogError(c, fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
-		
-		c.JSON(newAPIError.StatusCode, responseData)
 	}
 }
 
