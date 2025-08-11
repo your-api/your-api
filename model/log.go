@@ -85,6 +85,7 @@ const (
 func formatUserLogs(logs []*Log) {
 	for i := range logs {
 		logs[i].ChannelName = ""
+		logs[i].ChannelId = 0  // 隐藏渠道ID，防止泄露渠道信息
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
@@ -489,10 +490,9 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	var tx *gorm.DB
 	// 普通用户直接查询对应的分片表，提高查询效率
 	tableName := getLogTableByUser(userId)
-	if logType == LogTypeUnknown {
-		tx = LOG_DB.Table(tableName).Where("user_id = ?", userId)
-	} else {
-		tx = LOG_DB.Table(tableName).Where("user_id = ? and type = ?", userId, logType)
+	tx = LOG_DB.Table(tableName).Where("user_id = ?", userId)
+	if logType != LogTypeUnknown {
+		tx = tx.Where("type = ?", logType)
 	}
 
 	if modelName != "" {
@@ -514,7 +514,7 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if err != nil {
 		return nil, 0, err
 	}
-	err = tx.Order("id desc").Limit(num).Offset(startIdx).Find(&logs).Error
+	err = tx.Order("created_at desc, id desc").Limit(num).Offset(startIdx).Find(&logs).Error
 	if err != nil {
 		return nil, 0, err
 	}
