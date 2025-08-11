@@ -157,6 +157,13 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 			newAPIError = service.RelayErrorHandler(httpResp, false)
 			// reset status code 重置状态码
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+			// 记录失败的日志
+			failedUsage := &dto.Usage{
+				PromptTokens:     promptTokens,
+				CompletionTokens: 0,
+				TotalTokens:      promptTokens,
+			}
+			service.PostClaudeConsumeQuota(c, relayInfo, failedUsage, preConsumedQuota, userQuota, priceData, "（上游返回错误）")
 			return newAPIError
 		}
 	}
@@ -166,6 +173,13 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+		// 记录失败的日志
+		failedUsage := &dto.Usage{
+			PromptTokens:     promptTokens,
+			CompletionTokens: 0,
+			TotalTokens:      promptTokens,
+		}
+		service.PostClaudeConsumeQuota(c, relayInfo, failedUsage, preConsumedQuota, userQuota, priceData, "（响应处理失败）")
 		return newAPIError
 	}
 	service.PostClaudeConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
