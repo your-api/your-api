@@ -87,10 +87,10 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 		return
 	}
 	common.CloseResponseBodyGracefully(resp)
-	
+
 	// 记录原始响应 - 使用 SysError 确保输出
 	common.SysError(fmt.Sprintf("[RelayErrorHandler] Status Code: %d, Response Body: %s", resp.StatusCode, string(responseBody)))
-	
+
 	// 检查是否已经是 clove/CLI 格式的错误（包含 detail.code 和 detail.message）
 	var cloveError map[string]interface{}
 	if err := common.Unmarshal(responseBody, &cloveError); err == nil {
@@ -99,7 +99,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 				if _, hasMessage := detail["message"]; hasMessage {
 					// 这已经是 clove 格式的错误，提取错误信息
 					common.SysError(fmt.Sprintf("[RelayErrorHandler] Detected clove format error, extracting message"))
-					
+
 					// 从 context 中提取错误信息
 					errorMessage := ""
 					if context, ok := detail["context"].(map[string]interface{}); ok {
@@ -107,20 +107,20 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 							errorMessage = errorMsg
 						}
 					}
-					
+
 					// 如果没有 error_message，使用 message 字段
 					if errorMessage == "" {
 						if msg, ok := detail["message"].(string); ok {
 							errorMessage = msg
 						}
 					}
-					
+
 					// 检查是否是 token 超限错误，如果是则不重试
 					if strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit") {
 						common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
 						// 创建一个不可重试的错误，并保存原始的 clove 格式
 						return types.NewErrorWithStatusCode(
-							fmt.Errorf(errorMessage), 
+							fmt.Errorf(errorMessage),
 							types.ErrorCodeBadResponseStatusCode,
 							resp.StatusCode,
 							types.ErrOptionWithSkipRetry(),
@@ -129,8 +129,8 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 					}
 					// 保存原始的 clove 格式错误
 					return types.NewErrorWithStatusCode(
-						fmt.Errorf(errorMessage), 
-						types.ErrorCodeBadResponseStatusCode, 
+						fmt.Errorf(errorMessage),
+						types.ErrorCodeBadResponseStatusCode,
 						resp.StatusCode,
 						types.ErrOptionWithRelayError(cloveError),
 					)
@@ -138,7 +138,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 			}
 		}
 	}
-	
+
 	// 先尝试解析为 Claude 错误格式
 	var claudeErrResponse dto.ClaudeResponse
 	claudeErr := common.Unmarshal(responseBody, &claudeErrResponse)
@@ -156,7 +156,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 	} else if claudeErr != nil {
 		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to parse as Claude error: %v", claudeErr))
 	}
-	
+
 	// 尝试解析为通用错误格式
 	var errResponse dto.GeneralErrorResponse
 	err = common.Unmarshal(responseBody, &errResponse)
@@ -172,9 +172,9 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 		}
 		return
 	}
-	
+
 	common.SysError(fmt.Sprintf("[RelayErrorHandler] Parsed as GeneralError: %+v", errResponse))
-	
+
 	if errResponse.Error.Message != "" {
 		// General format error (OpenAI, Anthropic, Gemini, etc.)
 		common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning OpenAI error from GeneralError"))
