@@ -289,6 +289,12 @@ func ErrOptionWithSkipRetry() NewAPIErrorOptions {
 	}
 }
 
+func ErrOptionWithRelayError(relayError any) NewAPIErrorOptions {
+	return func(e *NewAPIError) {
+		e.RelayError = relayError
+	}
+}
+
 func ErrOptionWithNoRecordErrorLog() NewAPIErrorOptions {
 	return func(e *NewAPIError) {
 		e.recordErrorLog = common.GetPointer(false)

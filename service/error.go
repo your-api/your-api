@@ -101,27 +101,39 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 					common.SysError(fmt.Sprintf("[RelayErrorHandler] Detected clove format error, extracting message"))
 					
 					// 从 context 中提取错误信息
+					errorMessage := ""
 					if context, ok := detail["context"].(map[string]interface{}); ok {
 						if errorMsg, ok := context["error_message"].(string); ok {
-							// 检查是否是 token 超限错误，如果是则不重试
-							if strings.Contains(errorMsg, "max_tokens") && strings.Contains(errorMsg, "exceed context limit") {
-								common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
-								// 创建一个不可重试的错误
-								return types.NewErrorWithStatusCode(
-									fmt.Errorf(errorMsg), 
-									types.ErrorCodeBadResponseStatusCode,
-									resp.StatusCode,
-									types.ErrOptionWithSkipRetry(),
-								)
-							}
-							return types.NewErrorWithStatusCode(fmt.Errorf(errorMsg), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+							errorMessage = errorMsg
 						}
 					}
 					
 					// 如果没有 error_message，使用 message 字段
-					if msg, ok := detail["message"].(string); ok {
-						return types.NewErrorWithStatusCode(fmt.Errorf(msg), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+					if errorMessage == "" {
+						if msg, ok := detail["message"].(string); ok {
+							errorMessage = msg
+						}
 					}
+					
+					// 检查是否是 token 超限错误，如果是则不重试
+					if strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit") {
+						common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
+						// 创建一个不可重试的错误，并保存原始的 clove 格式
+						return types.NewErrorWithStatusCode(
+							fmt.Errorf(errorMessage), 
+							types.ErrorCodeBadResponseStatusCode,
+							resp.StatusCode,
+							types.ErrOptionWithSkipRetry(),
+							types.ErrOptionWithRelayError(cloveError),
+						)
+					}
+					// 保存原始的 clove 格式错误
+					return types.NewErrorWithStatusCode(
+						fmt.Errorf(errorMessage), 
+						types.ErrorCodeBadResponseStatusCode, 
+						resp.StatusCode,
+						types.ErrOptionWithRelayError(cloveError),
+					)
 				}
 			}
 		}

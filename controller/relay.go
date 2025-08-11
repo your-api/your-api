@@ -348,32 +348,38 @@ func RelayClaude(c *gin.Context) {
 			userAgent, isClaudeCLI, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
 		
 		if isClaudeCLI {
-			// Claude Code CLI - 尝试返回标准 Claude API 错误格式
-			// 1:1 返回，不添加任何额外信息
-			errorMessage := newAPIError.Error()
-			
-			// 确定错误类型
-			errorType := "invalid_request_error"
-			if newAPIError.StatusCode == http.StatusTooManyRequests {
-				errorType = "rate_limit_error"
-			} else if newAPIError.StatusCode == http.StatusUnauthorized {
-				errorType = "authentication_error"
-			} else if newAPIError.StatusCode >= 500 {
-				errorType = "api_error"
+			// Claude Code CLI - 检查是否有原始的 clove 格式错误需要透传
+			if newAPIError.RelayError != nil {
+				// 尝试获取原始的 clove 格式响应
+				if cloveError, ok := newAPIError.RelayError.(map[string]interface{}); ok {
+					// 直接透传原始的 clove 格式错误
+					common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (透传 clove 格式): StatusCode=%d", newAPIError.StatusCode))
+					c.Header("Content-Type", "application/json")
+					c.JSON(newAPIError.StatusCode, cloveError)
+					return
+				}
 			}
 			
-			// 返回标准 Claude API 错误格式
+			// 如果没有原始 clove 格式，构造 clove 格式的错误
+			errorMessage := newAPIError.Error()
+			
+			// 构建 clove 格式的错误响应
 			responseData := gin.H{
-				"type": "error",
-				"error": gin.H{
-					"type":    errorType,
-					"message": errorMessage,
+				"detail": gin.H{
+					"code":    503130,
+					"message": "claudeClient.httpError",
+					"context": gin.H{
+						"url":           "https://api.anthropic.com/v1/messages",
+						"status_code":   newAPIError.StatusCode,
+						"error_type":    "invalid_request_error",
+						"error_message": errorMessage,
+					},
 				},
 			}
 			
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (Claude API format): StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format): StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
 			
 			// 设置正确的 Content-Type
 			c.Header("Content-Type", "application/json")
