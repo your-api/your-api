@@ -99,12 +99,61 @@ body > #root > div:not(.topnav) {
   border: 1px solid transparent !important;
 }
 
+.semi-tag-small {
+  padding: 1px 8px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+  font-size: 11px !important;
+}
+
 .semi-tag-default {
   padding: 2px 10px !important;
 }
 
 .semi-tag-circle {
   padding: 2px 12px !important;
+}
+
+.semi-tag-small.semi-tag-circle {
+  padding: 1px 8px !important;
+}
+
+/* Tag 颜色优化 - 提高对比度 */
+.semi-tag-blue-light,
+.semi-tag-light.semi-tag-blue-light {
+  background-color: #3b82f6 !important;
+  color: white !important;
+  border-color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+.semi-tag-white-light,
+.semi-tag-light.semi-tag-white-light {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+}
+
+/* 深色主题下的 Tag 颜色 */
+.dark .semi-tag-blue-light,
+.dark .semi-tag-light.semi-tag-blue-light {
+  background-color: #2563eb !important;
+  color: white !important;
+  border-color: #1d4ed8 !important;
+}
+
+.dark .semi-tag-white-light,
+.dark .semi-tag-light.semi-tag-white-light {
+  background-color: #374151 !important;
+  color: #e5e7eb !important;
+  border-color: #4b5563 !important;
+}
+
+/* 按钮内的 Tag 特殊样式 */
+.semi-button .semi-tag {
+  vertical-align: middle !important;
+  display: inline-flex !important;
+  align-items: center !important;
 }
 
 /* Tag 图标样式 */

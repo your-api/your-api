@@ -203,15 +203,15 @@ const Home = () => {
         <Row >
           <Col md={24} lg={12}>
             <div className="flex flex-col justify-center h-full pt-4 md:pt-28">
-              <h1 className="text-7xl bg-uc-argon text-wrap">{systemName}</h1>
+              <h1 className="text-5xl md:text-6xl bg-uc-argon text-wrap">{systemName}</h1>
               <div className="mt-5 overflow-hidden">
                 <div
-                    className="text-3xl prose prose-lg dark:prose-invert max-h-[300px] overflow-y-auto custom-scrollbar"
+                    className="text-base md:text-lg prose prose-lg dark:prose-invert max-h-[300px] overflow-y-auto custom-scrollbar"
                     dangerouslySetInnerHTML={{ __html: homePageContent }}
                 />
               </div>
               <p className="mt-5">
-                <span className="text-xl">{typedText}</span>
+                <span className="text-lg">{typedText}</span>
                 <span className="typed-cursor" aria-hidden="true">|</span>
               </p>
               <Space className="mt-5" align="baseline">
@@ -249,7 +249,7 @@ const Home = () => {
         </div>
 
         <div className="flex justify-center">
-          <p className="text-3xl font-bold">众多AI大模型完美适配</p>
+          <p className="text-2xl md:text-3xl font-bold">众多AI大模型完美适配</p>
         </div>
 
         <div className="mt-16">
@@ -317,7 +317,7 @@ const Home = () => {
         </div>
 
         <div className="flex justify-center">
-          <p className="text-3xl font-bold">我们的优势</p>
+          <p className="text-2xl md:text-3xl font-bold">我们的优势</p>
         </div>
 
         <div className="mt-16">
@@ -356,7 +356,7 @@ const Home = () => {
         </div>
 
         <div className="flex justify-center">
-          <p className="text-3xl font-bold">模型价格</p>
+          <p className="text-2xl md:text-3xl font-bold">模型价格</p>
         </div>
 
         <div>
@@ -394,7 +394,7 @@ const Home = () => {
             <div className="p-0">
               {/* 弹窗标题栏 */}
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-white">系统通知</h3>
+                <h3 className="text-lg font-bold text-white">系统通知</h3>
                 <button
                   onClick={() => setNoticeVisible(false)}
                   className="text-white hover:text-gray-200 focus:outline-none"

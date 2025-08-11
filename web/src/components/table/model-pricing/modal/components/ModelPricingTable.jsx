@@ -79,7 +79,7 @@ const ModelPricingTable = ({
         title: t('分组'),
         dataIndex: 'group',
         render: (text) => (
-          <Tag color="white" size="small" shape="circle">
+          <Tag color="white" size="small" shape="circle" style={{ fontSize: '12px' }}>
             {text}{t('分组')}
           </Tag>
         ),
@@ -92,7 +92,7 @@ const ModelPricingTable = ({
         title: t('倍率'),
         dataIndex: 'ratio',
         render: (text) => (
-          <Tag color="white" size="small" shape="circle">
+          <Tag color="white" size="small" shape="circle" style={{ fontSize: '12px' }}>
             {text}x
           </Tag>
         ),
@@ -104,7 +104,7 @@ const ModelPricingTable = ({
       title: t('计费类型'),
       dataIndex: 'billingType',
       render: (text) => (
-        <Tag color={text === t('按量计费') ? 'violet' : 'teal'} size="small" shape="circle">
+        <Tag color={text === t('按量计费') ? 'violet' : 'teal'} size="small" shape="circle" style={{ fontSize: '12px' }}>
           {text}
         </Tag>
       ),
@@ -178,7 +178,7 @@ const ModelPricingTable = ({
           <span className="text-sm">→</span>
           {autoChain.map((g, idx) => (
             <React.Fragment key={g}>
-              <Tag color="white" size="small" shape="circle">{g}{t('分组')}</Tag>
+              <Tag color="white" size="small" shape="circle" style={{ fontSize: '12px' }}>{g}{t('分组')}</Tag>
               {idx < autoChain.length - 1 && <span className="text-sm">→</span>}
             </React.Fragment>
           ))}

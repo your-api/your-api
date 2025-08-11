@@ -195,14 +195,12 @@ const SelectableButtonGroup = ({
                   }}>{item.label}</span>
                   {item.tagCount !== undefined && (
                     <Tag
-                      color='white'
+                      color={isActive ? 'blue' : 'white'}
                       shape="circle"
                       size="small"
                       style={{ 
                         marginLeft: '4px', 
-                        flexShrink: 0,
-                        transform: 'scale(0.8)',
-                        fontSize: '10px'
+                        flexShrink: 0
                       }}
                     >
                       {item.tagCount}
@@ -259,14 +257,12 @@ const SelectableButtonGroup = ({
                 }}>{item.label}</span>
                 {item.tagCount !== undefined && (
                   <Tag
-                    color='white'
+                    color={isActive ? 'blue' : 'white'}
                     shape="circle"
                     size="small"
                     style={{ 
                       marginLeft: '4px', 
-                      flexShrink: 0,
-                      transform: 'scale(0.8)',
-                      fontSize: '10px'
+                      flexShrink: 0
                     }}
                   >
                     {item.tagCount}

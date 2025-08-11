@@ -129,7 +129,7 @@ const LoginForm = () => {
         localStorage.setItem('user', JSON.stringify(data));
         setUserData(data);
         updateAPI();
-        navigate('/');
+        navigate('/console/token');
         showSuccess('登录成功！');
         setShowWeChatLoginModal(false);
       } else {
@@ -182,7 +182,7 @@ const LoginForm = () => {
               centered: true,
             });
           }
-          navigate('/console');
+          navigate('/console/token');
         } else {
           showError(message);
         }
@@ -223,7 +223,7 @@ const LoginForm = () => {
         showSuccess('登录成功！');
         setUserData(data);
         updateAPI();
-        navigate('/');
+        navigate('/console/token');
       } else {
         showError(message);
       }
@@ -295,7 +295,7 @@ const LoginForm = () => {
     setUserData(data);
     updateAPI();
     showSuccess('登录成功！');
-    navigate('/console');
+    navigate('/token');
   };
 
   // 返回登录页面

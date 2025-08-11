@@ -176,8 +176,8 @@ const PricingVendorIntro = ({
             {/* 供应商信息 */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{t('全部供应商')}</h2>
-                <Tag color="white" shape="circle" size="small" className="self-start sm:self-center">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">{t('全部供应商')}</h2>
+                <Tag color="white" shape="circle" size="small" className="self-start sm:self-center" style={{ fontSize: '12px' }}>
                   {t('共 {{count}} 个模型', { count: currentModelCount })}
                 </Tag>
               </div>
@@ -220,8 +220,8 @@ const PricingVendorIntro = ({
           {/* 供应商信息 */}
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{vendorDisplayName}</h2>
-              <Tag color="white" shape="circle" size="small" className="self-start sm:self-center">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">{vendorDisplayName}</h2>
+              <Tag color="white" shape="circle" size="small" className="self-start sm:self-center" style={{ fontSize: '12px' }}>
                 {t('共 {{count}} 个模型', { count: currentModelCount })}
               </Tag>
             </div>

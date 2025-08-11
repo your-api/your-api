@@ -47,7 +47,7 @@ const OAuth2Callback = (props) => {
 
       if (message === 'bind') {
         showSuccess(t('绑定成功！'));
-        navigate('/console/personal');
+        navigate('/setting/personal');
       } else {
         userDispatch({ type: 'login', payload: data });
         localStorage.setItem('user', JSON.stringify(data));
@@ -65,7 +65,7 @@ const OAuth2Callback = (props) => {
 
       // 重试次数耗尽，提示错误并返回设置页面
       showError(error.message || t('授权失败'));
-      navigate('/console/personal');
+      navigate('/setting/personal');
     }
   };
 
@@ -76,7 +76,7 @@ const OAuth2Callback = (props) => {
     // 参数缺失直接返回
     if (!code) {
       showError(t('未获取到授权码'));
-      navigate('/console/personal');
+      navigate('/setting/personal');
       return;
     }
 
