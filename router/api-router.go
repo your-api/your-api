@@ -17,6 +17,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/test-ip", controller.TestIP)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
@@ -203,6 +204,17 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
+		}
+
+		vendorRoute := apiRouter.Group("/vendors")
+		vendorRoute.Use(middleware.AdminAuth())
+		{
+			vendorRoute.GET("/", controller.GetAllVendors)
+			vendorRoute.GET("/search", controller.SearchVendors)
+			vendorRoute.GET("/:id", controller.GetVendorMeta)
+			vendorRoute.POST("/", controller.CreateVendorMeta)
+			vendorRoute.PUT("/", controller.UpdateVendorMeta)
+			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
 		}
 	}
 }
