@@ -404,14 +404,22 @@ const LoginForm = () => {
               {!status.self_use_mode_enabled && (
                 <div className="mt-6 text-center text-sm">
                   <Text>
-                    {t('没有账户？')}{' '}
-                    <Link
-                      to="/register"
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      {t('注册')}
-                    </Link>
+                    {t('没有账户？')}
                   </Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Button
+                      theme="solid"
+                      type="primary"
+                      size="small"
+                      onClick={() => navigate('/register')}
+                      style={{
+                        backgroundColor: '#1890ff',
+                        borderColor: '#1890ff'
+                      }}
+                    >
+                      {t('点击注册')}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -470,16 +478,25 @@ const LoginForm = () => {
                     {t('继续')}
                   </Button>
 
-                  <Button
-                    theme="borderless"
-                    type='tertiary'
-                    className="w-full !rounded-full"
-                    size="large"
-                    onClick={handleResetPasswordClick}
-                    loading={resetPasswordLoading}
-                  >
-                    {t('忘记密码？')}
-                  </Button>
+                  <div className="text-center mt-3">
+                    <Text type="tertiary">
+                      {t('忘记密码？')}
+                    </Text>
+                    <div style={{ marginTop: '8px' }}>
+                      <Button
+                        theme="solid"
+                        type="danger"
+                        size="small"
+                        onClick={handleResetPasswordClick}
+                        style={{
+                          backgroundColor: '#ff4d4f',
+                          borderColor: '#ff4d4f'
+                        }}
+                      >
+                        {t('点击重置')}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </Form>
 
@@ -507,14 +524,22 @@ const LoginForm = () => {
               {!status.self_use_mode_enabled && (
                 <div className="mt-6 text-center text-sm">
                   <Text>
-                    {t('没有账户？')}{' '}
-                    <Link
-                      to="/register"
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      {t('注册')}
-                    </Link>
+                    {t('没有账户？')}
                   </Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Button
+                      theme="solid"
+                      type="primary"
+                      size="small"
+                      onClick={() => navigate('/register')}
+                      style={{
+                        backgroundColor: '#1890ff',
+                        borderColor: '#1890ff'
+                      }}
+                    >
+                      {t('点击注册')}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

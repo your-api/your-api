@@ -274,9 +274,24 @@ const PasswordResetForm = () => {
       </Form>
       
       <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <Text type="secondary">
-          {t('记起密码了？')} <Link to='/login'>{t('返回登录')}</Link>
-        </Text>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <Text type="secondary">
+            {t('记起密码了？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="secondary"
+            size="small"
+            onClick={() => navigate('/login')}
+            style={{
+              backgroundColor: '#1890ff',
+              borderColor: '#1890ff',
+              fontWeight: 500
+            }}
+          >
+            {t('返回登录')}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -423,9 +438,24 @@ const PasswordResetForm = () => {
       </Form>
       
       <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <Text type="secondary">
-          {t('记起密码了？')} <Link to='/login'>{t('返回登录')}</Link>
-        </Text>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <Text type="secondary">
+            {t('记起密码了？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="secondary"
+            size="small"
+            onClick={() => navigate('/login')}
+            style={{
+              backgroundColor: '#1890ff',
+              borderColor: '#1890ff',
+              fontWeight: 500
+            }}
+          >
+            {t('返回登录')}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -479,16 +479,37 @@ const LoginForm = () => {
         style={{
           display: 'flex',
           justifyContent: 'space-between',
+          alignItems: 'center',
           marginTop: 20,
+          gap: '12px'
         }}
       >
-        <Text>
-          {t('没有账户？')}{' '}
-          <Link to='/register?from=phone'>{t('点击注册')}</Link>
-        </Text>
-        <Text>
-          {t('忘记密码？')} <Link to='/reset?from=phone'>{t('点击重置')}</Link>
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Text style={{ marginRight: '8px' }}>
+            {t('没有账户？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="primary"
+            size="small"
+            onClick={() => navigate('/register?from=phone')}
+          >
+            {t('点击注册')}
+          </Button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Text style={{ marginRight: '8px' }}>
+            {t('忘记密码？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="primary"
+            size="small"
+            onClick={() => navigate('/reset?from=phone')}
+          >
+            {t('点击重置')}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -548,16 +569,37 @@ const LoginForm = () => {
         style={{
           display: 'flex',
           justifyContent: 'space-between',
+          alignItems: 'center',
           marginTop: 20,
+          gap: '12px'
         }}
       >
-        <Text>
-          {t('没有账户？')}{' '}
-          <Link to='/register?from=email'>{t('点击注册')}</Link>
-        </Text>
-        <Text>
-          {t('忘记密码？')} <Link to='/reset?from=email'>{t('点击重置')}</Link>
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Text style={{ marginRight: '8px' }}>
+            {t('没有账户？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="primary"
+            size="small"
+            onClick={() => navigate('/register?from=email')}
+          >
+            {t('点击注册')}
+          </Button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Text style={{ marginRight: '8px' }}>
+            {t('忘记密码？')}
+          </Text>
+          <Button
+            theme="solid"
+            type="primary"
+            size="small"
+            onClick={() => navigate('/reset?from=email')}
+          >
+            {t('点击重置')}
+          </Button>
+        </div>
       </div>
     </div>
   );
