@@ -77,7 +77,6 @@ func RelayTaskSubmit(c *gin.Context, relayMode int) (taskErr *dto.TaskError) {
 	}
 	
 	// 预扣费，避免并发超支
-	var preConsumedQuota int
 	if quota > 0 {
 		preConsumedQuota = quota
 		err = service.PreConsumeTokenQuota(relayInfo.RelayInfo, preConsumedQuota)
