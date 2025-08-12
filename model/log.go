@@ -210,6 +210,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			strings.Contains(contentUpstreamLower, "poe") ||
 			strings.Contains(contentUpstream, "额度") ||
 			strings.Contains(contentUpstreamLower, "credit") ||
+			strings.Contains(contentUpstreamLower, "points") ||
 			strings.Contains(contentUpstreamLower, "enough") ||
 			strings.Contains(contentUpstreamLower, "insufficient") ||
 			strings.Contains(contentUpstreamLower, "balance") ||

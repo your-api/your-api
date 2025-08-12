@@ -138,6 +138,7 @@ func Relay(c *gin.Context) {
 				strings.Contains(errorMessage, "服务超时") ||
 				strings.Contains(errorMessage, "额度") ||
 				strings.Contains(errorMessageLower, "credit") ||
+				strings.Contains(errorMessageLower, "points") ||
 				strings.Contains(errorMessageLower, "enough") ||
 				strings.Contains(errorMessage, "无可用") ||
 				strings.Contains(errorMessageLower, "insufficient") ||
@@ -322,6 +323,7 @@ func WssRelay(c *gin.Context) {
 				strings.Contains(errorMessage, "服务超时") ||
 				strings.Contains(errorMessage, "额度") ||
 				strings.Contains(errorMessageLower, "credit") ||
+				strings.Contains(errorMessageLower, "points") ||
 				strings.Contains(errorMessageLower, "enough") ||
 				strings.Contains(errorMessage, "无可用") ||
 				strings.Contains(errorMessageLower, "insufficient") ||
@@ -486,6 +488,7 @@ func RelayClaude(c *gin.Context) {
 					strings.Contains(claudeErr.Message, "服务超时") ||
 					strings.Contains(claudeErr.Message, "额度") ||
 					strings.Contains(errorMessageLower, "credit") ||
+					strings.Contains(errorMessageLower, "points") ||
 					strings.Contains(errorMessageLower, "enough") ||
 					strings.Contains(claudeErr.Message, "无可用") ||
 					strings.Contains(errorMessageLower, "insufficient") ||
@@ -844,6 +847,7 @@ func containsSensitiveKeywords(message string) bool {
 		strings.Contains(lowerMsg, "poe") ||
 		strings.Contains(message, "额度") ||
 		strings.Contains(lowerMsg, "credit") ||
+		strings.Contains(lowerMsg, "points") ||
 		strings.Contains(lowerMsg, "enough") ||
 		strings.Contains(lowerMsg, "insufficient") ||
 		strings.Contains(lowerMsg, "balance") ||
