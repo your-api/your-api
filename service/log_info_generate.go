@@ -20,7 +20,21 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["cache_ratio"] = cacheRatio
 	other["model_price"] = modelPrice
 	other["user_group_ratio"] = userGroupRatio
-	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
+	
+	// 计算首字时间
+	frt := float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
+	
+	// 如果首字时间为负数，说明没有收到响应
+	// 检查是否是请求被取消的情况
+	if frt < 0 {
+		// 检查 context 是否被取消
+		if ctx.Request.Context().Err() != nil {
+			// 请求被取消，设置首字时间为1秒
+			frt = 1000.0
+		}
+	}
+	
+	other["frt"] = frt
 	if relayInfo.ReasoningEffort != "" {
 		other["reasoning_effort"] = relayInfo.ReasoningEffort
 	}
