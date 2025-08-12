@@ -48,7 +48,8 @@
       "Bash(go vet:*)",
       "Bash(git reset:*)",
       "Bash(echo)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(env)"
     ],
     "deny": []
   }

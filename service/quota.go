@@ -146,6 +146,11 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 
 func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelName string,
 	usage *dto.RealtimeUsage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	// 如果 usage 为空，说明请求出错，不应该计费
+	if usage == nil {
+		common.LogWarn(ctx, "PostWssConsumeQuota called with nil usage, request likely failed - skipping billing")
+		return
+	}
 
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	textInputTokens := usage.InputTokenDetails.TextTokens
@@ -324,6 +329,11 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData helper.PriceData
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	// 如果 usage 为空，说明请求出错，不应该计费
+	if usage == nil {
+		common.LogWarn(ctx, "PostAudioConsumeQuota called with nil usage, request likely failed - skipping billing")
+		return
+	}
 
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	textInputTokens := usage.PromptTokensDetails.TextTokens
