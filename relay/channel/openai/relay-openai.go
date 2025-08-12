@@ -38,12 +38,10 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		if err := common.UnmarshalJsonStr(data, &streamResponse); err == nil {
 			// 检查是否存在以 "Thinking..." 开头的内容
 			for _, choice := range streamResponse.Choices {
-				if choice.Delta != nil {
-					content := choice.Delta.GetContentString()
-					if strings.HasPrefix(content, "Thinking...") {
-						// 过滤掉这个响应，不传给调用方
-						return nil
-					}
+				content := choice.Delta.GetContentString()
+				if strings.HasPrefix(content, "Thinking...") {
+					// 过滤掉这个响应，不传给调用方
+					return nil
 				}
 			}
 		}
@@ -188,6 +186,20 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
+	// 只对 poe 渠道的特定情况进行检测
+	channelName := c.GetString("channel_name")
+	isPoeChannel := strings.Contains(strings.ToLower(channelName), "poe")
+
+	if isPoeChannel {
+		// 只有当真的完全没有内容时才报错
+		// 修正：检查 CompletionTokens 而不是 TotalTokens
+		// 因为 TotalTokens = PromptTokens + CompletionTokens，即使没有输出也会有输入的 tokens
+		if usage == nil || usage.CompletionTokens == 0 {
+			common.LogError(c, fmt.Sprintf("poe channel returned completely empty response, channel_name: %s", channelName))
+			return nil, types.NewError(errors.New("poe channel returned empty response"), types.ErrorCodeEmptyResponse)
+		}
+	}
+
 	return usage, nil
 }
 
@@ -255,7 +267,7 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	common.IOCopyBytesGracefully(c, resp, responseBody)
-	
+
 	// 检查是否为空响应（仅对chat/completions非流式请求）
 	if info.RelayMode == relayconstant.RelayModeChatCompletions && !info.IsStream {
 		// 检查choices是否为空
