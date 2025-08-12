@@ -622,15 +622,23 @@ func RelayTask(c *gin.Context) {
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
 	c.Set("use_channel", []string{fmt.Sprintf("%d", channelId)})
+	
+	// 收集所有错误
+	var allErrors []*dto.TaskError
+	
 	taskErr := taskRelayHandler(c, relayMode)
-	if taskErr == nil {
+	if taskErr != nil {
+		allErrors = append(allErrors, taskErr)
+	} else {
 		retryTimes = 0
 	}
+	
 	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
 		channel, newAPIError := getChannel(c, group, originalModel, i)
 		if newAPIError != nil {
 			common.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", newAPIError.Error()))
 			taskErr = service.TaskErrorWrapperLocal(newAPIError.Err, "get_channel_failed", http.StatusInternalServerError)
+			allErrors = append(allErrors, taskErr)
 			break
 		}
 		channelId = channel.Id
@@ -643,21 +651,26 @@ func RelayTask(c *gin.Context) {
 		requestBody, _ := common.GetRequestBody(c)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 		taskErr = taskRelayHandler(c, relayMode)
+		if taskErr != nil {
+			allErrors = append(allErrors, taskErr)
+		}
 	}
+	
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
 		common.LogInfo(c, retryLogStr)
 	}
+	
 	if taskErr != nil {
-		if taskErr.StatusCode == http.StatusTooManyRequests {
-			taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
-		}
-		c.JSON(taskErr.StatusCode, taskErr)
+		// 根据优先级选择错误
+		finalErr := selectPriorityError(allErrors)
+		c.JSON(finalErr.StatusCode, finalErr)
 	}
 }
 
-func taskRelayHandler(c *gin.Context, relayMode int) *dto.TaskError {
+func taskRelayHandler(c *gin.Context, _ int) *dto.TaskError {
+	relayMode := c.GetInt("relay_mode")
 	var err *dto.TaskError
 	switch relayMode {
 	case relayconstant.RelayModeSunoFetch, relayconstant.RelayModeSunoFetchByID, relayconstant.RelayModeVideoFetchByID:
@@ -668,7 +681,7 @@ func taskRelayHandler(c *gin.Context, relayMode int) *dto.TaskError {
 	return err
 }
 
-func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError, retryTimes int) bool {
+func shouldRetryTaskRelay(c *gin.Context, _ int, taskErr *dto.TaskError, retryTimes int) bool {
 	if taskErr == nil {
 		return false
 	}
@@ -705,4 +718,60 @@ func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError,
 		return false
 	}
 	return true
+}
+
+// selectPriorityError 根据优先级选择要返回的错误
+// 优先级：
+// 1. 不包含负载关键词且不包含敏感词的错误
+// 2. 默认返回通用错误信息
+func selectPriorityError(errors []*dto.TaskError) *dto.TaskError {
+	if len(errors) == 0 {
+		return nil
+	}
+	
+	// 查找不包含负载关键词且不包含敏感词的错误
+	for _, err := range errors {
+		if err == nil {
+			continue
+		}
+		
+		if !containsLoadKeywords(err.Message) && !containsSensitiveKeywords(err.Message) {
+			return err
+		}
+	}
+	
+	// 如果所有错误都包含负载关键词或敏感词，返回通用错误信息
+	finalErr := errors[len(errors)-1]
+	finalErr.Message = "当前模型负载较大或请求参数有误，请稍后重试，如有任何问题，请联系我们"
+	return finalErr
+}
+
+// containsLoadKeywords 检查消息是否包含负载相关关键词
+func containsLoadKeywords(message string) bool {
+	lowerMsg := strings.ToLower(message)
+	return strings.Contains(lowerMsg, "负载") ||
+		strings.Contains(lowerMsg, "load") ||
+		strings.Contains(lowerMsg, "rate limit") ||
+		strings.Contains(lowerMsg, "too many requests") ||
+		strings.Contains(lowerMsg, "429")
+}
+
+// containsSensitiveKeywords 检查消息是否包含敏感关键词
+func containsSensitiveKeywords(message string) bool {
+	lowerMsg := strings.ToLower(message)
+	return strings.Contains(lowerMsg, "quota") ||
+		strings.Contains(message, "配额") ||
+		strings.Contains(message, "无可用") ||
+		strings.Contains(lowerMsg, "poe") ||
+		strings.Contains(message, "额度") ||
+		strings.Contains(lowerMsg, "credit") ||
+		strings.Contains(lowerMsg, "enough") ||
+		strings.Contains(lowerMsg, "insufficient") ||
+		strings.Contains(lowerMsg, "balance") ||
+		strings.Contains(lowerMsg, "limit") ||
+		strings.Contains(lowerMsg, "exceeded") ||
+		strings.Contains(lowerMsg, "exhausted") ||
+		strings.Contains(message, "非流") ||
+		strings.Contains(lowerMsg, "tenclock") ||
+		strings.Contains(message, "服务超时")
 }
