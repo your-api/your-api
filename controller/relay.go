@@ -601,33 +601,28 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if _, ok := c.Get("specific_channel_id"); ok {
 		return false
 	}
-	if openaiErr.StatusCode == http.StatusTooManyRequests {
-		return true
-	}
-	if openaiErr.StatusCode == 307 {
-		return true
-	}
-	//if openaiErr.StatusCode/100 == 5 {
-	//	// 超时不重试
-	//	if openaiErr.StatusCode == 504 || openaiErr.StatusCode == 524 {
-	//		return false
-	//	}
-	//	return true
-	//}
-	if openaiErr.StatusCode == http.StatusBadRequest {
-		channelType := c.GetInt("channel_type")
-		if channelType == constant.ChannelTypeAnthropic {
-			return true
-		}
-		return false
-	}
-	if openaiErr.StatusCode == 408 {
-		// azure处理超时不重试
-		return false
-	}
+	// 2xx 成功响应不重试
 	if openaiErr.StatusCode/100 == 2 {
 		return false
 	}
+	
+	// 4xx 错误都重试（除非已被标记为 SkipRetry）
+	// 这样可以尝试其他渠道，因为不同渠道可能有不同的限制
+	if openaiErr.StatusCode/100 == 4 {
+		return true
+	}
+	
+	// 5xx 服务器错误重试
+	if openaiErr.StatusCode/100 == 5 {
+		return true
+	}
+	
+	// 3xx 重定向重试
+	if openaiErr.StatusCode/100 == 3 {
+		return true
+	}
+	
+	// 其他情况默认重试
 	return true
 }
 
