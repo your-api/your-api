@@ -95,6 +95,15 @@ func Relay(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
+		
+		// 重置 client_disconnected 标记，避免影响重试
+		if i > 0 {
+			c.Set("client_disconnected", false)
+			// 清理可能存在的错误状态
+			c.Set("error_response", nil)
+			// 清理流式响应头部标记，允许重新设置
+			c.Set("event_stream_headers_set", nil)
+		}
 
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
@@ -281,6 +290,15 @@ func WssRelay(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
+		
+		// 重置 client_disconnected 标记，避免影响重试
+		if i > 0 {
+			c.Set("client_disconnected", false)
+			// 清理可能存在的错误状态
+			c.Set("error_response", nil)
+			// 清理流式响应头部标记，允许重新设置
+			c.Set("event_stream_headers_set", nil)
+		}
 
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
@@ -356,6 +374,15 @@ func RelayClaude(c *gin.Context) {
 			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
+		}
+		
+		// 重置 client_disconnected 标记，避免影响重试
+		if i > 0 {
+			c.Set("client_disconnected", false)
+			// 清理可能存在的错误状态
+			c.Set("error_response", nil)
+			// 清理流式响应头部标记，允许重新设置
+			c.Set("event_stream_headers_set", nil)
 		}
 
 		channel, err := getChannel(c, group, originalModel, i)
@@ -460,11 +487,13 @@ func RelayClaude(c *gin.Context) {
 
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format): StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			// CLI 请求统一返回 403 状态码
+			statusCode := http.StatusForbidden
+			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format): StatusCode=%d (original: %d), Body=%s", statusCode, newAPIError.StatusCode, string(responseBytes)))
 
 			// 设置正确的 Content-Type
 			c.Header("Content-Type", "application/json")
-			c.JSON(newAPIError.StatusCode, responseData)
+			c.JSON(statusCode, responseData)
 		} else {
 			// 非 CLI 请求，构建原有的错误格式
 			claudeErr := &types.ClaudeError{
@@ -515,6 +544,8 @@ func RelayClaude(c *gin.Context) {
 
 func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
+	// 重试时清理缓存的请求体，强制重新读取
+	c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relayHandler(c, relayMode)
@@ -522,6 +553,8 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *types.
 
 func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
+	// 重试时清理缓存的请求体，强制重新读取
+	c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.WssHelper(c, ws)
@@ -529,6 +562,8 @@ func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *mode
 
 func claudeRequest(c *gin.Context, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
+	// 重试时清理缓存的请求体，强制重新读取
+	c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.ClaudeHelper(c)

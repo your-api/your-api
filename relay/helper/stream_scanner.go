@@ -165,6 +165,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 					return
 				case <-c.Request.Context().Done():
 					// 监听客户端断开连接
+					c.Set("client_disconnected", true)
 					return
 				case <-pingTimeout.C:
 					common.LogError(c, "ping goroutine max duration reached")
@@ -196,6 +197,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			case <-ctx.Done():
 				return
 			case <-c.Request.Context().Done():
+				c.Set("client_disconnected", true)
 				return
 			default:
 			}
@@ -265,6 +267,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		common.LogInfo(c, "streaming finished")
 	case <-c.Request.Context().Done():
 		// 客户端断开连接
+		c.Set("client_disconnected", true)
 		common.LogInfo(c, "client disconnected")
 	}
 }
