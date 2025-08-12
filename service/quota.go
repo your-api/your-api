@@ -307,38 +307,35 @@ func PostClaudeConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 }
 
 // RecordClaudeErrorLog 记录 Claude 错误日志但不扣费
-func RecordClaudeErrorLog(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, 
+func RecordClaudeErrorLog(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	promptTokens int, userQuota int, priceData helper.PriceData, extraContent string) {
-	
+
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	modelName := relayInfo.OriginModelName
 	tokenName := ctx.GetString("token_name")
-	
+
 	modelRatio := priceData.ModelRatio
 	groupRatio := priceData.GroupRatioInfo.GroupRatio
 	modelPrice := priceData.ModelPrice
-	
+
 	var logContent string
 	if !priceData.UsePrice {
 		logContent = fmt.Sprintf("模型倍率 %.2f，分组倍率 %.2f", modelRatio, groupRatio)
 	} else {
 		logContent = fmt.Sprintf("模型价格 %.2f，分组倍率 %.2f", modelPrice, groupRatio)
 	}
-	
+
 	if extraContent != "" {
 		logContent += ", " + extraContent
 	}
-	
-	// 只记录日志，不扣费，quota 设为 0
-	quota := 0
-	completionTokens := 0
-	
+
 	other := GenerateClaudeOtherInfo(ctx, relayInfo, modelRatio, groupRatio, priceData.CompletionRatio,
 		0, priceData.CacheRatio, 0, priceData.CacheCreationRatio, modelPrice, priceData.GroupRatioInfo.GroupSpecialRatio)
-	
-	// 记录日志但不更新用户配额
-	model.RecordConsumeLog(ctx, relayInfo.UserId, relayInfo.ChannelId, promptTokens, completionTokens, modelName,
-		tokenName, quota, logContent, relayInfo.TokenId, userQuota, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+
+	// 记录错误日志，而不是消费日志
+	// 注意：RecordErrorLog 会自动设置 Type 为 LogTypeError，quota 为 0
+	model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
+		tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
 }
 
 func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData helper.PriceData) int {
@@ -505,7 +502,7 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 	}
 
 	// Send notification if needed
-	if sendEmail && (quota + preConsumedQuota) > 0 {
+	if sendEmail && (quota+preConsumedQuota) > 0 {
 		checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
 	}
 

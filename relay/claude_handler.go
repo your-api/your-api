@@ -161,7 +161,8 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 			// 不添加任何提示信息，1:1 返回上游错误
 			
 			// 记录失败的日志但不扣费
-			service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, "（上游返回错误）")
+			errorMsg := fmt.Sprintf("（上游返回错误: %d - %s）", newAPIError.StatusCode, newAPIError.Error())
+			service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, errorMsg)
 			return newAPIError
 		}
 	}
@@ -175,7 +176,8 @@ func ClaudeHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		// 不添加任何提示信息，1:1 返回上游错误
 		
 		// 记录失败的日志但不扣费
-		service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, "（响应处理失败）")
+		errorMsg := fmt.Sprintf("（响应处理失败: %d - %s）", newAPIError.StatusCode, newAPIError.Error())
+		service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, errorMsg)
 		return newAPIError
 	}
 	service.PostClaudeConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
