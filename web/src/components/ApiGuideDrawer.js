@@ -372,8 +372,7 @@ int main(void) {
               <div className="flex justify-between items-center">
                 <Text style={darkModeStyles.textPrimary}>API Key:</Text>
                 <Button size="small" theme="solid" type="primary" onClick={() => {
-                  styleDispatch({ type: 'SET_SIDER', payload: true });
-                  navigate('/token');
+                  navigate('/console/token');
                 }}>
                   创建 & 查询 API Key
                 </Button>
@@ -479,8 +478,7 @@ int main(void) {
                       <>
                         前往{' '}
                         <Text link style={darkModeStyles.link} className="hover:underline" onClick={() => {
-                          styleDispatch({ type: 'SET_SIDER', payload: true });
-                          navigate('/token');
+                          navigate('/console/token');
                         }}>
                           令牌管理页面
                         </Text>{' '}
@@ -506,8 +504,7 @@ int main(void) {
                       <>
                         如需更多参数与示例，请参阅{' '}
                         <Text link style={darkModeStyles.link} className="hover:underline" onClick={() => {
-                          styleDispatch({ type: 'SET_SIDER', payload: true });
-                          navigate('/docs');
+                          navigate('/console/docs');
                         }}>
                           完整开发文档
                         </Text>
