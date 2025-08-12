@@ -647,7 +647,8 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 
 	// 检查是否是 token 超限错误，如果是则不重试
 	errorMessage := openaiErr.Error()
-	if strings.Contains(errorMessage, "exceed context limit") || strings.Contains(errorMessage, "max_tokens") {
+	if (strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens")) ||
+	   strings.Contains(errorMessage, "input length and `max_tokens` exceed context limit") {
 		common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
 		return false
 	}
