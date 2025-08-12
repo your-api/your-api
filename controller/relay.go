@@ -160,31 +160,69 @@ func Relay(c *gin.Context) {
 			userAgent, isCLIRequest, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
 
 		if isCLIRequest {
-			// 对于 CLI 请求，总是返回 clove 格式的错误
-			errorMessage := newAPIError.Error()
-
-			// 确定错误类型
-			errorType := "invalid_request_error"
-			if newAPIError.StatusCode == http.StatusTooManyRequests {
-				errorType = "rate_limit_error"
-			} else if newAPIError.StatusCode == http.StatusUnauthorized {
-				errorType = "authentication_error"
-			} else if newAPIError.StatusCode >= 500 {
-				errorType = "api_error"
+			// 对于 CLI 请求，检查是否已经是 clove 格式的错误
+			var responseData gin.H
+			
+			// 尝试检查 RelayError 是否已经是 clove 格式
+			if newAPIError.RelayError != nil {
+				// 尝试转换为 map 来检查结构
+				if relayMap, ok := newAPIError.RelayError.(map[string]interface{}); ok {
+					// 检查是否包含 detail 字段且结构符合 clove 格式
+					if detail, hasDetail := relayMap["detail"]; hasDetail {
+						if detailMap, ok := detail.(map[string]interface{}); ok {
+							// 检查必要字段：code, message, context
+							_, hasCode := detailMap["code"]
+							_, hasMessage := detailMap["message"]
+							context, hasContext := detailMap["context"]
+							
+							// 如果有 context，进一步检查其结构
+							if hasCode && hasMessage && hasContext {
+								if contextMap, ok := context.(map[string]interface{}); ok {
+									// 检查 context 中的必要字段
+									_, hasErrorMessage := contextMap["error_message"]
+									_, hasErrorType := contextMap["error_type"]
+									_, hasStatusCode := contextMap["status_code"]
+									_, hasUrl := contextMap["url"]
+									
+									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
+										// 这是一个完整的 clove 格式错误，直接透传
+										responseData = relayMap
+										common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format passthrough): StatusCode=%d", newAPIError.StatusCode))
+									}
+								}
+							}
+						}
+					}
+				}
 			}
+			
+			// 如果不是 clove 格式，构建新的 clove 格式错误
+			if responseData == nil {
+				errorMessage := newAPIError.Error()
 
-			// 构建 clove 格式的错误响应
-			responseData := gin.H{
-				"detail": gin.H{
-					"code":    503130,
-					"message": fmt.Sprintf("HTTP error occurred when calling Claude AI: %s - %s (Status: %d)", errorType, errorMessage, newAPIError.StatusCode),
-					"context": gin.H{
-						"url":           "https://api.anthropic.com/v1/messages",
-						"status_code":   newAPIError.StatusCode,
-						"error_type":    errorType,
-						"error_message": errorMessage,
+				// 确定错误类型
+				errorType := "invalid_request_error"
+				if newAPIError.StatusCode == http.StatusTooManyRequests {
+					errorType = "rate_limit_error"
+				} else if newAPIError.StatusCode == http.StatusUnauthorized {
+					errorType = "authentication_error"
+				} else if newAPIError.StatusCode >= 500 {
+					errorType = "api_error"
+				}
+
+				// 构建 clove 格式的错误响应
+				responseData = gin.H{
+					"detail": gin.H{
+						"code":    503130,
+						"message": fmt.Sprintf("HTTP error occurred when calling Claude AI: %s - %s (Status: %d)", errorType, errorMessage, newAPIError.StatusCode),
+						"context": gin.H{
+							"url":           "https://api.anthropic.com/v1/messages",
+							"status_code":   newAPIError.StatusCode,
+							"error_type":    errorType,
+							"error_message": errorMessage,
+						},
 					},
-				},
+				}
 			}
 
 			// 记录最终返回给客户端的响应
@@ -353,31 +391,69 @@ func RelayClaude(c *gin.Context) {
 			userAgent, isClaudeCLI, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
 
 		if isClaudeCLI {
-			// 对于 CLI 请求，总是返回 clove 格式的错误
-			errorMessage := newAPIError.Error()
-
-			// 确定错误类型
-			errorType := "invalid_request_error"
-			if newAPIError.StatusCode == http.StatusTooManyRequests {
-				errorType = "rate_limit_error"
-			} else if newAPIError.StatusCode == http.StatusUnauthorized {
-				errorType = "authentication_error"
-			} else if newAPIError.StatusCode >= 500 {
-				errorType = "api_error"
+			// 对于 CLI 请求，检查是否已经是 clove 格式的错误
+			var responseData gin.H
+			
+			// 尝试检查 RelayError 是否已经是 clove 格式
+			if newAPIError.RelayError != nil {
+				// 尝试转换为 map 来检查结构
+				if relayMap, ok := newAPIError.RelayError.(map[string]interface{}); ok {
+					// 检查是否包含 detail 字段且结构符合 clove 格式
+					if detail, hasDetail := relayMap["detail"]; hasDetail {
+						if detailMap, ok := detail.(map[string]interface{}); ok {
+							// 检查必要字段：code, message, context
+							_, hasCode := detailMap["code"]
+							_, hasMessage := detailMap["message"]
+							context, hasContext := detailMap["context"]
+							
+							// 如果有 context，进一步检查其结构
+							if hasCode && hasMessage && hasContext {
+								if contextMap, ok := context.(map[string]interface{}); ok {
+									// 检查 context 中的必要字段
+									_, hasErrorMessage := contextMap["error_message"]
+									_, hasErrorType := contextMap["error_type"]
+									_, hasStatusCode := contextMap["status_code"]
+									_, hasUrl := contextMap["url"]
+									
+									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
+										// 这是一个完整的 clove 格式错误，直接透传
+										responseData = relayMap
+										common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format passthrough): StatusCode=%d", newAPIError.StatusCode))
+									}
+								}
+							}
+						}
+					}
+				}
 			}
+			
+			// 如果不是 clove 格式，构建新的 clove 格式错误
+			if responseData == nil {
+				errorMessage := newAPIError.Error()
 
-			// 构建 clove 格式的错误响应
-			responseData := gin.H{
-				"detail": gin.H{
-					"code":    503130,
-					"message": fmt.Sprintf("HTTP error occurred when calling Claude AI: %s - %s (Status: %d)", errorType, errorMessage, newAPIError.StatusCode),
-					"context": gin.H{
-						"url":           "https://api.anthropic.com/v1/messages",
-						"status_code":   newAPIError.StatusCode,
-						"error_type":    errorType,
-						"error_message": errorMessage,
+				// 确定错误类型
+				errorType := "invalid_request_error"
+				if newAPIError.StatusCode == http.StatusTooManyRequests {
+					errorType = "rate_limit_error"
+				} else if newAPIError.StatusCode == http.StatusUnauthorized {
+					errorType = "authentication_error"
+				} else if newAPIError.StatusCode >= 500 {
+					errorType = "api_error"
+				}
+
+				// 构建 clove 格式的错误响应
+				responseData = gin.H{
+					"detail": gin.H{
+						"code":    503130,
+						"message": fmt.Sprintf("HTTP error occurred when calling Claude AI: %s - %s (Status: %d)", errorType, errorMessage, newAPIError.StatusCode),
+						"context": gin.H{
+							"url":           "https://api.anthropic.com/v1/messages",
+							"status_code":   newAPIError.StatusCode,
+							"error_type":    errorType,
+							"error_message": errorMessage,
+						},
 					},
-				},
+				}
 			}
 
 			// 记录最终返回给客户端的响应
