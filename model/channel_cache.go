@@ -3,7 +3,6 @@ package model
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"one-api/common"
 	"one-api/constant"
 	"one-api/setting"
@@ -163,56 +162,32 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
 	}
 
-	uniquePriorities := make(map[int]bool)
+	// 收集所有可用的渠道
+	var availableChannels []*Channel
 	for _, channelId := range channels {
 		if channel, ok := channelsIDM[channelId]; ok {
-			uniquePriorities[int(channel.GetPriority())] = true
-		} else {
-			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
-		}
-	}
-	var sortedUniquePriorities []int
-	for priority := range uniquePriorities {
-		sortedUniquePriorities = append(sortedUniquePriorities, priority)
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
-
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
-	}
-	targetPriority := int64(sortedUniquePriorities[retry])
-
-	// get the priority for the given retry number
-	var targetChannels []*Channel
-	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			if channel.GetPriority() == targetPriority {
-				targetChannels = append(targetChannels, channel)
-			}
+			availableChannels = append(availableChannels, channel)
 		} else {
 			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
 		}
 	}
 
-	// 平滑系数
-	smoothingFactor := 10
-	// Calculate the total weight of all channels up to endIdx
-	totalWeight := 0
-	for _, channel := range targetChannels {
-		totalWeight += channel.GetWeight() + smoothingFactor
-	}
-	// Generate a random value in the range [0, totalWeight)
-	randomWeight := rand.Intn(totalWeight)
-
-	// Find a channel based on its weight
-	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight() + smoothingFactor
-		if randomWeight < 0 {
-			return channel, nil
+	// 严格按优先级排序（高优先级在前），去掉权重影响
+	sort.Slice(availableChannels, func(i, j int) bool {
+		// 按优先级降序排序
+		if availableChannels[i].GetPriority() != availableChannels[j].GetPriority() {
+			return availableChannels[i].GetPriority() > availableChannels[j].GetPriority()
 		}
-	}
-	// return null if no channel is not found
-	return nil, errors.New("channel not found")
+		// 相同优先级按ID排序，保证稳定性
+		return availableChannels[i].Id < availableChannels[j].Id
+	})
+
+	// 实现轮询机制：使用 retry 作为索引，循环选择渠道
+	// retry = 0 选择第1个渠道，retry = 1 选择第2个渠道，以此类推
+	// 当 retry >= 渠道数量时，使用模运算循环
+	channelIndex := retry % len(availableChannels)
+	
+	return availableChannels[channelIndex], nil
 }
 
 func CacheGetChannel(id int) (*Channel, error) {

@@ -110,34 +110,23 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	if err != nil {
 		return nil, err
 	}
-	if common.UsingSQLite || common.UsingPostgreSQL {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	} else {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	}
+	// 严格按优先级排序，不考虑权重，确保稳定的顺序
+	err = channelQuery.Order("priority DESC, channel_id ASC").Find(&abilities).Error
 	if err != nil {
 		return nil, err
 	}
-	channel := Channel{}
-	if len(abilities) > 0 {
-		// Randomly choose one
-		weightSum := uint(0)
-		for _, ability_ := range abilities {
-			weightSum += ability_.Weight + 10
-		}
-		// Randomly choose one
-		weight := common.GetRandomInt(int(weightSum))
-		for _, ability_ := range abilities {
-			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
-			if weight <= 0 {
-				channel.Id = ability_.ChannelId
-				break
-			}
-		}
-	} else {
+	
+	if len(abilities) == 0 {
 		return nil, nil
 	}
+	
+	channel := Channel{}
+	// 实现轮询机制：使用 retry 作为索引，循环选择渠道
+	// retry = 0 选择第1个渠道，retry = 1 选择第2个渠道，以此类推
+	// 当 retry >= 渠道数量时，使用模运算循环
+	channelIndex := retry % len(abilities)
+	channel.Id = abilities[channelIndex].ChannelId
+	
 	err = DB.First(&channel, "id = ?", channel.Id).Error
 	return &channel, err
 }
