@@ -195,7 +195,19 @@ func Relay(c *gin.Context) {
 									_, hasUrl := contextMap["url"]
 									
 									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
-										// 这是一个完整的 clove 格式错误，直接透传
+										// 这是一个完整的 clove 格式错误
+										// 检查错误信息是否包含 prompt too long，如果是则添加 /compact 提示
+										if errorMsg, ok := contextMap["error_message"].(string); ok {
+											if strings.Contains(errorMsg, "prompt is too long") {
+												contextMap["error_message"] = errorMsg + ". Please use /compact command to reduce context and continue."
+											}
+										}
+										// 同时检查 message 字段
+										if msg, ok := detailMap["message"].(string); ok {
+											if strings.Contains(msg, "prompt is too long") {
+												detailMap["message"] = msg + ". Please use /compact command to reduce context and continue."
+											}
+										}
 										responseData = relayMap
 										common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format passthrough): StatusCode=%d", newAPIError.StatusCode))
 									}
@@ -209,6 +221,11 @@ func Relay(c *gin.Context) {
 			// 如果不是 clove 格式，构建新的 clove 格式错误
 			if responseData == nil {
 				errorMessage := newAPIError.Error()
+
+				// 检查是否是 prompt too long 错误，如果是则添加 /compact 提示
+				if strings.Contains(errorMessage, "prompt is too long") {
+					errorMessage += ". Please use /compact command to reduce context and continue."
+				}
 
 				// 确定错误类型
 				errorType := "invalid_request_error"
@@ -445,7 +462,19 @@ func RelayClaude(c *gin.Context) {
 									_, hasUrl := contextMap["url"]
 									
 									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
-										// 这是一个完整的 clove 格式错误，直接透传
+										// 这是一个完整的 clove 格式错误
+										// 检查错误信息是否包含 prompt too long，如果是则添加 /compact 提示
+										if errorMsg, ok := contextMap["error_message"].(string); ok {
+											if strings.Contains(errorMsg, "prompt is too long") {
+												contextMap["error_message"] = errorMsg + ". Please use /compact command to reduce context and continue."
+											}
+										}
+										// 同时检查 message 字段
+										if msg, ok := detailMap["message"].(string); ok {
+											if strings.Contains(msg, "prompt is too long") {
+												detailMap["message"] = msg + ". Please use /compact command to reduce context and continue."
+											}
+										}
 										responseData = relayMap
 										common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format passthrough): StatusCode=%d", newAPIError.StatusCode))
 									}
@@ -459,6 +488,11 @@ func RelayClaude(c *gin.Context) {
 			// 如果不是 clove 格式，构建新的 clove 格式错误
 			if responseData == nil {
 				errorMessage := newAPIError.Error()
+
+				// 检查是否是 prompt too long 错误，如果是则添加 /compact 提示
+				if strings.Contains(errorMessage, "prompt is too long") {
+					errorMessage += ". Please use /compact command to reduce context and continue."
+				}
 
 				// 确定错误类型
 				errorType := "invalid_request_error"
