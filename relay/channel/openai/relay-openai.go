@@ -26,6 +26,44 @@ import (
 	"github.com/pkg/errors"
 )
 
+// checkStreamDataHasContent 检查流式数据是否包含有效内容
+func checkStreamDataHasContent(data string) bool {
+	if data == "" {
+		return false
+	}
+	
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
+		return false
+	}
+	
+	// 检查是否有choices
+	if len(streamResponse.Choices) == 0 {
+		return false
+	}
+	
+	for _, choice := range streamResponse.Choices {
+		// 检查是否有非空的文本内容
+		if content := choice.Delta.GetContentString(); content != "" {
+			// 只要content不是空字符串就认为有内容，不需要trim
+			// 因为即使是空格、换行等也是有意义的内容
+			return true
+		}
+		
+		// 检查是否有工具调用
+		if len(choice.Delta.ToolCalls) > 0 {
+			return true
+		}
+		
+		// 检查是否有reasoning内容（适用于o1等模型）
+		if reasoning := choice.Delta.GetReasoningContent(); reasoning != "" {
+			return true
+		}
+	}
+	
+	return false
+}
+
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	if data == "" {
 		return nil
@@ -141,17 +179,46 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var usage = &dto.Usage{}
 	var streamItems []string // store stream items
 	var lastStreamData string
+	var streamStarted bool    // 标记是否已经开始流式传输
+	var bufferedItems []string // 缓存的流式数据项，直到确认有有效内容
 
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
-		if lastStreamData != "" {
-			err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
-			if err != nil {
-				common.SysError("error handling stream format: " + err.Error())
-			}
-		}
 		if len(data) > 0 {
-			lastStreamData = data
 			streamItems = append(streamItems, data)
+			
+			// 检查这个数据项是否包含有效内容
+			hasValidContent := checkStreamDataHasContent(data)
+			
+			if common.DebugEnabled && hasValidContent {
+				common.LogInfo(c, fmt.Sprintf("detected valid content in stream data: %s", data))
+			}
+			
+			if !streamStarted {
+				// 还没开始流式传输，先缓存数据
+				bufferedItems = append(bufferedItems, data)
+				
+				if hasValidContent {
+					// 发现有效内容，开始流式传输
+					streamStarted = true
+					common.LogInfo(c, fmt.Sprintf("starting stream transmission with %d buffered items", len(bufferedItems)))
+					
+					// 发送所有缓存的数据
+					for _, bufferedData := range bufferedItems {
+						err := HandleStreamFormat(c, info, bufferedData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
+						if err != nil {
+							common.SysError("error handling buffered stream format: " + err.Error())
+						}
+					}
+				}
+			} else {
+				// 已经开始流式传输，直接发送
+				err := HandleStreamFormat(c, info, data, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
+				if err != nil {
+					common.SysError("error handling stream format: " + err.Error())
+				}
+			}
+			
+			lastStreamData = data
 		}
 		return true
 	})
@@ -195,7 +262,15 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	if usage.CompletionTokens == 0 && !clientDisconnected {
 		channelName := c.GetString("channel_name")
 		common.LogError(c, fmt.Sprintf("channel returned empty response (no completion tokens), channel_name: %s", channelName))
-		return nil, types.NewError(errors.New("upstream returned empty response"), types.ErrorCodeEmptyResponse)
+		
+		// 如果还没有开始流式传输，可以安全重试
+		if !streamStarted {
+			return nil, types.NewError(errors.New("upstream returned empty response"), types.ErrorCodeEmptyResponse)
+		} else {
+			// 已经开始流式传输但内容为空，记录错误但正常结束请求
+			common.LogError(c, "empty response detected after streaming started, cannot retry")
+			return usage, nil
+		}
 	}
 
 	return usage, nil

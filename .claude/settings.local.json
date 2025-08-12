@@ -49,7 +49,8 @@
       "Bash(git reset:*)",
       "Bash(echo)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(do sed -i '' 's/service\\.RelayErrorHandler(httpResp, false)/service.RelayErrorHandler(c, httpResp, false)/g' \"$file\")"
     ],
     "deny": []
   }

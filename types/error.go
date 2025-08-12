@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"one-api/common"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type OpenAIError struct {
@@ -255,6 +257,33 @@ func WithClaudeError(claudeError ClaudeError, statusCode int, ops ...NewAPIError
 	if claudeError.Type == "" {
 		claudeError.Type = "upstream_error"
 	}
+	e := &NewAPIError{
+		RelayError: claudeError,
+		errorType:  ErrorTypeClaudeError,
+		StatusCode: statusCode,
+		Err:        errors.New(claudeError.Message),
+		errorCode:  ErrorCode(claudeError.Type),
+	}
+	for _, op := range ops {
+		op(e)
+	}
+	return e
+}
+
+func WithClaudeErrorAndContext(c *gin.Context, claudeError ClaudeError, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
+	if claudeError.Type == "" {
+		claudeError.Type = "upstream_error"
+	}
+
+	// 检查是否是CLI用户代理和max_tokens错误
+	if c != nil && claudeError.Type == "invalid_request_error" && strings.Contains(claudeError.Message, "max_tokens") {
+		userAgent := c.Request.Header.Get("User-Agent")
+		if strings.Contains(strings.ToLower(userAgent), "cli") {
+			// 为CLI用户添加/compact提示
+			claudeError.Message += " Run /compact to compact & continue（上下文超过200k，请先使用/compact，然后继续使用）"
+		}
+	}
+
 	e := &NewAPIError{
 		RelayError: claudeError,
 		errorType:  ErrorTypeClaudeError,

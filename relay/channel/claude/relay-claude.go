@@ -25,6 +25,52 @@ const (
 	WebSearchMaxUsesHigh   = 10
 )
 
+// checkClaudeStreamDataHasContent 检查Claude流式数据是否包含有效内容
+func checkClaudeStreamDataHasContent(data string) bool {
+	if data == "" {
+		return false
+	}
+	
+	var claudeResponse dto.ClaudeResponse
+	if err := common.UnmarshalJsonStr(data, &claudeResponse); err != nil {
+		return false
+	}
+	
+	// 检查content_block_delta类型的响应 - 这是Claude流式响应中最重要的内容类型
+	if claudeResponse.Type == "content_block_delta" {
+		// 检查text字段是否为非空指针且内容不为空
+		if claudeResponse.Delta.Text != nil && *claudeResponse.Delta.Text != "" {
+			return true
+		}
+	}
+	
+	// 检查content_block_start类型的响应 - 内容块开始
+	if claudeResponse.Type == "content_block_start" {
+		if claudeResponse.ContentBlock != nil && claudeResponse.ContentBlock.Text != nil && *claudeResponse.ContentBlock.Text != "" {
+			return true
+		}
+	}
+	
+	// 检查message_start类型的响应中是否有预填充内容
+	if claudeResponse.Type == "message_start" && claudeResponse.Message.Content != nil {
+		// Content是interface{}类型，需要类型断言
+		if contentSlice, ok := claudeResponse.Message.Content.([]interface{}); ok && len(contentSlice) > 0 {
+			for _, contentItem := range contentSlice {
+				if contentMap, ok := contentItem.(map[string]interface{}); ok {
+					if text, ok := contentMap["text"].(string); ok && text != "" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	
+	// message_delta通常不包含实际内容，主要是元数据
+	// ping事件也不算有效内容
+	
+	return false
+}
+
 func stopReasonClaude2OpenAI(reason string) string {
 	switch reason {
 	case "stop_sequence":
@@ -614,7 +660,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		return types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
-		return types.WithClaudeError(*claudeError, http.StatusInternalServerError)
+		return types.WithClaudeErrorAndContext(c, *claudeError, http.StatusInternalServerError)
 	}
 	if info.RelayFormat == relaycommon.RelayFormatClaude {
 		FormatClaudeResponseInfo(requestMode, &claudeResponse, nil, claudeInfo)
@@ -684,11 +730,36 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		Usage:        &dto.Usage{},
 	}
 	var err *types.NewAPIError
+	var streamStarted bool    // 标记是否已经开始流式传输
+	var bufferedItems []string // 缓存的流式数据项，直到确认有有效内容
+	
 	helper.StreamScannerHandler(c, resp, info, func(data string) bool {
-		err = HandleStreamResponseData(c, info, claudeInfo, data, requestMode)
-		if err != nil {
-			return false
+		// 检查这个数据项是否包含有效内容
+		hasValidContent := checkClaudeStreamDataHasContent(data)
+		
+		if !streamStarted {
+			// 还没开始流式传输，先缓存数据
+			bufferedItems = append(bufferedItems, data)
+			
+			if hasValidContent {
+				// 发现有效内容，开始流式传输
+				streamStarted = true
+				// 处理所有缓存的数据
+				for _, bufferedData := range bufferedItems {
+					err = HandleStreamResponseData(c, info, claudeInfo, bufferedData, requestMode)
+					if err != nil {
+						return false
+					}
+				}
+			}
+		} else {
+			// 已经开始流式传输，直接处理
+			err = HandleStreamResponseData(c, info, claudeInfo, data, requestMode)
+			if err != nil {
+				return false
+			}
 		}
+		
 		return true
 	})
 	if err != nil {
@@ -706,7 +777,15 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 	if claudeInfo.Usage.CompletionTokens == 0 && !clientDisconnected {
 		channelName := c.GetString("channel_name")
 		common.LogError(c, fmt.Sprintf("Claude channel returned empty response (no completion tokens), channel_name: %s", channelName))
-		return types.NewError(errors.New("Claude upstream returned empty response"), types.ErrorCodeEmptyResponse), nil
+		
+		// 如果还没有开始流式传输，可以安全重试
+		if !streamStarted {
+			return types.NewError(errors.New("Claude upstream returned empty response"), types.ErrorCodeEmptyResponse), nil
+		} else {
+			// 已经开始流式传输但内容为空，记录错误但正常结束请求
+			common.LogError(c, "empty response detected after streaming started, cannot retry")
+			return nil, claudeInfo.Usage
+		}
 	}
 	
 	return nil, claudeInfo.Usage
@@ -719,7 +798,7 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		return types.NewError(err, types.ErrorCodeBadResponseBody)
 	}
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
-		return types.WithClaudeError(*claudeError, http.StatusInternalServerError)
+		return types.WithClaudeErrorAndContext(c, *claudeError, http.StatusInternalServerError)
 	}
 	if requestMode == RequestModeCompletion {
 		completionTokens := service.CountTextToken(claudeResponse.Completion, info.OriginModelName)

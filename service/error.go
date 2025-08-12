@@ -10,6 +10,8 @@ import (
 	"one-api/types"
 	"strconv"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 func MidjourneyErrorWrapper(code int, desc string) *dto.MidjourneyResponse {
@@ -78,7 +80,7 @@ func ClaudeErrorWrapperLocal(err error, code string, statusCode int) *dto.Claude
 	return claudeErr
 }
 
-func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *types.NewAPIError) {
+func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail bool) (newApiErr *types.NewAPIError) {
 	newApiErr = types.InitOpenAIError(types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
 
 	responseBody, err := io.ReadAll(resp.Body)
@@ -118,6 +120,15 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 					// 检查是否是 token 超限错误，如果是则不重试
 					if strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit") {
 						common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
+
+						// 检查是否是CLI用户代理，如果是则添加/compact提示
+						if c != nil {
+							userAgent := c.Request.Header.Get("User-Agent")
+							if strings.Contains(strings.ToLower(userAgent), "cli") {
+								errorMessage += " Run /compact to compact & continue（上下文超过200k，请先使用/compact，然后继续使用）"
+							}
+						}
+						
 						// 创建一个不可重试的错误，并保存原始的 clove 格式
 						return types.NewErrorWithStatusCode(
 							fmt.Errorf(errorMessage),
