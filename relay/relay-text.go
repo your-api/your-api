@@ -86,6 +86,9 @@ func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo)
 
 func TextHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 
+	// 添加退费状态标记，避免重复退费
+	var preConsumedRefunded bool
+
 	relayInfo := relaycommon.GenRelayInfo(c)
 
 	// get & validate textRequest 获取并验证文本请求
@@ -136,7 +139,9 @@ func TextHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		return newApiErr
 	}
 	defer func() {
-		if newApiErr != nil {
+		// 修复变量名错误：使用正确的返回值变量名 newAPIError 而不是 newApiErr
+		// 并且检查是否已经退费，避免重复
+		if newAPIError != nil && !preConsumedRefunded && preConsumedQuota > 0 {
 			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
 		}
 	}()
@@ -257,7 +262,7 @@ func TextHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 	if strings.HasPrefix(relayInfo.OriginModelName, "gpt-4o-audio") {
 		service.PostAudioConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
 	} else {
-		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
 	}
 	return nil
 }
@@ -360,7 +365,7 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 }
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
-	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string, preConsumedRefunded *bool) {
 	// 如果 usage 为空，说明请求出错，不应该计费
 	if usage == nil {
 		common.LogWarn(ctx, "postConsumeQuota called with nil usage, request likely failed - skipping billing")
@@ -523,6 +528,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 				common.LogError(ctx, fmt.Sprintf("error refunding pre-consumed quota %d: %s", preConsumedQuota, err.Error()))
 			} else {
 				common.LogInfo(ctx, fmt.Sprintf("refunded pre-consumed quota: %d", preConsumedQuota))
+				*preConsumedRefunded = true // 标记已退费，避免defer重复退费
 			}
 		}
 
