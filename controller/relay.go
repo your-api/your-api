@@ -254,9 +254,11 @@ func Relay(c *gin.Context) {
 
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format): StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
+			// CLI 请求统一返回 403 状态码
+			statusCode := http.StatusForbidden
+			common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format): StatusCode=%d (original: %d), Body=%s", statusCode, newAPIError.StatusCode, string(responseBytes)))
 
-			c.JSON(newAPIError.StatusCode, responseData)
+			c.JSON(statusCode, responseData)
 		} else {
 			// 非 CLI 请求，返回 OpenAI 格式
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
@@ -648,7 +650,7 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	// 检查是否是 token 超限错误，如果是则不重试
 	errorMessage := openaiErr.Error()
 	if (strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens")) ||
-	   strings.Contains(errorMessage, "input length and `max_tokens` exceed context limit") {
+	   strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
 		common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
 		return false
 	}

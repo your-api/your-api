@@ -119,7 +119,7 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 
 					// 检查是否是 token 超限错误，如果是则不重试
 					if (strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit")) ||
-					   strings.Contains(errorMessage, "input length and `max_tokens` exceed context limit") {
+						strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
 						common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
 
 						// 检查是否是CLI用户代理，如果是则添加/compact提示
@@ -129,19 +129,19 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 								// 直接修改 cloveError 中的 error_message
 								if context, ok := detail["context"].(map[string]interface{}); ok {
 									originalMsg, _ := context["error_message"].(string)
-									context["error_message"] = originalMsg + " Run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+									context["error_message"] = originalMsg + ". Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
 								}
-								
+
 								// 同时修改 message 字段
 								if msg, ok := detail["message"].(string); ok {
-									detail["message"] = msg + " Run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+									detail["message"] = msg + ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
 								}
-								
+
 								// 更新错误消息用于日志
-								errorMessage += " Run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+								errorMessage += ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
 							}
 						}
-						
+
 						// 创建一个不可重试的错误，并保存修改后的 clove 格式
 						return types.NewErrorWithStatusCode(
 							fmt.Errorf(errorMessage),
@@ -173,7 +173,7 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 			common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning Claude error: Type=%s, Message=%s", claudeError.Type, claudeError.Message))
 			// 检查是否是 token 超限错误
 			if (strings.Contains(claudeError.Message, "max_tokens") && strings.Contains(claudeError.Message, "exceed context limit")) ||
-			   strings.Contains(claudeError.Message, "input length and `max_tokens` exceed context limit") {
+				strings.Contains(claudeError.Message, "input length and max_tokens exceed context limit") {
 				return types.WithClaudeErrorAndContext(c, *claudeError, resp.StatusCode, types.ErrOptionWithSkipRetry())
 			}
 			return types.WithClaudeError(*claudeError, resp.StatusCode)
@@ -205,7 +205,7 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 		common.SysError(fmt.Sprintf("[RelayErrorHandler] Returning OpenAI error from GeneralError"))
 		// 检查是否是 token 超限错误
 		if (strings.Contains(errResponse.Error.Message, "max_tokens") && strings.Contains(errResponse.Error.Message, "exceed context limit")) ||
-		   strings.Contains(errResponse.Error.Message, "input length and `max_tokens` exceed context limit") {
+			strings.Contains(errResponse.Error.Message, "input length and max_tokens exceed context limit") {
 			return types.WithOpenAIError(errResponse.Error, resp.StatusCode, types.ErrOptionWithSkipRetry())
 		}
 		newApiErr = types.WithOpenAIError(errResponse.Error, resp.StatusCode)

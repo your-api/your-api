@@ -515,7 +515,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		logContent += fmt.Sprintf("（可能是上游超时）")
 		common.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, preConsumedQuota))
-		
+
 		// 处理预扣费的退还
 		if preConsumedQuota > 0 {
 			err := service.RefundQuota(relayInfo, preConsumedQuota)
@@ -525,7 +525,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 				common.LogInfo(ctx, fmt.Sprintf("refunded pre-consumed quota: %d", preConsumedQuota))
 			}
 		}
-		
+
 		// 记录错误日志而不是消费日志
 		other := service.GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, cacheTokens, cacheRatio, modelPrice, priceData.GroupRatioInfo.GroupSpecialRatio)
 		if imageTokens != 0 {
@@ -534,7 +534,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 			other["image_output"] = imageTokens
 		}
 		model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
-			tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+			tokenName, errorContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
 		return // 直接返回，不执行后面的正常消费日志记录
 	} else {
 		if !ratio.IsZero() && quota == 0 {

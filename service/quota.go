@@ -319,12 +319,6 @@ func RecordClaudeErrorLog(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	modelPrice := priceData.ModelPrice
 
 	var logContent string
-	if !priceData.UsePrice {
-		logContent = fmt.Sprintf("模型倍率 %.2f，分组倍率 %.2f", modelRatio, groupRatio)
-	} else {
-		logContent = fmt.Sprintf("模型价格 %.2f，分组倍率 %.2f", modelPrice, groupRatio)
-	}
-
 	if extraContent != "" {
 		logContent += ", " + extraContent
 	}

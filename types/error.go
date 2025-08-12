@@ -276,13 +276,13 @@ func WithClaudeErrorAndContext(c *gin.Context, claudeError ClaudeError, statusCo
 	}
 
 	// 检查是否是CLI用户代理和max_tokens错误
-	if c != nil && claudeError.Type == "invalid_request_error" && 
-	   ((strings.Contains(claudeError.Message, "max_tokens") && strings.Contains(claudeError.Message, "exceed context limit")) ||
-	    strings.Contains(claudeError.Message, "input length and `max_tokens` exceed context limit")) {
+	if c != nil && claudeError.Type == "invalid_request_error" &&
+		((strings.Contains(claudeError.Message, "max_tokens") && strings.Contains(claudeError.Message, "exceed context limit")) ||
+			strings.Contains(claudeError.Message, "input length and max_tokens exceed context limit")) {
 		userAgent := c.Request.Header.Get("User-Agent")
 		if strings.Contains(strings.ToLower(userAgent), "cli") {
 			// 为CLI用户添加/compact提示
-			claudeError.Message += " Run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+			claudeError.Message += ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
 		}
 	}
 
