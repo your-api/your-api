@@ -31,6 +31,24 @@ func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, fo
 		return nil
 	}
 
+	// 检查是否为 poe 渠道并且内容以 "Thinking..." 开头
+	channelName := c.GetString("channel_name")
+	if strings.Contains(strings.ToLower(channelName), "poe") {
+		var streamResponse dto.ChatCompletionsStreamResponse
+		if err := common.UnmarshalJsonStr(data, &streamResponse); err == nil {
+			// 检查是否存在以 "Thinking..." 开头的内容
+			for _, choice := range streamResponse.Choices {
+				if choice.Delta != nil {
+					content := choice.Delta.GetContentString()
+					if strings.HasPrefix(content, "Thinking...") {
+						// 过滤掉这个响应，不传给调用方
+						return nil
+					}
+				}
+			}
+		}
+	}
+
 	if !forceFormat && !thinkToContent {
 		return helper.StringData(c, data)
 	}
