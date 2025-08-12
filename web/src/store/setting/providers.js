@@ -8,7 +8,7 @@ const providerStore = createSlice({
         providers: [],
         // 优点
         advantages: [],
-        priceRatio: 7.3,
+        priceRatio: 1,
         systemName: 'Your API',
         typingList: [],
         modelDiscriptions: {},

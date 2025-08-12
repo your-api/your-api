@@ -8,7 +8,8 @@ export default function BubbleText({
                                        borderWidth,
                                        borderStyle,
                                        bubbleText,
-                                       svg
+                                       svg,
+                                       fontSize
                                    }) {
     const { t } = useTranslation();
 
@@ -17,12 +18,13 @@ export default function BubbleText({
         color: color || 'var(--semi-color-tertiary)',
         borderColor: borderColor || 'var(--semi-color-tertiary-light-active)',
         borderWidth: borderWidth || '1px',
-        borderStyle: borderStyle || 'solid'
+        borderStyle: borderStyle || 'solid',
+        fontSize: fontSize || '12px'
     };
 
     return (
         <div
-            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm whitespace-nowrap"
+            className="inline-flex items-center px-2.5 py-1 rounded-full font-medium shadow-sm whitespace-nowrap"
             style={mergedStyle}
         >
             {svg && (

@@ -328,7 +328,7 @@ const ModelPricing = ({onInitialize}) => {
 
   // AI供应商数据
   const dispatch = useDispatch();
-  const { providers = [],priceRatio=0} = useSelector((state) => state.providers);
+  const { providers = [],priceRatio=1} = useSelector((state) => state.providers);
 
 
 
@@ -517,6 +517,7 @@ const ModelPricing = ({onInitialize}) => {
                 borderColor="var(--semi-color-warning-light-active)"
                 borderWidth="1px"
                 borderStyle="solid"
+                fontSize="12px"
                 svg={
                   <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 4V20M18 12H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -526,13 +527,14 @@ const ModelPricing = ({onInitialize}) => {
         );
       case 0:
         return (
-            <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+            <div className="inline-flex items-center px-2.5 py-1 rounded-full font-medium shadow-sm"
                  style={{
                    background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
                    color: 'var(--semi-color-primary)',
                    borderColor: 'var(--semi-color-primary-light-active)',
                    borderWidth: '1px',
-                   borderStyle: 'solid'
+                   borderStyle: 'solid',
+                   fontSize: '12px'
                  }}>
           <span className="flex items-center">
             <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -544,13 +546,14 @@ const ModelPricing = ({onInitialize}) => {
         );
       default:
         return (
-            <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+            <div className="inline-flex items-center px-2.5 py-1 rounded-full font-medium shadow-sm"
                  style={{
                    background: 'linear-gradient(to right, var(--semi-color-fill-0), var(--semi-color-fill-1))',
                    color: 'var(--semi-color-text-1)',
                    borderColor: 'var(--semi-color-border)',
                    borderWidth: '1px',
-                   borderStyle: 'solid'
+                   borderStyle: 'solid',
+                   fontSize: '12px'
                  }}>
           <span className="flex items-center">
             <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -659,13 +662,14 @@ const ModelPricing = ({onInitialize}) => {
               <>
                 <div className="flex items-center gap-2">
                   <div
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
+                      className="inline-flex items-center px-3 py-1 rounded-full font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
                       style={{
                         background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
                         color: 'var(--semi-color-primary)',
                         borderColor: 'var(--semi-color-primary-light-active)',
                         borderWidth: '1px',
-                        borderStyle: 'solid'
+                        borderStyle: 'solid',
+                        fontSize: '12px'
                       }}
                       onClick={() => copyText(text)}
                       title={text}
@@ -722,7 +726,7 @@ const ModelPricing = ({onInitialize}) => {
 
                   if (group === selectedPriceGroup) {
                     return (
-                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid', fontSize: '12px' }}>
                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                           </svg>
@@ -733,7 +737,8 @@ const ModelPricing = ({onInitialize}) => {
                     return (
                         <div
                             key={group}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                            style={{ fontSize: '12px' }}
                             onClick={() => {
                               setSelectedPriceGroup(group);
                               showInfo(t('价格计算已切换到分组：{{group}}', {
@@ -901,7 +906,7 @@ const ModelPricing = ({onInitialize}) => {
           const completionRatioPrice = (record.model_ratio * record.completion_ratio * 2 * currentGroupRatio).toFixed(2);
 
           content = (
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1" style={{ fontSize: '12px' }}>
                 <div className="flex items-center justify-between rounded-md px-2 py-1" style={{
                   backgroundColor: 'var(--semi-color-primary-light-default)',
                   color: 'var(--semi-color-primary)'
@@ -1233,7 +1238,7 @@ const ModelPricing = ({onInitialize}) => {
         label: (
             <div className="group-option">
               <span>全部</span>
-              <span className="group-ratio-badge" style={{ fontSize: '10px', color: 'var(--semi-color-text-2)' }}>
+              <span className="group-ratio-badge" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
               显示所有模型
             </span>
             </div>
@@ -1249,7 +1254,7 @@ const ModelPricing = ({onInitialize}) => {
           label: (
               <div className="group-option">
                 <span>{prefixGroups[prefix].name}</span>
-                <span className="group-ratio-badge" style={{ fontSize: '10px', color: 'var(--semi-color-text-2)' }}>
+                <span className="group-ratio-badge" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
               {prefixGroups[prefix].description}
             </span>
               </div>
@@ -1843,13 +1848,14 @@ const ModelPricing = ({onInitialize}) => {
                             <div className="flex justify-between items-center">
                               <div className="flex items-center gap-2 flex-1">
                                 <div
-                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
+                                    className="inline-flex items-center px-3 py-1 rounded-full font-medium shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap max-w-full overflow-hidden"
                                     style={{
                                       background: 'linear-gradient(to right, var(--semi-color-primary-light-default), var(--semi-color-primary-light-hover))',
                                       color: 'var(--semi-color-primary)',
                                       borderColor: 'var(--semi-color-primary-light-active)',
                                       borderWidth: '1px',
-                                      borderStyle: 'solid'
+                                      borderStyle: 'solid',
+                                      fontSize: '12px'
                                     }}
                                     onClick={() => copyText(model.model_name)}
                                     title={model.model_name}
@@ -1913,7 +1919,7 @@ const ModelPricing = ({onInitialize}) => {
 
                                   if (group === selectedPriceGroup) {
                                     return (
-                                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid' }}>
+                                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid', fontSize: '12px' }}>
                                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                                           </svg>
@@ -1924,7 +1930,8 @@ const ModelPricing = ({onInitialize}) => {
                                     return (
                                         <div
                                             key={group}
-                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
+                            style={{ fontSize: '12px' }}
                                             onClick={() => {
                                               setSelectedPriceGroup(group);
                                               showInfo(t('价格计算已切换到分组：{{group}}', {

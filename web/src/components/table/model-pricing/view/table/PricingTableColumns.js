@@ -169,14 +169,14 @@ export const getPricingTableColumns = ({
       const completionRatio = parseFloat(record.completion_ratio.toFixed(3));
       const content = (
         <div className="space-y-1">
-          <div className="text-gray-700">
+          <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('模型倍率')}：{record.quota_type === 0 ? text : t('无')}
           </div>
-          <div className="text-gray-700">
+          <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('补全倍率')}：
             {record.quota_type === 0 ? completionRatio : t('无')}
           </div>
-          <div className="text-gray-700">
+          <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('分组倍率')}：{groupRatio[selectedGroup]}
           </div>
         </div>
@@ -203,7 +203,7 @@ export const getPricingTableColumns = ({
       
       // 如果返回的是字符串，直接显示
       if (typeof formattedPrice === 'string') {
-        return <div className="text-gray-700">{formattedPrice}</div>;
+        return <div className="text-gray-700" style={{ fontSize: '12px' }}>{formattedPrice}</div>;
       }
       
       // 如果返回的是对象，根据类型渲染
@@ -211,10 +211,10 @@ export const getPricingTableColumns = ({
         if (formattedPrice.type === 'usage') {
           return (
             <div className="space-y-1">
-              <div className="text-gray-700">
+              <div className="text-gray-700" style={{ fontSize: '12px' }}>
                 {formattedPrice.inputLabel} {formattedPrice.input}
               </div>
-              <div className="text-gray-700">
+              <div className="text-gray-700" style={{ fontSize: '12px' }}>
                 {formattedPrice.outputLabel} {formattedPrice.output}
               </div>
             </div>
@@ -222,7 +222,7 @@ export const getPricingTableColumns = ({
         }
         if (formattedPrice.type === 'count') {
           return (
-            <div className="text-gray-700">
+            <div className="text-gray-700" style={{ fontSize: '12px' }}>
               {formattedPrice.label}：{formattedPrice.price}
             </div>
           );

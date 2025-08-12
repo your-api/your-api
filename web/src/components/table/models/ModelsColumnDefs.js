@@ -42,6 +42,7 @@ const renderVendorTag = (vendorId, vendorMap, t) => {
       color='white'
       shape='circle'
       prefixIcon={getLobeHubIcon(v.icon || 'Layers', 14)}
+      style={{ fontSize: '12px' }}
     >
       {v.name}
     </Tag>
@@ -54,7 +55,7 @@ const renderGroups = (groups) => {
   return renderLimitedItems({
     items: groups,
     renderItem: (g, idx) => (
-      <Tag key={idx} size="small" shape='circle' color={stringToColor(g)}>
+      <Tag key={idx} size="small" shape='circle' color={stringToColor(g)} style={{ fontSize: '12px' }}>
         {g}
       </Tag>
     ),
@@ -68,7 +69,7 @@ const renderTags = (text) => {
   return renderLimitedItems({
     items: tagsArr,
     renderItem: (tag, idx) => (
-      <Tag key={idx} size="small" shape='circle' color={stringToColor(tag)}>
+      <Tag key={idx} size="small" shape='circle' color={stringToColor(tag)} style={{ fontSize: '12px' }}>
         {tag}
       </Tag>
     ),
@@ -85,7 +86,7 @@ const renderEndpoints = (value) => {
       return renderLimitedItems({
         items: keys,
         renderItem: (key, idx) => (
-          <Tag key={idx} size="small" shape='circle' color={stringToColor(key)}>
+          <Tag key={idx} size="small" shape='circle' color={stringToColor(key)} style={{ fontSize: '12px' }}>
             {key}
           </Tag>
         ),
@@ -97,7 +98,7 @@ const renderEndpoints = (value) => {
       return renderLimitedItems({
         items: parsed,
         renderItem: (ep, idx) => (
-          <Tag key={idx} color="white" size="small" shape='circle'>
+          <Tag key={idx} color="white" size="small" shape='circle' style={{ fontSize: '12px' }}>
             {ep}
           </Tag>
         ),
@@ -114,14 +115,14 @@ const renderEndpoints = (value) => {
 const renderQuotaType = (qt, t) => {
   if (qt === 1) {
     return (
-      <Tag color='teal' size='small' shape='circle'>
+      <Tag color='teal' size='small' shape='circle' style={{ fontSize: '12px' }}>
         {t('按次计费')}
       </Tag>
     );
   }
   if (qt === 0) {
     return (
-      <Tag color='violet' size='small' shape='circle'>
+      <Tag color='violet' size='small' shape='circle' style={{ fontSize: '12px' }}>
         {t('按量计费')}
       </Tag>
     );
@@ -135,7 +136,7 @@ const renderBoundChannels = (channels) => {
   return renderLimitedItems({
     items: channels,
     renderItem: (c, idx) => (
-      <Tag key={idx} color="white" size="small" shape='circle'>
+      <Tag key={idx} color="white" size="small" shape='circle' style={{ fontSize: '12px' }}>
         {c.name}({c.type})
       </Tag>
     ),
@@ -207,7 +208,7 @@ const renderNameRule = (rule, t) => {
   const cfg = map[rule];
   if (!cfg) return '-';
   return (
-    <Tag color={cfg.color} size="small" shape='circle'>
+    <Tag color={cfg.color} size="small" shape='circle' style={{ fontSize: '12px' }}>
       {cfg.label}
     </Tag>
   );

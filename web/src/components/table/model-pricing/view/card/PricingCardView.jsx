@@ -130,7 +130,7 @@ const PricingCardView = ({
     
     // 如果返回的是字符串，直接显示
     if (typeof formattedPrice === 'string') {
-      return <span className="text-gray-600">{formattedPrice}</span>;
+      return <span className="text-gray-600" style={{ fontSize: '12px' }}>{formattedPrice}</span>;
     }
     
     // 如果返回的是对象，根据类型渲染
@@ -139,12 +139,12 @@ const PricingCardView = ({
         return (
           <>
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">{formattedPrice.inputLabel}:</span>
-              <span className="font-medium text-blue-600">{formattedPrice.input}</span>
+              <span className="text-gray-500" style={{ fontSize: '12px' }}>{formattedPrice.inputLabel}:</span>
+              <span className="font-medium text-blue-600" style={{ fontSize: '12px' }}>{formattedPrice.input}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-gray-500">{formattedPrice.outputLabel}:</span>
-              <span className="font-medium text-green-600">{formattedPrice.output}</span>
+              <span className="text-gray-500" style={{ fontSize: '12px' }}>{formattedPrice.outputLabel}:</span>
+              <span className="font-medium text-green-600" style={{ fontSize: '12px' }}>{formattedPrice.output}</span>
             </div>
           </>
         );
@@ -152,8 +152,8 @@ const PricingCardView = ({
       if (formattedPrice.type === 'count') {
         return (
           <div className="flex items-center gap-1">
-            <span className="text-gray-500">{formattedPrice.label}:</span>
-            <span className="font-medium text-purple-600">{formattedPrice.price}</span>
+            <span className="text-gray-500" style={{ fontSize: '12px' }}>{formattedPrice.label}:</span>
+            <span className="font-medium text-purple-600" style={{ fontSize: '12px' }}>{formattedPrice.price}</span>
           </div>
         );
       }
