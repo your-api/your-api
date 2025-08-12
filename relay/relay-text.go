@@ -534,7 +534,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 			other["image_output"] = imageTokens
 		}
 		model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
-			tokenName, errorContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+			tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
 		return // 直接返回，不执行后面的正常消费日志记录
 	} else {
 		if !ratio.IsZero() && quota == 0 {
