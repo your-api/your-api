@@ -131,6 +131,7 @@ func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
 	}
-	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	var preConsumedRefunded bool
+	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
 	return nil
 }

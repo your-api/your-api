@@ -131,7 +131,8 @@ func AudioHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 		return newAPIError
 	}
 
-	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+	var preConsumedRefunded bool
+	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
 	
 	needReturnQuota = false // 成功消费，不需要返还预扣费
 	
