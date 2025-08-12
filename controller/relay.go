@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"one-api/common"
 	"one-api/constant"
 	constant2 "one-api/constant"
@@ -475,18 +476,49 @@ func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*m
 			AutoBan: &autoBanInt,
 		}, nil
 	}
-	channel, selectGroup, err := model.CacheGetRandomSatisfiedChannel(c, group, originalModel, retryCount)
-	if err != nil {
-		return nil, types.NewError(errors.New(fmt.Sprintf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, originalModel, err.Error())), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	
+	// 获取已经尝试过的渠道ID列表
+	usedChannels := c.GetStringSlice("use_channel")
+	usedChannelIDs := make(map[int]bool)
+	for _, channelStr := range usedChannels {
+		if channelID, err := strconv.Atoi(channelStr); err == nil {
+			usedChannelIDs[channelID] = true
+		}
 	}
-	if channel == nil {
-		return nil, types.NewError(errors.New(fmt.Sprintf("分组 %s 下模型 %s 的可用渠道不存在（数据库一致性已被破坏，retry）", selectGroup, originalModel)), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	
+	// 多次尝试获取不同的渠道
+	maxAttempts := 5
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		channel, selectGroup, err := model.CacheGetRandomSatisfiedChannel(c, group, originalModel, retryCount + attempt)
+		if err != nil {
+			if attempt == maxAttempts-1 {
+				return nil, types.NewError(errors.New(fmt.Sprintf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, originalModel, err.Error())), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+			}
+			continue
+		}
+		if channel == nil {
+			if attempt == maxAttempts-1 {
+				return nil, types.NewError(errors.New(fmt.Sprintf("分组 %s 下模型 %s 的可用渠道不存在（数据库一致性已被破坏，retry）", selectGroup, originalModel)), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+			}
+			continue
+		}
+		
+		// 检查是否已经尝试过这个渠道
+		if !usedChannelIDs[channel.Id] {
+			// 找到一个未尝试过的渠道
+			newAPIError := middleware.SetupContextForSelectedChannel(c, channel, originalModel)
+			if newAPIError != nil {
+				return nil, newAPIError
+			}
+			return channel, nil
+		}
+		
+		// 如果已经尝试过，继续循环寻找其他渠道
+		common.LogInfo(c, fmt.Sprintf("Channel #%d already tried, looking for another channel", channel.Id))
 	}
-	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, originalModel)
-	if newAPIError != nil {
-		return nil, newAPIError
-	}
-	return channel, nil
+	
+	// 所有尝试都失败或找到的都是已尝试过的渠道
+	return nil, types.NewError(errors.New(fmt.Sprintf("分组 %s 下模型 %s 没有可用的未尝试渠道", group, originalModel)), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 }
 
 func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {

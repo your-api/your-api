@@ -23,6 +23,8 @@ import (
 Task 任务通过平台、Action 区分任务
 */
 func RelayTaskSubmit(c *gin.Context, relayMode int) (taskErr *dto.TaskError) {
+	var preConsumedQuota int // 声明预扣费变量
+	
 	platform := constant.TaskPlatform(c.GetString("platform"))
 	if platform == "" {
 		platform = GetTaskPlatform(c)
@@ -72,6 +74,22 @@ func RelayTaskSubmit(c *gin.Context, relayMode int) (taskErr *dto.TaskError) {
 	if userQuota-quota < 0 {
 		taskErr = service.TaskErrorWrapperLocal(errors.New("user quota is not enough"), "quota_not_enough", http.StatusForbidden)
 		return
+	}
+	
+	// 预扣费，避免并发超支
+	var preConsumedQuota int
+	if quota > 0 {
+		preConsumedQuota = quota
+		err = service.PreConsumeTokenQuota(relayInfo.RelayInfo, preConsumedQuota)
+		if err != nil {
+			taskErr = service.TaskErrorWrapper(err, "pre_consume_quota_failed", http.StatusForbidden)
+			return
+		}
+		err = model.DecreaseUserQuota(relayInfo.UserId, preConsumedQuota)
+		if err != nil {
+			taskErr = service.TaskErrorWrapper(err, "decrease_user_quota_failed", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if relayInfo.OriginTaskID != "" {
@@ -124,8 +142,8 @@ func RelayTaskSubmit(c *gin.Context, relayMode int) (taskErr *dto.TaskError) {
 	defer func() {
 		// release quota
 		if relayInfo.ConsumeQuota && taskErr == nil {
-
-			err := service.PostConsumeQuota(relayInfo.RelayInfo, quota, 0, true)
+			// 因为已经预扣费，这里传入preConsumedQuota，避免重复扣费
+			err := service.PostConsumeQuota(relayInfo.RelayInfo, quota, preConsumedQuota, true)
 			if err != nil {
 				common.SysError("error consuming token remain quota: " + err.Error())
 			}
@@ -146,6 +164,14 @@ func RelayTaskSubmit(c *gin.Context, relayMode int) (taskErr *dto.TaskError) {
 					tokenName, quota, logContent, relayInfo.TokenId, userQuota, 0, false, relayInfo.UsingGroup, other)
 				model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, quota)
 				model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
+			}
+		} else if taskErr != nil && preConsumedQuota > 0 {
+			// 请求失败，返还预扣费
+			err := service.RefundQuota(relayInfo.RelayInfo, preConsumedQuota)
+			if err != nil {
+				common.SysError(fmt.Sprintf("error refunding pre-consumed quota %d: %s", preConsumedQuota, err.Error()))
+			} else {
+				common.LogInfo(c, fmt.Sprintf("refunded pre-consumed quota: %d for failed task", preConsumedQuota))
 			}
 		}
 	}()

@@ -361,13 +361,10 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string) {
+	// 如果 usage 为空，说明请求出错，不应该计费
 	if usage == nil {
-		usage = &dto.Usage{
-			PromptTokens:     relayInfo.PromptTokens,
-			CompletionTokens: 0,
-			TotalTokens:      relayInfo.PromptTokens,
-		}
-		extraContent += "（可能是请求出错）"
+		common.LogWarn(ctx, "postConsumeQuota called with nil usage, request likely failed - skipping billing")
+		return
 	}
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	promptTokens := usage.PromptTokens

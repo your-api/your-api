@@ -31,17 +31,24 @@ func GetHttpClient() *http.Client {
 // NewProxyHttpClient 创建支持代理的 HTTP 客户端
 func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 	if proxyURL == "" {
-		return http.DefaultClient, nil
+		return GetHttpClient(), nil // 使用默认配置的客户端
 	}
 
 	parsedURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return nil, err
 	}
+	
+	// 获取超时设置
+	timeout := time.Duration(common.RelayTimeout) * time.Second
+	if timeout == 0 {
+		timeout = 3600 * time.Second // 默认1小时
+	}
 
 	switch parsedURL.Scheme {
 	case "http", "https":
 		return &http.Client{
+			Timeout: timeout,
 			Transport: &http.Transport{
 				Proxy: http.ProxyURL(parsedURL),
 			},
@@ -68,6 +75,7 @@ func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 		}
 
 		return &http.Client{
+			Timeout: timeout,
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 					return dialer.Dial(network, addr)
