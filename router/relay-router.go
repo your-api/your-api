@@ -31,15 +31,18 @@ func SetRelayRouter(router *gin.Engine) {
 		publicV1Router.POST("/messages/count_tokens", controller.CountMessageTokens)
 	}
 
+	// WebSocket 路由 - 特殊处理，需要先升级协议再认证
+	wsV1Router := router.Group("/v1")
+	wsV1Router.Use(middleware.TokenAuth())
+	wsV1Router.Use(middleware.ModelRequestRateLimit())
+	wsV1Router.Use(middleware.Distribute())
+	{
+		wsV1Router.GET("/realtime", controller.WssRelay)
+	}
+
 	relayV1Router := router.Group("/v1")
 	relayV1Router.Use(middleware.TokenAuth())
 	relayV1Router.Use(middleware.ModelRequestRateLimit())
-	{
-		// WebSocket 路由
-		wsRouter := relayV1Router.Group("")
-		wsRouter.Use(middleware.Distribute())
-		wsRouter.GET("/realtime", controller.WssRelay)
-	}
 	{
 		//http router
 		httpRouter := relayV1Router.Group("")

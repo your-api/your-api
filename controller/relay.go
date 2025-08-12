@@ -287,12 +287,11 @@ func WssRelay(c *gin.Context) {
 	// 将 HTTP 连接升级为 WebSocket 连接
 
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	defer ws.Close()
-
 	if err != nil {
-		helper.WssError(c, ws, types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry()).ToOpenAIError())
+		helper.WssError(c, nil, types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry()).ToOpenAIError())
 		return
 	}
+	defer ws.Close()
 
 	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
 	requestId := c.GetString(common.RequestIdKey)
