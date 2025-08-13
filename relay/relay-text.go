@@ -260,9 +260,17 @@ func TextHelper(c *gin.Context) (newAPIError *types.NewAPIError) {
 	}
 
 	if strings.HasPrefix(relayInfo.OriginModelName, "gpt-4o-audio") {
-		service.PostAudioConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+		err := service.PostAudioConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "")
+		if err != nil {
+			// 如果是 token 为 0 的错误，返回可重试的错误
+			return types.NewOpenAIError(err, types.ErrorCodeUpstreamTimeout, http.StatusInternalServerError)
+		}
 	} else {
-		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
+		err := postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
+		if err != nil {
+			// 如果是 token 为 0 的错误，返回可重试的错误
+			return types.NewOpenAIError(err, types.ErrorCodeUpstreamTimeout, http.StatusInternalServerError)
+		}
 	}
 	return nil
 }
@@ -365,11 +373,11 @@ func returnPreConsumedQuota(c *gin.Context, relayInfo *relaycommon.RelayInfo, us
 }
 
 func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
-	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string, preConsumedRefunded *bool) {
+	usage *dto.Usage, preConsumedQuota int, userQuota int, priceData helper.PriceData, extraContent string, preConsumedRefunded *bool) error {
 	// 如果 usage 为空，说明请求出错，不应该计费
 	if usage == nil {
 		common.LogWarn(ctx, "postConsumeQuota called with nil usage, request likely failed - skipping billing")
-		return
+		return nil
 	}
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
 	promptTokens := usage.PromptTokens
@@ -541,7 +549,8 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		}
 		model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
 			tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
-		return // 直接返回，不执行后面的正常消费日志记录
+		// 返回错误，触发重试机制
+		return fmt.Errorf("upstream timeout or invalid response: total tokens is 0")
 	} else {
 		if !ratio.IsZero() && quota == 0 {
 			quota = 1
@@ -618,4 +627,5 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	}
 	model.RecordConsumeLog(ctx, relayInfo.UserId, relayInfo.ChannelId, promptTokens, completionTokens, logModel,
 		tokenName, quota, logContent, relayInfo.TokenId, userQuota, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+	return nil
 }
