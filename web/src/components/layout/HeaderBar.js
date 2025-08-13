@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../context/User/index.js';
 import { useSetTheme, useTheme } from '../../context/Theme/index.js';
 import { useTranslation } from 'react-i18next';
@@ -132,12 +132,13 @@ const mobileNavItemStyle = {
   transition: 'all 0.2s ease',
 };
 
-const HeaderBar = () => {
+const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   const { t, i18n } = useTranslation();
   const [userState, userDispatch] = useContext(UserContext);
   const [styleState, styleDispatch] = useContext(StyleContext);
   const [statusState, statusDispatch] = useContext(StatusContext);
   let navigate = useNavigate();
+  const location = useLocation();
   const [currentLang, setCurrentLang] = useState(i18n.language);
   const dispatch = useDispatch();
   const [mobileNavVisible, setMobileNavVisible] = useState(false);
@@ -147,6 +148,9 @@ const HeaderBar = () => {
   const currentDate = new Date();
   // enable fireworks on new year(1.1 and 2.9-2.24)
   const isNewYear = currentDate.getMonth() === 0 && currentDate.getDate() === 1;
+  
+  // Check if we're on a console page
+  const isConsoleRoute = location.pathname.startsWith('/console');
 
   // Check if self-use mode is enabled
   const isSelfUseMode = statusState?.status?.self_use_mode_enabled || false;
@@ -562,6 +566,16 @@ const HeaderBar = () => {
                           onClick={() => setMobileNavVisible(true)}
                           style={{ marginRight: '8px' }}
                         />
+                        {/* Console sidebar toggle button for mobile */}
+                        {isConsoleRoute && (
+                          <Button
+                            icon={drawerOpen ? <IconIndentLeft /> : <IconMenu />}
+                            theme='light'
+                            aria-label={t('切换控制台侧边栏')}
+                            onClick={onMobileMenuToggle}
+                            style={{ marginRight: '8px' }}
+                          />
+                        )}
                         <img 
                           src={logo} 
                           alt='logo' 

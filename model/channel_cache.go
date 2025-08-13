@@ -182,12 +182,17 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return availableChannels[i].Id < availableChannels[j].Id
 	})
 
-	// 实现轮询机制：使用 retry 作为索引，循环选择渠道
+	// 按优先级顺序循环选择渠道
 	// retry = 0 选择第1个渠道，retry = 1 选择第2个渠道，以此类推
-	// 当 retry >= 渠道数量时，使用模运算循环
-	channelIndex := retry % len(availableChannels)
-	
-	return availableChannels[channelIndex], nil
+	// 确保按优先级顺序依次尝试每个渠道
+	if retry < len(availableChannels) {
+		// 如果重试次数小于渠道数，直接按顺序选择
+		return availableChannels[retry], nil
+	} else {
+		// 如果重试次数超过渠道数，循环选择
+		channelIndex := retry % len(availableChannels)
+		return availableChannels[channelIndex], nil
+	}
 }
 
 func CacheGetChannel(id int) (*Channel, error) {

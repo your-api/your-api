@@ -53,7 +53,9 @@
       "Bash(do sed -i '' 's/service\\.RelayErrorHandler(httpResp, false)/service.RelayErrorHandler(c, httpResp, false)/g' \"$file\")",
       "Bash(./test_ws.sh:*)",
       "Bash(./test_local_ws.sh:*)",
-      "Bash(./test_ws_simple.sh:*)"
+      "Bash(./test_ws_simple.sh:*)",
+      "Bash(./test_nginx_ws.sh:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
