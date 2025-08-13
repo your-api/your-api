@@ -405,10 +405,10 @@ const Home = () => {
 
               {/* 弹窗内容区 */}
               <div className="p-6 bg-white dark:bg-gray-800">
-                <div className="notice-content max-h-[50vh] overflow-y-auto mb-6 prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none">
+                <div className="notice-content max-h-[50vh] overflow-y-auto mb-6 prose dark:prose-invert prose-sm max-w-none">
                   <div
                     dangerouslySetInnerHTML={{ __html: noticeContent }}
-                    className="text-gray-800 dark:text-gray-200"
+                    className="text-sm text-gray-800 dark:text-gray-200"
                   />
                 </div>
 
