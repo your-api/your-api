@@ -2,7 +2,6 @@ package claude
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -698,17 +697,6 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 
 	HandleStreamFinalResponse(c, info, claudeInfo, requestMode)
 	
-	// 检查是否是用户主动断开连接
-	clientDisconnected := c.GetBool("client_disconnected")
-	
-	// 检查空回复
-	// 如果是用户主动停止（client_disconnected），即使没有内容也要扣费
-	// 只有当渠道返回空回复时才不扣费并重试
-	if claudeInfo.Usage.CompletionTokens == 0 && !clientDisconnected {
-		channelName := c.GetString("channel_name")
-		common.LogError(c, fmt.Sprintf("Claude channel returned empty response (no completion tokens), channel_name: %s", channelName))
-		return types.NewError(errors.New("Claude upstream returned empty response"), types.ErrorCodeEmptyResponse), nil
-	}
 	
 	return nil, claudeInfo.Usage
 }
@@ -777,17 +765,6 @@ func ClaudeHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		return handleErr, nil
 	}
 	
-	// 检查是否是用户主动断开连接（非流式响应较少出现，但保持逻辑一致）
-	clientDisconnected := c.GetBool("client_disconnected")
-	
-	// 检查空回复
-	// 如果是用户主动停止（client_disconnected），即使没有内容也要扣费
-	// 只有当渠道返回空回复时才不扣费并重试
-	if claudeInfo.Usage.CompletionTokens == 0 && !clientDisconnected {
-		channelName := c.GetString("channel_name")
-		common.LogError(c, fmt.Sprintf("Claude channel returned empty response (no completion tokens), channel_name: %s", channelName))
-		return types.NewError(errors.New("Claude upstream returned empty response"), types.ErrorCodeEmptyResponse), nil
-	}
 	
 	return nil, claudeInfo.Usage
 }

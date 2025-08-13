@@ -11,7 +11,6 @@ import (
 	"one-api/constant"
 	"one-api/dto"
 	relaycommon "one-api/relay/common"
-	relayconstant "one-api/relay/constant"
 	"one-api/relay/helper"
 	"one-api/service"
 	"os"
@@ -253,25 +252,6 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
-	// 检查是否是用户主动断开连接
-	clientDisconnected := c.GetBool("client_disconnected")
-	
-	// 检查空回复
-	// 如果是用户主动停止（client_disconnected），即使没有内容也要扣费
-	// 只有当渠道返回空回复时才不扣费并重试
-	if usage.CompletionTokens == 0 && !clientDisconnected {
-		channelName := c.GetString("channel_name")
-		common.LogError(c, fmt.Sprintf("channel returned empty response (no completion tokens), channel_name: %s", channelName))
-		
-		// 如果还没有开始流式传输，可以安全重试
-		if !streamStarted {
-			return nil, types.NewError(errors.New("upstream returned empty response"), types.ErrorCodeEmptyResponse)
-		} else {
-			// 已经开始流式传输但内容为空，记录错误但正常结束请求
-			common.LogError(c, "empty response detected after streaming started, cannot retry")
-			return usage, nil
-		}
-	}
 
 	return usage, nil
 }
@@ -340,34 +320,6 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	}
 
 	common.IOCopyBytesGracefully(c, resp, responseBody)
-
-	// 检查是否是用户主动断开连接（非流式响应较少出现，但保持逻辑一致）
-	clientDisconnected := c.GetBool("client_disconnected")
-
-	// 检查是否为空响应（仅对chat/completions非流式请求）
-	// 必须在返回 usage 之前检查，避免空回复仍然扣费
-	// 如果是用户主动停止（client_disconnected），即使没有内容也要扣费
-	if info.RelayMode == relayconstant.RelayModeChatCompletions && !info.IsStream && !clientDisconnected {
-		// 检查choices是否为空
-		if len(simpleResponse.Choices) == 0 {
-			common.LogError(c, "empty response: no choices in response")
-			return nil, types.NewError(errors.New("upstream returned empty response (no choices)"), types.ErrorCodeEmptyResponse)
-		}
-		// 检查第一个choice的内容是否为空
-		if len(simpleResponse.Choices) > 0 {
-			firstChoice := simpleResponse.Choices[0]
-			// 检查是否没有内容且没有工具调用
-			if firstChoice.Message.Content == nil && len(firstChoice.Message.ToolCalls) == 0 {
-				common.LogError(c, "empty response: no content or tool calls in first choice")
-				return nil, types.NewError(errors.New("upstream returned empty response (no content)"), types.ErrorCodeEmptyResponse)
-			}
-			// 如果是字符串类型的content，检查是否为空字符串
-			if contentStr, ok := firstChoice.Message.Content.(string); ok && strings.TrimSpace(contentStr) == "" && len(firstChoice.Message.ToolCalls) == 0 {
-				common.LogError(c, "empty response: empty content string and no tool calls")
-				return nil, types.NewError(errors.New("upstream returned empty response (empty content)"), types.ErrorCodeEmptyResponse)
-			}
-		}
-	}
 
 	return &simpleResponse.Usage, nil
 }
