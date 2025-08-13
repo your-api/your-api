@@ -37,6 +37,83 @@
   color: var(--semi-color-text-0);
 }
 
+/* 系统通知弹窗特殊样式 */
+.notice-content.prose h1,
+.notice-content.prose h2,
+.notice-content.prose h3,
+.notice-content.prose h4 {
+  position: relative;
+  padding-top: 0.8em;
+  margin-top: 1.2em;
+}
+
+.notice-content.prose h1::before,
+.notice-content.prose h2::before,
+.notice-content.prose h3::before,
+.notice-content.prose h4::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--semi-color-border), transparent);
+}
+
+.notice-content.prose h1:first-child,
+.notice-content.prose h2:first-child,
+.notice-content.prose h3:first-child,
+.notice-content.prose h4:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.notice-content.prose h1:first-child::before,
+.notice-content.prose h2:first-child::before,
+.notice-content.prose h3:first-child::before,
+.notice-content.prose h4:first-child::before {
+  display: none;
+}
+
+/* 通知内容文字大小调整 */
+.notice-content.prose {
+  font-size: 0.875rem;
+}
+
+.notice-content.prose h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.notice-content.prose h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.notice-content.prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.notice-content.prose p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.notice-content.prose ul,
+.notice-content.prose ol {
+  font-size: 0.875rem;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.notice-content.prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
 .prose h4 {
   font-size: 1.1em;
   margin-top: 0.8em;
