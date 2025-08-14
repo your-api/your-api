@@ -320,7 +320,7 @@ func RecordClaudeErrorLog(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 
 	var logContent string
 	if extraContent != "" {
-		logContent += ", " + extraContent
+		logContent += extraContent
 	}
 
 	other := GenerateClaudeOtherInfo(ctx, relayInfo, modelRatio, groupRatio, priceData.CompletionRatio,
