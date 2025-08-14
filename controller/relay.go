@@ -95,7 +95,7 @@ func Relay(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
-		
+
 		// 重置 client_disconnected 标记，避免影响重试
 		if i > 0 {
 			c.Set("client_disconnected", false)
@@ -172,7 +172,7 @@ func Relay(c *gin.Context) {
 		if isCLIRequest {
 			// 对于 CLI 请求，检查是否已经是 clove 格式的错误
 			var responseData gin.H
-			
+
 			// 尝试检查 RelayError 是否已经是 clove 格式
 			if newAPIError.RelayError != nil {
 				// 尝试转换为 map 来检查结构
@@ -184,7 +184,7 @@ func Relay(c *gin.Context) {
 							_, hasCode := detailMap["code"]
 							_, hasMessage := detailMap["message"]
 							context, hasContext := detailMap["context"]
-							
+
 							// 如果有 context，进一步检查其结构
 							if hasCode && hasMessage && hasContext {
 								if contextMap, ok := context.(map[string]interface{}); ok {
@@ -193,7 +193,7 @@ func Relay(c *gin.Context) {
 									_, hasErrorType := contextMap["error_type"]
 									_, hasStatusCode := contextMap["status_code"]
 									_, hasUrl := contextMap["url"]
-									
+
 									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
 										// 这是一个完整的 clove 格式错误
 										// 检查错误信息是否包含 prompt too long，如果是则添加 /compact 提示
@@ -217,7 +217,7 @@ func Relay(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 如果不是 clove 格式，构建新的 clove 格式错误
 			if responseData == nil {
 				errorMessage := newAPIError.Error()
@@ -308,7 +308,7 @@ func WssRelay(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
-		
+
 		// 重置 client_disconnected 标记，避免影响重试
 		if i > 0 {
 			c.Set("client_disconnected", false)
@@ -393,7 +393,7 @@ func RelayClaude(c *gin.Context) {
 		} else {
 			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
 		}
-		
+
 		// 重置 client_disconnected 标记，避免影响重试
 		if i > 0 {
 			c.Set("client_disconnected", false)
@@ -440,7 +440,7 @@ func RelayClaude(c *gin.Context) {
 		if isClaudeCLI {
 			// 对于 CLI 请求，检查是否已经是 clove 格式的错误
 			var responseData gin.H
-			
+
 			// 尝试检查 RelayError 是否已经是 clove 格式
 			if newAPIError.RelayError != nil {
 				// 尝试转换为 map 来检查结构
@@ -452,7 +452,7 @@ func RelayClaude(c *gin.Context) {
 							_, hasCode := detailMap["code"]
 							_, hasMessage := detailMap["message"]
 							context, hasContext := detailMap["context"]
-							
+
 							// 如果有 context，进一步检查其结构
 							if hasCode && hasMessage && hasContext {
 								if contextMap, ok := context.(map[string]interface{}); ok {
@@ -461,7 +461,7 @@ func RelayClaude(c *gin.Context) {
 									_, hasErrorType := contextMap["error_type"]
 									_, hasStatusCode := contextMap["status_code"]
 									_, hasUrl := contextMap["url"]
-									
+
 									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
 										// 这是一个完整的 clove 格式错误
 										// 检查错误信息是否包含 prompt too long，如果是则添加 /compact 提示
@@ -485,7 +485,7 @@ func RelayClaude(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 如果不是 clove 格式，构建新的 clove 格式错误
 			if responseData == nil {
 				errorMessage := newAPIError.Error()
@@ -649,8 +649,12 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	// 检查是否是 token 超限错误，如果是则不重试
 	errorMessage := openaiErr.Error()
 	if (strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens")) ||
-	   strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
+		strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
 		common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
+		return false
+	}
+
+	if strings.Contains(errorMessage, "refuse to produce response") {
 		return false
 	}
 
@@ -676,23 +680,23 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr.StatusCode/100 == 2 {
 		return false
 	}
-	
+
 	// 4xx 错误都重试（除非已被标记为 SkipRetry）
 	// 这样可以尝试其他渠道，因为不同渠道可能有不同的限制
 	if openaiErr.StatusCode/100 == 4 {
 		return true
 	}
-	
+
 	// 5xx 服务器错误重试
 	if openaiErr.StatusCode/100 == 5 {
 		return true
 	}
-	
+
 	// 3xx 重定向重试
 	if openaiErr.StatusCode/100 == 3 {
 		return true
 	}
-	
+
 	// 其他情况默认重试
 	return true
 }

@@ -104,9 +104,17 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 
 					// 从 context 中提取错误信息
 					errorMessage := ""
+					skipRetry := false
 					if context, ok := detail["context"].(map[string]interface{}); ok {
 						if errorMsg, ok := context["error_message"].(string); ok {
 							errorMessage = errorMsg
+						}
+						// 检查是否是 invalid_request_error，这类错误不应该重试
+						if errorType, ok := context["error_type"].(string); ok {
+							if errorType == "invalid_request_error" {
+								skipRetry = true
+								common.SysError(fmt.Sprintf("[RelayErrorHandler] Marking invalid_request_error as skip retry"))
+							}
 						}
 					}
 
@@ -151,13 +159,28 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 							types.ErrOptionWithRelayError(cloveError),
 						)
 					}
+
 					// 保存原始的 clove 格式错误
-					return types.NewErrorWithStatusCode(
+					options := []types.NewAPIErrorOptions{
+						types.ErrOptionWithRelayError(cloveError),
+					}
+					if skipRetry {
+						options = append(options, types.ErrOptionWithSkipRetry())
+					}
+
+					newApiErr := types.NewErrorWithStatusCode(
 						fmt.Errorf(errorMessage),
 						types.ErrorCodeBadResponseStatusCode,
 						resp.StatusCode,
-						types.ErrOptionWithRelayError(cloveError),
+						options...,
 					)
+					// 标记这是一个 clove 格式错误，防止被后续 EOF 等错误覆盖
+					newApiErr.SetIsCloveFormatError(true)
+					// 将错误存储在上下文中，以便后续处理可以检索
+					if c != nil {
+						c.Set("clove_format_error", newApiErr)
+					}
+					return newApiErr
 				}
 			}
 		}

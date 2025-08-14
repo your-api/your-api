@@ -57,6 +57,7 @@
       "Bash(./test_nginx_ws.sh:*)",
       "Bash(node:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

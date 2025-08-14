@@ -82,22 +82,22 @@ func main() {
 					time.Sleep(1 * time.Second)
 
 					// 尝试修复数据库中的能力数据
-					_, _, fixErr := model.FixAbility()
-					if fixErr != nil {
-						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
-					} else {
-						if common.DebugEnabled {
-							common.SysDebug("FixAbility completed successfully during recovery")
-						}
-					}
+					//_, _, fixErr := model.FixAbility()
+					//if fixErr != nil {
+					//	common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
+					//} else {
+					//	if common.DebugEnabled {
+					//		common.SysDebug("FixAbility completed successfully during recovery")
+					//	}
+					//}
 				}
 			}()
 
 			// 首先尝试修复能力数据
-			_, _, err := model.FixAbility()
-			if err != nil {
-				common.SysError(fmt.Sprintf("FixAbility failed: %s", err.Error()))
-			}
+			//_, _, err := model.FixAbility()
+			//if err != nil {
+			//	common.SysError(fmt.Sprintf("FixAbility failed: %s", err.Error()))
+			//}
 			// 初始化缓存
 			model.InitChannelCache()
 		}()

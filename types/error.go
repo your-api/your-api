@@ -79,13 +79,14 @@ const (
 )
 
 type NewAPIError struct {
-	Err            error
-	RelayError     any
-	skipRetry      bool
-	recordErrorLog *bool
-	errorType      ErrorType
-	errorCode      ErrorCode
-	StatusCode     int
+	Err               error
+	RelayError        any
+	skipRetry         bool
+	recordErrorLog    *bool
+	errorType         ErrorType
+	errorCode         ErrorCode
+	StatusCode        int
+	isCloveFormatError bool
 }
 
 func (e *NewAPIError) GetErrorCode() ErrorCode {
@@ -125,6 +126,17 @@ func (e *NewAPIError) MaskSensitiveError() string {
 
 func (e *NewAPIError) SetMessage(message string) {
 	e.Err = errors.New(message)
+}
+
+func (e *NewAPIError) SetIsCloveFormatError(isClove bool) {
+	e.isCloveFormatError = isClove
+}
+
+func (e *NewAPIError) IsCloveFormatError() bool {
+	if e == nil {
+		return false
+	}
+	return e.isCloveFormatError
 }
 
 func (e *NewAPIError) ToOpenAIError() OpenAIError {

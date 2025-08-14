@@ -755,6 +755,14 @@ func ClaudeHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 	}
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		// 如果读取 response body 失败，可能是因为 body 已经被消费过了
+		// 检查是否已经有一个 clove 格式的错误
+		if existingError, exists := c.Get("clove_format_error"); exists {
+			if newAPIError, ok := existingError.(*types.NewAPIError); ok && newAPIError.IsCloveFormatError() {
+				common.SysError(fmt.Sprintf("[ClaudeHandler] Reusing existing clove format error instead of EOF: %s", newAPIError.Error()))
+				return newAPIError, nil
+			}
+		}
 		return types.NewError(err, types.ErrorCodeBadResponseBody), nil
 	}
 	if common.DebugEnabled {
