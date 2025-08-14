@@ -208,29 +208,37 @@ const styles = {
 const ModelPricing = ({onInitialize}) => {
   const { t } = useTranslation();
 
-  // 添加前缀分组定义
-  const prefixGroups = {
-    'official:': { name: '全模型特价', description: '全模型特价，提供最优稳定性与可靠性，适用于生产环境或高要求任务。' },
-    'azure:': { name: 'Azure特价渠道', description: '具备很大性价比，但可能存在稳定性波动' },
-    'reverse:': { name: '逆向渠道', description: '价格极低，但稳定性和可用性相对较差，适合非关键场景' },
-  };
+  // 动态获取所有可用的分组
+  const [availableGroups, setAvailableGroups] = useState({});
 
-  // 获取模型的前缀分组
-  const getModelPrefixGroup = useCallback((modelName) => {
-    for (const prefix in prefixGroups) {
-      if (modelName.startsWith(prefix)) {
-        return prefix;
+  // 从模型数据中动态提取所有分组
+  const extractAllGroups = useCallback((modelsData, usableGroupData = {}) => {
+    const groups = {};
+
+    // 提取所有enable_groups分组
+    const enableGroupsSet = new Set();
+    modelsData.forEach(model => {
+      if (model.enable_groups && Array.isArray(model.enable_groups)) {
+        model.enable_groups.forEach(group => {
+          if (group) {  // 不过滤 default，保留所有分组
+            enableGroupsSet.add(group);
+          }
+        });
       }
-    }
-    // 如果模型名称中没有 ":"，归类为官方分组
-    if (!modelName.includes(':')) {
-      return 'official:';
-    }
-    if (modelName.includes('official') || modelName.includes('guan') ) {
-      return 'official:';
-    }
-    return 'default';
+    });
+
+    // 添加enable_groups分组
+    enableGroupsSet.forEach(group => {
+      groups[group] = {
+        name: group === 'default' ? '默认分组' : group,
+        description: usableGroupData[group] || (group === 'default' ? '默认分组，包含所有基础模型' : group),
+        type: 'enable_group'
+      };
+    });
+
+    return groups;
   }, []);
+
 
   // 创建含有翻译的样式
   const getMobileStyles = () => `
@@ -269,7 +277,6 @@ const ModelPricing = ({onInitialize}) => {
   const [usableGroup, setUsableGroup] = useState({});
   const [showRatioColumn, setShowRatioColumn] = useState(false);
   const [showEndpointsColumn, setShowEndpointsColumn] = useState(false);
-  const [showOnlySelectedGroup, setShowOnlySelectedGroup] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [activePage, setActivePage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
@@ -403,28 +410,11 @@ const ModelPricing = ({onInitialize}) => {
       if (selectedGroup === 'all') {
         // 只检查供应商筛选条件
       } else {
-        // 检查是否匹配前缀分组或enable_groups
-        const modelPrefixGroup = getModelPrefixGroup(model.model_name);
+        // 检查是否在enable_groups中
         const hasEnableGroup = model.enable_groups.includes(selectedGroup);
-
-        // 如果开启了仅显示当前分组
-        if (showOnlySelectedGroup) {
-          // 必须匹配前缀分组或在enable_groups中
-          if (modelPrefixGroup !== selectedGroup && !hasEnableGroup) {
-            return false;
-          }
-        } else {
-          // 如果选择的是前缀分组，按前缀过滤
-          if (Object.keys(prefixGroups).includes(selectedGroup)) {
-            if (modelPrefixGroup !== selectedGroup) {
-              return false;
-            }
-          } else {
-            // 如果选择的是enable_groups中的分组，按enable_groups过滤
-            if (!hasEnableGroup) {
-              return false;
-            }
-          }
+        
+        if (!hasEnableGroup) {
+          return false;
         }
       }
 
@@ -444,28 +434,21 @@ const ModelPricing = ({onInitialize}) => {
       // 如果是全部供应商，则显示
       return true;
     });
-  }, [models, selectedProvider, selectedGroup, showOnlySelectedGroup, getProviderFromModelName, getModelPrefixGroup]);
+  }, [models, selectedProvider, selectedGroup, getProviderFromModelName]);
 
   // 计算每个供应商的模型数量
   const providerCounts = useMemo(() => {
     if (!models || models.length === 0) return {};
 
-    // 首先过滤掉不包含当前所选前缀分组的模型
+    // 首先过滤掉不包含当前所选分组的模型
     const modelsInSelectedGroup = models.filter(model => {
-      // 获取模型的前缀分组
-      const modelPrefixGroup = getModelPrefixGroup(model.model_name);
-
-      // 如果选择了"全部"，不进行前缀分组过滤
+      // 如果选择了"全部"，不进行分组过滤
       if (selectedGroup === 'all') {
         return true;
-      } else if (selectedGroup !== 'default' || showOnlySelectedGroup) {
-        // 如果选择了非default分组，或者开启了仅显示当前分组，则按前缀分组过滤
-        if (modelPrefixGroup !== selectedGroup) {
-          return false;
-        }
+      } else {
+        // 检查是否在enable_groups中
+        return model.enable_groups.includes(selectedGroup);
       }
-
-      return true;
     });
 
     const counts = { '全部': modelsInSelectedGroup.length };
@@ -475,7 +458,7 @@ const ModelPricing = ({onInitialize}) => {
     });
 
     return counts;
-  }, [models, selectedGroup, showOnlySelectedGroup, getProviderFromModelName, getModelPrefixGroup]);
+  }, [models, selectedGroup, getProviderFromModelName]);
 
   const rowSelection = useMemo(
       () => ({
@@ -716,13 +699,40 @@ const ModelPricing = ({onInitialize}) => {
         width: '15%',
       },
       {
-        title: t('可用分组'),
+        title: () => (
+          <div className="flex items-center gap-1 whitespace-nowrap">
+            <span className="flex-shrink-0">{t('可用分组')}</span>
+            <Popover
+                content={
+                  <div style={{ padding: 8 }}>
+                    {t('每个分组有不同的倍率设置，影响最终价格计算')}<br/>
+                    {t('点击分组可以切换价格计算使用的倍率')}<br/>
+                    {t('分组后面的数字表示该分组的倍率，如 ×1.0 表示相对于原价是1倍，×0.5 表示0.5倍')}
+                  </div>
+                }
+                position='top'
+                style={{
+                  backgroundColor: 'var(--semi-color-bg-2)',
+                  borderColor: 'var(--semi-color-border)',
+                  color: 'var(--semi-color-text-0)',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                }}
+            >
+              <IconHelpCircle
+                  className="cursor-pointer"
+              />
+            </Popover>
+          </div>
+        ),
         dataIndex: 'enable_groups',
         render: (text, record, index) => {
           return (
               <div className="flex flex-wrap gap-1.5">
                 {text.map((group) => {
                   const colorStyle = getGroupColor(group);
+                  const ratio = groupRatio[group] || 1;
+                  const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
 
                   if (group === selectedPriceGroup) {
                     return (
@@ -731,6 +741,9 @@ const ModelPricing = ({onInitialize}) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                           </svg>
                           {group}
+                          <span style={{ marginLeft: '6px', opacity: 0.9, fontSize: '11px' }}>
+                            ×{displayRatio}
+                          </span>
                         </div>
                     );
                   } else {
@@ -741,12 +754,18 @@ const ModelPricing = ({onInitialize}) => {
                             style={{ fontSize: '12px' }}
                             onClick={() => {
                               setSelectedPriceGroup(group);
-                              showInfo(t('价格计算已切换到分组：{{group}}', {
-                                group: group
+                              const ratio = groupRatio[group] || 1;
+                              const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
+                              showInfo(t('价格计算已切换到分组：{{group}} (倍率: {{ratio}})', {
+                                group: group,
+                                ratio: displayRatio
                               }));
                             }}
                         >
                           {group}
+                          <span style={{ marginLeft: '4px', opacity: 0.7, fontSize: '10px' }}>
+                            ×{displayRatio}
+                          </span>
                         </div>
                     );
                   }
@@ -1115,9 +1134,7 @@ const ModelPricing = ({onInitialize}) => {
 
         setGroupRatio(group_ratio);
         setUsableGroup(usableGroupFiltered);
-        setSelectedGroup('all')
-        setSelectedPriceGroup('default'); // 设置价格分组的默认值
-
+        
         // 先设置原始模型数据（不排序）
         const formattedModels = data.map(model => ({
           ...model,
@@ -1125,9 +1142,13 @@ const ModelPricing = ({onInitialize}) => {
           group_ratio: group_ratio[model.model_name]
         }));
         setModels(formattedModels);
-
-        // 加载前缀分组选项
-        loadGroupOptions();
+        
+        // 动态提取所有分组，传递 usableGroupFiltered
+        const groups = extractAllGroups(data, usableGroupFiltered);
+        setAvailableGroups(groups);
+        
+        setSelectedGroup('all')
+        setSelectedPriceGroup('default'); // 设置价格分组的默认值
       } else {
         showError(message);
       }
@@ -1137,7 +1158,7 @@ const ModelPricing = ({onInitialize}) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [extractAllGroups]);
 
   // 当 providers 数据加载完成后，重新排序模型
   const modelsSortedRef = useRef(false);
@@ -1247,46 +1268,70 @@ const ModelPricing = ({onInitialize}) => {
       }
     ];
 
-    // 添加前缀分组选项，显示名称和描述，但排除default
-    const prefixOptions = Object.keys(prefixGroups)
-        .filter(prefix => prefix !== 'default')
-        .map(prefix => ({
-          label: (
-              <div className="group-option">
-                <span>{prefixGroups[prefix].name}</span>
-                <span className="group-ratio-badge" style={{ fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
-              {prefixGroups[prefix].description}
-            </span>
+    // 添加所有分组选项
+    Object.entries(availableGroups).forEach(([key, group]) => {
+      // 获取分组的倍率
+      const ratio = groupRatio[key] || 1;
+      const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
+      
+      options.push({
+        label: (
+            <div className="group-option" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span>{group.name}</span>
+                <span className="group-ratio-badge" style={{ fontSize: '11px', color: 'var(--semi-color-text-2)', marginTop: '2px' }}>
+                  {group.description}
+                </span>
               </div>
-          ),
-          value: prefix
-        }));
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'var(--semi-color-primary-light-default)',
+                color: 'var(--semi-color-primary)',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                marginLeft: '8px'
+              }}>
+                倍率: {displayRatio}
+              </div>
+            </div>
+        ),
+        value: key
+      });
+    });
 
-    options.push(...prefixOptions);
     setGroupOptions(options);
-  }, []);
+  }, [availableGroups, groupRatio]);
 
   // 处理分组变更
   const handleGroupChange = useCallback((value) => {
     setSelectedGroup(value);
     setActivePage(1); // 重置页码为第一页
 
+    // 联动更新价格计算分组
+    if (value !== 'all') {
+      setSelectedPriceGroup(value);
+    }
+
     if (value === 'all') {
       showInfo(t('当前查看：全部分组'));
     } else {
-      const groupInfo = prefixGroups[value];
+      const groupInfo = availableGroups[value];
       showInfo(t('当前查看的分组为：{{group}}', {
-        group: groupInfo.name
+        group: groupInfo?.name || value
       }));
     }
-  }, [t]);
+  }, [t, availableGroups]);
 
 
-  // 当模型数据加载完成后重新检查
+  // 当可用分组或倍率更新后，重新加载分组选项
   useEffect(() => {
-    // 直接加载前缀分组选项，不依赖模型数据
-    loadGroupOptions();
-  }, [loadGroupOptions]);
+    if (Object.keys(availableGroups).length > 0) {
+      loadGroupOptions();
+    }
+  }, [availableGroups, groupRatio, loadGroupOptions]);
 
   useEffect(() => {
     refresh();
@@ -1633,8 +1678,8 @@ const ModelPricing = ({onInitialize}) => {
                         let displayText = '';
                         if (selectedGroup === 'all') {
                           displayText = '全部';
-                        } else if (prefixGroups[selectedGroup]) {
-                          displayText = prefixGroups[selectedGroup].name;
+                        } else if (availableGroups[selectedGroup]) {
+                          displayText = availableGroups[selectedGroup].name;
                         }
 
                         return (
@@ -1685,25 +1730,6 @@ const ModelPricing = ({onInitialize}) => {
                     <IconHelpCircle className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors" />
                   </Popover>
                 </div>
-
-                {/* Add the toggle switch here */}
-                {/*<div className="group-toggle flex items-center">*/}
-                {/*  <span className="text-sm text-gray-500 mr-2">{t('仅显示当前分组')}</span>*/}
-                {/*  <div*/}
-                {/*      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${showOnlySelectedGroup ? 'bg-blue-600' : 'bg-gray-200'}`}*/}
-                {/*      onClick={() => {*/}
-                {/*        setShowOnlySelectedGroup(!showOnlySelectedGroup);*/}
-                {/*        setActivePage(1); // 重置页码为第一页*/}
-                {/*      }}*/}
-                {/*      role="switch"*/}
-                {/*      aria-checked={showOnlySelectedGroup}*/}
-                {/*      tabIndex="0"*/}
-                {/*  >*/}
-                {/*    <span*/}
-                {/*        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${showOnlySelectedGroup ? 'translate-x-6' : 'translate-x-1'}`}*/}
-                {/*    />*/}
-                {/*  </div>*/}
-                {/*</div>*/}
 
                 <div className="model-count flex items-center">
                   <IconStar size="small" style={{ marginRight: '6px', color: 'rgba(var(--semi-blue-5), 1)' }} />
@@ -1881,26 +1907,20 @@ const ModelPricing = ({onInitialize}) => {
                                 if (selectedGroup === 'all') {
                                   available = true;
                                 } else {
-                                  const modelPrefixGroup = getModelPrefixGroup(model.model_name);
-                                  available = modelPrefixGroup === selectedGroup;
+                                  const hasEnableGroup = model.enable_groups.includes(selectedGroup);
+                                  available = hasEnableGroup;
                                 }
-                                return <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
-                                  <IconVerify size="small" style={{ color: 'white' }} />
-                                  <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
-                                </div>
-
-                                // available ? (
-                                //   <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
-                                //     <IconVerify size="small" style={{ color: 'white' }} />
-                                //     <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
-                                //   </div>
-                                // )
-                                //     : (
-                                //   <div className="flex items-center text-white bg-red-600 py-1 px-3 rounded-md border border-red-500 shadow-md">
-                                //     <IconClose size="small" style={{ color: 'white' }} />
-                                //     <span className="ml-1 text-xs font-bold">{t('当前分组不可用')}</span>
-                                //   </div>
-                                // );
+                                return available ? (
+                                  <div className="flex items-center text-white bg-green-700 py-1 px-3 rounded-md border border-green-600 shadow-md">
+                                    <IconVerify size="small" style={{ color: 'white' }} />
+                                    <span className="ml-1 text-xs font-bold">{t('当前分组可用')}</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-white bg-red-600 py-1 px-3 rounded-md border border-red-500 shadow-md">
+                                    <IconClose size="small" style={{ color: 'white' }} />
+                                    <span className="ml-1 text-xs font-bold">{t('当前分组不可用')}</span>
+                                  </div>
+                                );
                               })()}
                             </div>
                           </div>
@@ -1916,6 +1936,8 @@ const ModelPricing = ({onInitialize}) => {
                               <div className="flex flex-wrap gap-1.5">
                                 {model.enable_groups.map((group) => {
                                   const colorStyle = getGroupColor(group);
+                                  const ratio = groupRatio[group] || 1;
+                                  const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
 
                                   if (group === selectedPriceGroup) {
                                     return (
@@ -1924,6 +1946,9 @@ const ModelPricing = ({onInitialize}) => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                                           </svg>
                                           {group}
+                                          <span style={{ marginLeft: '6px', opacity: 0.9, fontSize: '11px' }}>
+                                            ×{displayRatio}
+                                          </span>
                                         </div>
                                     );
                                   } else {
@@ -1931,15 +1956,21 @@ const ModelPricing = ({onInitialize}) => {
                                         <div
                                             key={group}
                                             className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${colorStyle.unselected} cursor-pointer hover:opacity-100 transition-opacity shadow-sm`}
-                            style={{ fontSize: '12px' }}
+                                            style={{ fontSize: '12px' }}
                                             onClick={() => {
                                               setSelectedPriceGroup(group);
-                                              showInfo(t('价格计算已切换到分组：{{group}}', {
-                                                group: group
+                                              const ratio = groupRatio[group] || 1;
+                                              const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
+                                              showInfo(t('价格计算已切换到分组：{{group}} (倍率: {{ratio}})', {
+                                                group: group,
+                                                ratio: displayRatio
                                               }));
                                             }}
                                         >
                                           {group}
+                                          <span style={{ marginLeft: '4px', opacity: 0.7, fontSize: '10px' }}>
+                                            ×{displayRatio}
+                                          </span>
                                         </div>
                                     );
                                   }
