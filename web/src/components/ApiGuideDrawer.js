@@ -31,19 +31,19 @@ export default function ApiGuideDrawer({
   const apiEndpoints = [
     {
       label: '主API端点 - 美国前置机直连',
-      value: 'https://api.yourapi.cn',
+      value: 'https://fast.yourapi.cn',
       description: '稳定的主要API端点'
     },
-    {
-      label: '优质线路 - 亚太优化CDN',
-      value: 'https://cdn.yourapi.cn',
-      description: '亚太地区优化的CDN节点'
-    },
-    {
-      label: 'CloudFlare高防节点',
-      value: 'https://api8.yourapi.cn',
-      description: 'CloudFlare高防节点'
-    },
+    // {
+    //   label: '优质线路 - 亚太优化CDN',
+    //   value: 'https://cdn.yourapi.cn',
+    //   description: '亚太地区优化的CDN节点'
+    // },
+    // {
+    //   label: 'CloudFlare高防节点',
+    //   value: 'https://api8.yourapi.cn',
+    //   description: 'CloudFlare高防节点'
+    // },
     // {
     //   label: '优质线路 - CN2',
     //   value: 'https://cn2us02.opapi.win',

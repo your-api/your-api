@@ -192,6 +192,11 @@ const Home = () => {
     setApiDrawerVisible(true);
   };
 
+  // 点击快速接入按钮
+  const handleZhuzhan = () => {
+    window.open('https://yourapi.cn', '_blank');
+  };
+
   useEffect(() => {
     displayNotice().then();
     displayHomePageContent().then();
@@ -231,6 +236,13 @@ const Home = () => {
                   <div className="flex items-center">
                     <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />
                     快速接入
+                  </div>
+                </Button>
+
+                <Button theme="light" type="primary" size="large" onClick={handleZhuzhan}>
+                  <div className="flex items-center">
+                    <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />
+                    访问主站
                   </div>
                 </Button>
               </Space>
