@@ -736,12 +736,25 @@ const ModelPricing = ({onInitialize}) => {
 
                   if (group === selectedPriceGroup) {
                     return (
-                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid', fontSize: '12px' }}>
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <div 
+                            key={group} 
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${colorStyle.bg} cursor-pointer transition-opacity shadow-sm`}
+                            style={{ fontSize: '12px' }}
+                            onClick={() => {
+                              setSelectedPriceGroup(group);
+                              const ratio = groupRatio[group] || 1;
+                              const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
+                              showInfo(t('价格计算已切换到分组：{{group}} (倍率: {{ratio}})', {
+                                group: group,
+                                ratio: displayRatio
+                              }));
+                            }}
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                           </svg>
                           {group}
-                          <span style={{ marginLeft: '6px', opacity: 0.9, fontSize: '11px' }}>
+                          <span style={{ marginLeft: '4px', opacity: 0.9, fontSize: '10px' }}>
                             ×{displayRatio}
                           </span>
                         </div>
@@ -1941,12 +1954,25 @@ const ModelPricing = ({onInitialize}) => {
 
                                   if (group === selectedPriceGroup) {
                                     return (
-                                        <div key={group} className={`inline-flex items-center px-3 py-1 rounded-full font-bold ${colorStyle.bg} shadow-md`} style={{ borderWidth: '0px', borderStyle: 'solid', fontSize: '12px' }}>
-                                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <div 
+                                            key={group} 
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${colorStyle.bg} cursor-pointer transition-opacity shadow-sm`}
+                                            style={{ fontSize: '12px' }}
+                                            onClick={() => {
+                                              setSelectedPriceGroup(group);
+                                              const ratio = groupRatio[group] || 1;
+                                              const displayRatio = ratio === 1 ? '1.0' : ratio.toFixed(2);
+                                              showInfo(t('价格计算已切换到分组：{{group}} (倍率: {{ratio}})', {
+                                                group: group,
+                                                ratio: displayRatio
+                                              }));
+                                            }}
+                                        >
+                                          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
                                           </svg>
                                           {group}
-                                          <span style={{ marginLeft: '6px', opacity: 0.9, fontSize: '11px' }}>
+                                          <span style={{ marginLeft: '4px', opacity: 0.9, fontSize: '10px' }}>
                                             ×{displayRatio}
                                           </span>
                                         </div>
