@@ -254,9 +254,9 @@ func Relay(c *gin.Context) {
 
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			// CLI 请求统一返回 403 状态码
-			statusCode := http.StatusForbidden
-			common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format): StatusCode=%d (original: %d), Body=%s", statusCode, newAPIError.StatusCode, string(responseBytes)))
+			// CLI 请求使用上游返回的状态码
+			statusCode := newAPIError.StatusCode
+			common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format): StatusCode=%d, Body=%s", statusCode, string(responseBytes)))
 
 			c.JSON(statusCode, responseData)
 		} else {
@@ -522,9 +522,9 @@ func RelayClaude(c *gin.Context) {
 
 			// 记录最终返回给客户端的响应
 			responseBytes, _ := json.Marshal(responseData)
-			// CLI 请求统一返回 403 状态码
-			statusCode := http.StatusForbidden
-			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format): StatusCode=%d (original: %d), Body=%s", statusCode, newAPIError.StatusCode, string(responseBytes)))
+			// CLI 请求使用上游返回的状态码
+			statusCode := newAPIError.StatusCode
+			common.SysError(fmt.Sprintf("[RelayClaude] CLI error response (clove format): StatusCode=%d, Body=%s", statusCode, string(responseBytes)))
 
 			// 设置正确的 Content-Type
 			c.Header("Content-Type", "application/json")
