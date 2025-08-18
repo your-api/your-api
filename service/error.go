@@ -112,7 +112,7 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 						// 检查是否是 invalid_request_error，这类错误不应该重试
 						if errorType, ok := context["error_type"].(string); ok {
 							if errorType == "invalid_request_error" {
-								skipRetry = true
+								skipRetry = false
 								common.SysError(fmt.Sprintf("[RelayErrorHandler] Marking invalid_request_error as skip retry"))
 							}
 						}
