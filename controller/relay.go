@@ -647,29 +647,29 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	}
 
 	// 检查是否是 token 超限错误，如果是则不重试
-	errorMessage := openaiErr.Error()
-	if (strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens")) ||
-		strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
-		common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
-		return false
-	}
+	//errorMessage := openaiErr.Error()
+	//if (strings.Contains(errorMessage, "exceed context limit") && strings.Contains(errorMessage, "max_tokens")) ||
+	//	strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
+	//	common.SysError(fmt.Sprintf("[shouldRetry] Token limit exceeded, not retrying: %s", errorMessage))
+	//	return false
+	//}
 
-	if strings.Contains(errorMessage, "refuse to produce response") {
-		return false
-	}
+	//if strings.Contains(errorMessage, "refuse to produce response") {
+	//	return false
+	//}
 
 	// 检查是否包含 "prompt is too long" 关键字
-	if strings.Contains(errorMessage, "prompt is too long") {
-		common.SysError(fmt.Sprintf("[shouldRetry] Prompt too long, not retrying: %s", errorMessage))
-		return false
-	}
+	//if strings.Contains(errorMessage, "prompt is too long") {
+	//	common.SysError(fmt.Sprintf("[shouldRetry] Prompt too long, not retrying: %s", errorMessage))
+	//	return false
+	//}
 
 	if types.IsChannelError(openaiErr) {
 		return true
 	}
-	if types.IsSkipRetryError(openaiErr) {
-		return false
-	}
+	//if types.IsSkipRetryError(openaiErr) {
+	//	return false
+	//}
 	if retryTimes <= 0 {
 		return false
 	}
