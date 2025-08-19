@@ -194,7 +194,8 @@ const Home = () => {
 
   // 点击快速接入按钮
   const handleZhuzhan = () => {
-    window.open('https://fast.yourapi.cn', '_blank');
+    // window.open('https://fast.yourapi.cn', '_blank');
+    window.open('https://yourapi.cn', '_blank');
   };
 
   useEffect(() => {
@@ -242,7 +243,7 @@ const Home = () => {
                 <Button theme="light" type="primary" size="large" onClick={handleZhuzhan}>
                   <div className="flex items-center">
                     <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />
-                    访问高刷站
+                    访问主站
                   </div>
                 </Button>
               </Space>
