@@ -94,97 +94,97 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 	common.SysError(fmt.Sprintf("[RelayErrorHandler] Status Code: %d, Response Body: %s", resp.StatusCode, string(responseBody)))
 
 	// 检查是否已经是 clove/CLI 格式的错误（包含 detail.code 和 detail.message）
-	var cloveError map[string]interface{}
-	if err := common.Unmarshal(responseBody, &cloveError); err == nil {
-		if detail, ok := cloveError["detail"].(map[string]interface{}); ok {
-			if _, hasCode := detail["code"]; hasCode {
-				if _, hasMessage := detail["message"]; hasMessage {
-					// 这已经是 clove 格式的错误，提取错误信息
-					common.SysError(fmt.Sprintf("[RelayErrorHandler] Detected clove format error, extracting message"))
-
-					// 从 context 中提取错误信息
-					errorMessage := ""
-					skipRetry := false
-					if context, ok := detail["context"].(map[string]interface{}); ok {
-						if errorMsg, ok := context["error_message"].(string); ok {
-							errorMessage = errorMsg
-						}
-						// 检查是否是 invalid_request_error，这类错误不应该重试
-						if errorType, ok := context["error_type"].(string); ok {
-							if errorType == "invalid_request_error" {
-								skipRetry = false
-								common.SysError(fmt.Sprintf("[RelayErrorHandler] Marking invalid_request_error as skip retry"))
-							}
-						}
-					}
-
-					// 如果没有 error_message，使用 message 字段
-					if errorMessage == "" {
-						if msg, ok := detail["message"].(string); ok {
-							errorMessage = msg
-						}
-					}
-
-					// 检查是否是 token 超限错误，如果是则不重试
-					if (strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit")) ||
-						strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
-						common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
-
-						// 检查是否是CLI用户代理，如果是则添加/compact提示
-						if c != nil {
-							userAgent := c.Request.Header.Get("User-Agent")
-							if strings.Contains(strings.ToLower(userAgent), "cli") {
-								// 直接修改 cloveError 中的 error_message
-								if context, ok := detail["context"].(map[string]interface{}); ok {
-									originalMsg, _ := context["error_message"].(string)
-									context["error_message"] = originalMsg + ". Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
-								}
-
-								// 同时修改 message 字段
-								if msg, ok := detail["message"].(string); ok {
-									detail["message"] = msg + ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
-								}
-
-								// 更新错误消息用于日志
-								errorMessage += ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
-							}
-						}
-
-						// 创建一个不可重试的错误，并保存修改后的 clove 格式
-						return types.NewErrorWithStatusCode(
-							fmt.Errorf(errorMessage),
-							types.ErrorCodeBadResponseStatusCode,
-							resp.StatusCode,
-							types.ErrOptionWithSkipRetry(),
-							types.ErrOptionWithRelayError(cloveError),
-						)
-					}
-
-					// 保存原始的 clove 格式错误
-					options := []types.NewAPIErrorOptions{
-						types.ErrOptionWithRelayError(cloveError),
-					}
-					if skipRetry {
-						options = append(options, types.ErrOptionWithSkipRetry())
-					}
-
-					newApiErr := types.NewErrorWithStatusCode(
-						fmt.Errorf(errorMessage),
-						types.ErrorCodeBadResponseStatusCode,
-						resp.StatusCode,
-						options...,
-					)
-					// 标记这是一个 clove 格式错误，防止被后续 EOF 等错误覆盖
-					newApiErr.SetIsCloveFormatError(true)
-					// 将错误存储在上下文中，以便后续处理可以检索
-					if c != nil {
-						c.Set("clove_format_error", newApiErr)
-					}
-					return newApiErr
-				}
-			}
-		}
-	}
+	//var cloveError map[string]interface{}
+	//if err := common.Unmarshal(responseBody, &cloveError); err == nil {
+	//	if detail, ok := cloveError["detail"].(map[string]interface{}); ok {
+	//		if _, hasCode := detail["code"]; hasCode {
+	//			if _, hasMessage := detail["message"]; hasMessage {
+	//				// 这已经是 clove 格式的错误，提取错误信息
+	//				common.SysError(fmt.Sprintf("[RelayErrorHandler] Detected clove format error, extracting message"))
+	//
+	//				// 从 context 中提取错误信息
+	//				errorMessage := ""
+	//				skipRetry := false
+	//				if context, ok := detail["context"].(map[string]interface{}); ok {
+	//					if errorMsg, ok := context["error_message"].(string); ok {
+	//						errorMessage = errorMsg
+	//					}
+	//					// 检查是否是 invalid_request_error，这类错误不应该重试
+	//					if errorType, ok := context["error_type"].(string); ok {
+	//						if errorType == "invalid_request_error" {
+	//							skipRetry = true
+	//							common.SysError(fmt.Sprintf("[RelayErrorHandler] Marking invalid_request_error as skip retry"))
+	//						}
+	//					}
+	//				}
+	//
+	//				// 如果没有 error_message，使用 message 字段
+	//				if errorMessage == "" {
+	//					if msg, ok := detail["message"].(string); ok {
+	//						errorMessage = msg
+	//					}
+	//				}
+	//
+	//				// 检查是否是 token 超限错误，如果是则不重试
+	//				if (strings.Contains(errorMessage, "max_tokens") && strings.Contains(errorMessage, "exceed context limit")) ||
+	//					strings.Contains(errorMessage, "input length and max_tokens exceed context limit") {
+	//					common.SysError(fmt.Sprintf("[RelayErrorHandler] Token limit exceeded, marking as non-retryable"))
+	//
+	//					// 检查是否是CLI用户代理，如果是则添加/compact提示
+	//					if c != nil {
+	//						userAgent := c.Request.Header.Get("User-Agent")
+	//						if strings.Contains(strings.ToLower(userAgent), "cli") {
+	//							// 直接修改 cloveError 中的 error_message
+	//							if context, ok := detail["context"].(map[string]interface{}); ok {
+	//								originalMsg, _ := context["error_message"].(string)
+	//								context["error_message"] = originalMsg + ". Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+	//							}
+	//
+	//							// 同时修改 message 字段
+	//							if msg, ok := detail["message"].(string); ok {
+	//								detail["message"] = msg + ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+	//							}
+	//
+	//							// 更新错误消息用于日志
+	//							errorMessage += ".  Please run /compact to compact & continue. 上下文超过限制，请先运行 /compact 命令压缩对话历史，然后继续使用。"
+	//						}
+	//					}
+	//
+	//					// 创建一个不可重试的错误，并保存修改后的 clove 格式
+	//					return types.NewErrorWithStatusCode(
+	//						fmt.Errorf(errorMessage),
+	//						types.ErrorCodeBadResponseStatusCode,
+	//						resp.StatusCode,
+	//						types.ErrOptionWithSkipRetry(),
+	//						types.ErrOptionWithRelayError(cloveError),
+	//					)
+	//				}
+	//
+	//				// 保存原始的 clove 格式错误
+	//				options := []types.NewAPIErrorOptions{
+	//					types.ErrOptionWithRelayError(cloveError),
+	//				}
+	//				if skipRetry {
+	//					options = append(options, types.ErrOptionWithSkipRetry())
+	//				}
+	//
+	//				newApiErr := types.NewErrorWithStatusCode(
+	//					fmt.Errorf(errorMessage),
+	//					types.ErrorCodeBadResponseStatusCode,
+	//					resp.StatusCode,
+	//					options...,
+	//				)
+	//				// 标记这是一个 clove 格式错误，防止被后续 EOF 等错误覆盖
+	//				newApiErr.SetIsCloveFormatError(true)
+	//				// 将错误存储在上下文中，以便后续处理可以检索
+	//				if c != nil {
+	//					c.Set("clove_format_error", newApiErr)
+	//				}
+	//				return newApiErr
+	//			}
+	//		}
+	//	}
+	//}
 
 	// 先尝试解析为 Claude 错误格式
 	var claudeErrResponse dto.ClaudeResponse
