@@ -29,36 +29,36 @@ export default function ApiGuideDrawer({
 
   // API端点列表
   const apiEndpoints = [
-    {
-      label: '主API端点 - 美国前置机直连',
-      value: 'https://fast.yourapi.cn',
-      description: '稳定的主要API端点'
-    },
     // {
     //   label: '主API端点 - 美国前置机直连',
-    //   value: 'https://api.yourapi.cn',
+    //   value: 'https://fast.yourapi.cn',
     //   description: '稳定的主要API端点'
     // },
-    // {
-    //   label: '优质线路 - 亚太优化CDN',
-    //   value: 'https://cdn.yourapi.cn',
-    //   description: '亚太地区优化的CDN节点'
-    // },
-    // {
-    //   label: 'CloudFlare高防节点',
-    //   value: 'https://api8.yourapi.cn',
-    //   description: 'CloudFlare高防节点'
-    // },
-    // {
-    //   label: '优质线路 - CN2',
-    //   value: 'https://cn2us02.opapi.win',
-    //   description: 'CN2线路优化'
-    // },
-    // {
-    //   label: '优质线路 - 备用',
-    //   value: 'https://aigptx.top',
-    //   description: '备用高速线路'
-    // }
+    {
+      label: '主API端点 - 美国前置机直连',
+      value: 'https://api.yourapi.cn',
+      description: '稳定的主要API端点'
+    },
+    {
+      label: '优质线路 - 亚太优化CDN',
+      value: 'https://cdn.yourapi.cn',
+      description: '亚太地区优化的CDN节点'
+    },
+    {
+      label: 'CloudFlare高防节点',
+      value: 'https://api8.yourapi.cn',
+      description: 'CloudFlare高防节点'
+    },
+    {
+      label: '优质线路 - CN2',
+      value: 'https://cn2us02.opapi.win',
+      description: 'CN2线路优化'
+    },
+    {
+      label: '优质线路 - 备用',
+      value: 'https://aigptx.top',
+      description: '备用高速线路'
+    }
   ];
 
   // 选中的API端点状态
