@@ -1612,7 +1612,7 @@ const TopUp = () => {
                       type={'secondary'}
                       size='large'
                       loading={paymentLoading && payWay === 'wx'}
-                      onClick={() => preTopUp('wx')}
+                      onClick={() => preTopUp('zfb')}
                       disabled={!amount || amount <= 0 || paymentLoading}
                       className="min-w-[140px]"
                       style={{
