@@ -304,6 +304,13 @@ export const useLogsData = () => {
 
   // Format logs data
   const setLogsFormat = (logs) => {
+    // Handle null or undefined logs
+    if (!logs || !Array.isArray(logs)) {
+      setLogs([]);
+      setExpandData({});
+      return;
+    }
+    
     let expandDatesLocal = {};
     for (let i = 0; i < logs.length; i++) {
       logs[i].timestamp2string = timestamp2string(logs[i].created_at);
@@ -485,7 +492,7 @@ export const useLogsData = () => {
     const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
-      const newPageData = data.items;
+      const newPageData = data.items || []; // Handle null items
       setActivePage(data.page);
       setPageSize(data.page_size);
       setLogCount(data.total);

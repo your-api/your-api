@@ -48,6 +48,7 @@ export default function SettingsPaymentGateway(props) {
     TopupGroupRatio: '',
     CustomCallbackAddress: '',
     PayMethods: '',
+    WechatPayEnabled: true,
   });
   const [originInputs, setOriginInputs] = useState({});
   const formApiRef = useRef(null);
@@ -63,6 +64,7 @@ export default function SettingsPaymentGateway(props) {
         TopupGroupRatio: props.options.TopupGroupRatio || '',
         CustomCallbackAddress: props.options.CustomCallbackAddress || '',
         PayMethods: props.options.PayMethods || '',
+        WechatPayEnabled: props.options.WechatPayEnabled === 'true' || props.options.WechatPayEnabled === true,
       };
       setInputs(currentInputs);
       setOriginInputs({ ...currentInputs });
@@ -123,6 +125,9 @@ export default function SettingsPaymentGateway(props) {
       }
       if (originInputs['PayMethods'] !== inputs.PayMethods) {
         options.push({ key: 'PayMethods', value: inputs.PayMethods });
+      }
+      if (originInputs['WechatPayEnabled'] !== inputs.WechatPayEnabled) {
+        options.push({ key: 'WechatPayEnabled', value: inputs.WechatPayEnabled.toString() });
       }
 
       // 发送请求
@@ -228,6 +233,13 @@ export default function SettingsPaymentGateway(props) {
             label={t('充值方式设置')}
             placeholder={t('为一个 JSON 文本')}
             autosize
+          />
+          <Form.Switch
+            field='WechatPayEnabled'
+            label={t('启用支付')}
+            checkedText={t('开启')}
+            uncheckedText={t('关闭')}
+            // extraText={t('关闭后，前端微信支付按钮将默认调用支付宝支付')}
           />
           <Button onClick={submitPayAddress}>{t('更新支付设置')}</Button>
         </Form.Section>

@@ -9,6 +9,7 @@ var EpayKey = ""
 var Price = 1.0
 var MinTopUp = 1
 var USDExchangeRate = 7.3
+var WechatPayEnabled = true
 
 var PayMethods = []map[string]string{
 	{

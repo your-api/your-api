@@ -72,6 +72,7 @@ const TopUp = () => {
   const [showWithdrawHistory, setShowWithdrawHistory] = useState(false);
   const [withdrawAlipayAccount, setWithdrawAlipayAccount] = useState('');
   const [withdrawContact, setWithdrawContact] = useState('');
+  const [wechatPayEnabled, setWechatPayEnabled] = useState(true);
   // 新增：存储从后台获取的折扣层级
   const [discountTiers, setDiscountTiers] = useState([]);
   const [discountTiersLoaded, setDiscountTiersLoaded] = useState(false);
@@ -219,6 +220,22 @@ const TopUp = () => {
     );
 
     return timeUnits;
+  };
+
+  // 获取系统配置
+  const getSystemConfig = async () => {
+    try {
+      const res = await API.get('/api/option/');
+      if (res.data.success && res.data.data) {
+        const options = res.data.data;
+        const wechatEnabledOption = options.find(opt => opt.key === 'WechatPayEnabled');
+        if (wechatEnabledOption) {
+          setWechatPayEnabled(wechatEnabledOption.value === 'true');
+        }
+      }
+    } catch (error) {
+      console.error('获取系统配置失败:', error);
+    }
   };
 
   // 获取折扣层级信息
@@ -744,6 +761,8 @@ const TopUp = () => {
       //   setEnableOnlineTopUp(status.enable_online_topup);
       // }
     }
+    // 获取系统配置
+    getSystemConfig().then();
     // 获取折扣层级信息
     getDiscountTiers().then();
     getUserQuota().then();
@@ -907,7 +926,7 @@ const TopUp = () => {
                           <path d="M512 64C264.533333 64 64 264.533333 64 512s200.533333 448 448 448 448-200.533333 448-448S759.466667 64 512 64z m-66.133333 605.866667c-38.4 0-70.4-6.4-108.8-19.2l-108.8 57.6 32-96c-76.8-57.6-121.6-128-121.6-211.2 0-153.6 140.8-275.2 307.2-275.2 151.466667 0 283.733333 102.4 307.2 243.2-32-6.4-66.133333-6.4-98.133334 6.4-19.2-89.6-115.2-160-224-160-128 0-230.4 89.6-230.4 204.8 0 64 32 121.6 83.2 160l-19.2 64 70.4-38.4c25.6 6.4 51.2 12.8 76.8 12.8 12.8 0 25.6 0 38.4-6.4-6.4 19.2-6.4 38.4-6.4 57.6 0 6.4 0 6.4 0 12.8 0-6.4 0-6.4 0-12.8z m320-121.6l57.6 38.4-19.2-70.4c38.4-32 64-76.8 64-121.6 0-96-83.2-172.8-179.2-172.8s-179.2 76.8-179.2 172.8 83.2 172.8 179.2 172.8c25.6 0 51.2-6.4 76.8-19.2z" fill="currentColor" />
                         </svg>
                     )}
-                    {payWay === 'zfb' ? t('支付宝付款') : t('微信支付')} - ¥{amount}
+                    {payWay === 'zfb' ? t('支付宝付款') : (wechatPayEnabled && payWay === 'wx' ? t('微信支付') : t('支付宝付款'))} - ¥{amount}
                   </div>
                 }
                 visible={showPaymentModal}
@@ -916,16 +935,16 @@ const TopUp = () => {
                 maskClosable={false}
                 size={'small'}
                 centered={true}
-                className={payWay === 'zfb' ? 'alipay-payment-modal' : 'wechat-payment-modal'}
+                className={payWay === 'zfb' ? 'alipay-payment-modal' : (wechatPayEnabled && payWay === 'wx' ? 'wechat-payment-modal' : 'alipay-payment-modal')}
             >
               <div className="flex flex-col items-center p-4">
                 {paymentLoading ? (
                     <div className="flex justify-center items-center h-64">
-                      <Spin size="large" style={{ color: payWay === 'zfb' ? "#1677FF" : "#09BB07" }} />
+                      <Spin size="large" style={{ color: payWay === 'zfb' ? "#1677FF" : (wechatPayEnabled && payWay === 'wx' ? "#09BB07" : "#1677FF") }} />
                     </div>
                 ) : paymentStatus === 'success' ? (
                     <div className="flex flex-col items-center justify-center h-64">
-                      <div className="text-6xl mb-4" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>
+                      <div className="text-6xl mb-4" style={{ color: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
@@ -936,10 +955,10 @@ const TopUp = () => {
                 ) : (
                     <>
                       <div className="text-center mb-5 w-full py-3 rounded-lg border" style={{
-                        backgroundColor: payWay === 'zfb' ? '#f0f9ff' : '#f0f9f0',
-                        borderColor: payWay === 'zfb' ? '#e6f4ff' : '#e6f6e6'
+                        backgroundColor: payWay === 'zfb' ? '#f0f9ff' : (wechatPayEnabled && payWay === 'wx' ? '#f0f9f0' : '#f0f9ff'),
+                        borderColor: payWay === 'zfb' ? '#e6f4ff' : (wechatPayEnabled && payWay === 'wx' ? '#e6f6e6' : '#e6f4ff')
                       }}>
-                        <p className="text-xl font-semibold mb-1" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>¥{amount}</p>
+                        <p className="text-xl font-semibold mb-1" style={{ color: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>¥{amount}</p>
                         <p className="text-xs text-gray-500">{t('订单号')}: {outTradeNo}</p>
                         <p className="text-xs text-gray-500">{t('原价')}: ¥{customAmount ? topUpCount : selectedAmount} | {t('到账额度')}: ￥{customAmount ? topUpCount : selectedAmount}</p>
                         {amount > 0 && amount < (customAmount ? topUpCount : selectedAmount) && (
@@ -948,14 +967,14 @@ const TopUp = () => {
                       </div>
 
                       <div className="bg-white p-6 rounded-lg border mb-4 flex flex-col items-center" style={{
-                        borderColor: payWay === 'zfb' ? '#e6f4ff' : '#e6f6e6'
+                        borderColor: payWay === 'zfb' ? '#e6f4ff' : (wechatPayEnabled && payWay === 'wx' ? '#e6f6e6' : '#e6f4ff')
                       }}>
-                        <div className="mb-2 text-sm font-medium" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>
-                          {payWay === 'zfb' ? t('请用支付宝扫码支付') : t('请用微信扫码支付')}
+                        <div className="mb-2 text-sm font-medium" style={{ color: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>
+                          {payWay === 'zfb' ? t('请用支付宝扫码支付') : (wechatPayEnabled && payWay === 'wx' ? t('请用微信扫码支付') : t('请用支付宝扫码支付'))}
                         </div>
 
                         {qrCodeUrl ? (
-                            <div className="p-3 border rounded-lg" style={{ borderColor: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>
+                            <div className="p-3 border rounded-lg" style={{ borderColor: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>
                               <QRCodeSVG
                                   value={qrCodeUrl}
                                   size={180}
@@ -970,7 +989,7 @@ const TopUp = () => {
                             </div>
                         )}
 
-                        <div className="mt-3 flex items-center" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>
+                        <div className="mt-3 flex items-center" style={{ color: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 mr-1">
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
                           </svg>
@@ -980,12 +999,12 @@ const TopUp = () => {
 
                       <div className="text-center text-xs text-gray-500 max-w-xs px-3">
                         <div className="flex items-center justify-center mb-2">
-                          <svg className="w-4 h-4 mr-1" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" style={{ color: payWay === 'zfb' ? '#1677FF' : '#09BB07' }}>
+                          <svg className="w-4 h-4 mr-1" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" style={{ color: payWay === 'zfb' ? '#1677FF' : (wechatPayEnabled && payWay === 'wx' ? '#09BB07' : '#1677FF') }}>
                             <path d="M512 85.333333c-235.52 0-426.666667 191.146667-426.666667 426.666667s191.146667 426.666667 426.666667 426.666667 426.666667-191.146667 426.666667-426.666667-191.146667-426.666667-426.666667-426.666667z m-26.88 640a45.226667 45.226667 0 0 1-45.226667-45.226666 45.226667 45.226667 0 0 1 45.226667-45.226667 45.226667 45.226667 0 0 1 45.226667 45.226667c0 24.746667-20.48 45.226667-45.226667 45.226666z m72.533333-213.333333c-17.066667 6.826667-29.013333 13.653333-36.693333 24.746667-3.413333 6.826667-5.973333 17.92-5.973333 34.986666h-56.32v-14.506666c0-17.066667 3.413333-31.573333 10.24-43.52 6.826667-11.946667 19.626667-24.746667 39.253333-35.84 17.066667-9.386667 29.013333-17.066667 36.693333-26.453334 6.826667-9.386667 10.24-19.626667 10.24-31.573333 0-13.653333-5.12-24.746667-15.36-33.28-10.24-8.533333-23.893333-13.653333-40.96-13.653333-38.4 0-64.853333 25.6-64.853333 66.56h-56.32c1.706667-30.72 11.946667-56.32 29.866666-75.093334 20.48-21.333333 49.493333-31.573333 87.04-31.573333 32.426667 0 58.88 7.68 80.213334 23.04 21.333333 15.36 31.573333 36.693333 31.573333 64.853333 0 13.653333-4.266667 27.306667-11.093333 39.253334-6.826667 11.946667-16.213333 21.333333-37.546667 31.573333z" fill="currentColor"></path>
                           </svg>
                           <span>{t('请不要关闭此窗口')}</span>
                         </div>
-                        <p>{payWay === 'zfb' ? t('扫码后请在支付宝中确认付款') : t('扫码后请在微信中确认付款')}</p>
+                        <p>{payWay === 'zfb' ? t('扫码后请在支付宝中确认付款') : (wechatPayEnabled && payWay === 'wx' ? t('扫码后请在微信中确认付款') : t('扫码后请在支付宝中确认付款'))}</p>
                         <p>{t('付款完成后将自动为您处理订单')}</p>
                       </div>
 
@@ -996,7 +1015,7 @@ const TopUp = () => {
                                 theme="solid"
                                 onClick={() => { setShowPaymentModal(false); setOpen(true); }}
                                 className="w-full py-2 hover:opacity-80 border-none"
-                                style={{ backgroundColor: payWay === 'zfb' ? "#1677FF" : "#09BB07" }}
+                                style={{ backgroundColor: payWay === 'zfb' ? "#1677FF" : (wechatPayEnabled && payWay === 'wx' ? "#09BB07" : "#1677FF") }}
                             >
                               {t('二维码已过期，点击重新获取')}
                             </Button>
@@ -1612,7 +1631,7 @@ const TopUp = () => {
                       type={'secondary'}
                       size='large'
                       loading={paymentLoading && payWay === 'wx'}
-                      onClick={() => preTopUp('zfb')}
+                      onClick={() => preTopUp(wechatPayEnabled ? 'wx' : 'zfb')}
                       disabled={!amount || amount <= 0 || paymentLoading}
                       className="min-w-[140px]"
                       style={{
@@ -1636,6 +1655,7 @@ const TopUp = () => {
                         </svg>
                       }
                   >
+                    {/*{wechatPayEnabled ? t('微信支付') : t('微信支付（暂不可用）')}*/}
                     {t('微信支付')}
                   </Button>
                 </div>
