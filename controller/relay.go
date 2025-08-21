@@ -487,7 +487,7 @@ func RelayClaude(c *gin.Context) {
 func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
 	// 重试时清理缓存的请求体，强制重新读取
-	c.Set(common.KeyRequestBody, nil)
+	//c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relayHandler(c, relayMode)
@@ -496,7 +496,7 @@ func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *types.
 func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
 	// 重试时清理缓存的请求体，强制重新读取
-	c.Set(common.KeyRequestBody, nil)
+	//c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.WssHelper(c, ws)
@@ -505,7 +505,7 @@ func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *mode
 func claudeRequest(c *gin.Context, channel *model.Channel) *types.NewAPIError {
 	addUsedChannel(c, channel.Id)
 	// 重试时清理缓存的请求体，强制重新读取
-	c.Set(common.KeyRequestBody, nil)
+	//c.Set(common.KeyRequestBody, nil)
 	requestBody, _ := common.GetRequestBody(c)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	return relay.ClaudeHelper(c)
@@ -554,12 +554,12 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	}
 
 	// 检查是否是 Claude Code CLI
-	userAgent := c.Request.Header.Get("User-Agent")
-	isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
-
-	if isClaudeCLI && openaiErr.GetErrorCode() == "api_error" && openaiErr.StatusCode == 400 {
-		return false
-	}
+	//userAgent := c.Request.Header.Get("User-Agent")
+	//isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
+	//
+	//if isClaudeCLI && openaiErr.GetErrorCode() == "api_error" && openaiErr.StatusCode == 400 {
+	//	return false
+	//}
 
 	// 检查是否是 token 超限错误，如果是则不重试
 	//errorMessage := openaiErr.Error()
@@ -588,9 +588,9 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if retryTimes <= 0 {
 		return false
 	}
-	if _, ok := c.Get("specific_channel_id"); ok {
-		return false
-	}
+	//if _, ok := c.Get("specific_channel_id"); ok {
+	//	return false
+	//}
 	// 2xx 成功响应不重试
 	if openaiErr.StatusCode/100 == 2 {
 		return false

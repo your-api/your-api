@@ -123,15 +123,16 @@ func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 			return newAPIError
 		}
-	}
-
-	usage, newAPIError := adaptor.DoResponse(c, httpResp, relayInfo)
+		
+		// 只有在状态码为 200 时才处理响应
+		usage, newAPIError := adaptor.DoResponse(c, httpResp, relayInfo)
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
 	}
-	var preConsumedRefunded bool
-	postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
+		var preConsumedRefunded bool
+		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
+	}
 	return nil
 }
