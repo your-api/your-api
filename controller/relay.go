@@ -554,12 +554,12 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	}
 
 	// 检查是否是 Claude Code CLI
-	//userAgent := c.Request.Header.Get("User-Agent")
-	//isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
-	//
-	//if isClaudeCLI && openaiErr.GetErrorCode() == "api_error" && openaiErr.StatusCode == 400 {
-	//	return false
-	//}
+	userAgent := c.Request.Header.Get("User-Agent")
+	isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
+
+	if isClaudeCLI && openaiErr.GetErrorCode() == "api_error" && openaiErr.StatusCode == 400 {
+		return false
+	}
 
 	// 检查是否是 token 超限错误，如果是则不重试
 	//errorMessage := openaiErr.Error()
