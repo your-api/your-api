@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Typography, Row, Col } from '@douyinfe/semi-ui';
-import { IconUser, IconComment, IconMail, IconClock } from '@douyinfe/semi-icons';
+import { IconUser, IconComment, IconClock, IconSend } from '@douyinfe/semi-icons';
 import './Contact.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -61,7 +61,7 @@ const Contact = () => {
                 </div>
                 <div className="contact-info">
                   <Title heading={6} className="contact-title">
-                    QQ群
+                    QQ
                   </Title>
                   <Text className="contact-text">
                     请加QQ：2137994192
@@ -82,14 +82,14 @@ const Contact = () => {
                     color: 'var(--semi-color-primary)'
                   }}
                 >
-                  <IconMail size="inherit" />
+                  <IconSend size="inherit" />
                 </div>
                 <div className="contact-info">
                   <Title heading={6} className="contact-title">
-                    邮箱地址
+                    Telegram
                   </Title>
                   <Text className="contact-text">
-                    请加QQ：2137994192
+                    联系TG：@youare
                   </Text>
                 </div>
               </div>
