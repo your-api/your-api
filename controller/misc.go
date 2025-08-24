@@ -181,6 +181,20 @@ func GetHomePageContent(c *gin.Context) {
 	return
 }
 
+// GetPaymentConfig 获取支付配置（公开接口，供普通用户使用）
+func GetPaymentConfig(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"wechat_pay_enabled": setting.WechatPayEnabled,
+			"alipay_enabled":     true, // 支付宝始终可用
+			"online_topup_enabled": setting.PayAddress != "" && setting.EpayId != "" && setting.EpayKey != "",
+		},
+	})
+	return
+}
+
 func SendEmailVerification(c *gin.Context) {
 	email := c.Query("email")
 	imageCaptchaId := c.Query("image_captcha_id")

@@ -225,16 +225,16 @@ const TopUp = () => {
   // 获取系统配置
   const getSystemConfig = async () => {
     try {
-      const res = await API.get('/api/option/');
+      // 使用新的公开接口获取支付配置
+      const res = await API.get('/api/payment/config');
       if (res.data.success && res.data.data) {
-        const options = res.data.data;
-        const wechatEnabledOption = options.find(opt => opt.key === 'WechatPayEnabled');
-        if (wechatEnabledOption) {
-          setWechatPayEnabled(wechatEnabledOption.value === 'true');
-        }
+        const config = res.data.data;
+        setWechatPayEnabled(config.wechat_pay_enabled === true);
       }
     } catch (error) {
-      console.error('获取系统配置失败:', error);
+      console.error('获取支付配置失败:', error);
+      // 默认值设为false，更安全
+      setWechatPayEnabled(false);
     }
   };
 
@@ -1655,7 +1655,6 @@ const TopUp = () => {
                         </svg>
                       }
                   >
-                    {/*{wechatPayEnabled ? t('微信支付') : t('微信支付（暂不可用）')}*/}
                     {t('微信支付')}
                   </Button>
                 </div>

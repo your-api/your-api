@@ -26,6 +26,7 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.TryUserAuth(), controller.GetPricing)
+		apiRouter.GET("/payment/config", controller.GetPaymentConfig)
 		
 		// Uptime status endpoint
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)

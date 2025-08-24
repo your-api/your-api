@@ -78,6 +78,13 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 		anthropicVersion = "2023-06-01"
 	}
 	req.Set("anthropic-version", anthropicVersion)
+	
+	// 透传 anthropic-beta 头（如果存在）
+	anthropicBeta := c.Request.Header.Get("anthropic-beta")
+	if anthropicBeta != "" {
+		req.Set("anthropic-beta", anthropicBeta)
+	}
+	
 	model_setting.GetClaudeSettings().WriteHeaders(info.OriginModelName, req)
 	return nil
 }
