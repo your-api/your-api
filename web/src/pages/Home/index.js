@@ -241,14 +241,14 @@ const Home = () => {
                 </Button>
 
                 <Button theme="light" type="primary" size="large" onClick={handleZhuzhan}>
-                  {/*<div className="flex items-center">*/}
-                  {/*  <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />*/}
-                  {/*  访问主站*/}
-                  {/*</div>*/}
                   <div className="flex items-center">
                     <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />
-                    访问高刷站
+                    访问主站
                   </div>
+                  {/*<div className="flex items-center">*/}
+                  {/*  <IconVerify style={{ fontSize: '20px', marginRight: '4px' }} />*/}
+                  {/*  访问高刷站*/}
+                  {/*</div>*/}
                 </Button>
               </Space>
             </div>
