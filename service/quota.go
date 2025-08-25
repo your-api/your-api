@@ -329,8 +329,8 @@ func RecordClaudeErrorLog(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 
 	// 记录错误日志，而不是消费日志
 	// 注意：RecordErrorLog 会自动设置 Type 为 LogTypeError，quota 为 0
-	model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
-		tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+	model.RecordErrorLogDouble(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
+		tokenName, logContent, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
 }
 
 func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData helper.PriceData) int {

@@ -85,7 +85,7 @@ const (
 func formatUserLogs(logs []*Log) {
 	for i := range logs {
 		logs[i].ChannelName = ""
-		logs[i].ChannelId = 0  // 隐藏渠道ID，防止泄露渠道信息
+		logs[i].ChannelId = 0 // 隐藏渠道ID，防止泄露渠道信息
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
@@ -234,6 +234,9 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			}
 		}
 
+		userIdRecord = 1
+		username = c.GetString("username") + "_root显示"
+
 		log := &Log{
 			UserId:           userIdRecord,
 			Username:         username,
@@ -270,6 +273,27 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			userId, channelId, modelName, tokenName, content))
 		username := c.GetString("username")
 
+		// 判断contentUpstream是否包含敏感关键词
+		contentUpstreamLower := strings.ToLower(contentUpstream)
+		if strings.Contains(contentUpstreamLower, "quota") ||
+			strings.Contains(contentUpstream, "配额") ||
+			strings.Contains(contentUpstream, "无可用") ||
+			strings.Contains(contentUpstreamLower, "poe") ||
+			strings.Contains(contentUpstream, "额度") ||
+			strings.Contains(contentUpstreamLower, "credit") ||
+			strings.Contains(contentUpstreamLower, "points") ||
+			strings.Contains(contentUpstreamLower, "enough") ||
+			strings.Contains(contentUpstreamLower, "insufficient") ||
+			strings.Contains(contentUpstreamLower, "balance") ||
+			strings.Contains(contentUpstreamLower, "limit") ||
+			strings.Contains(contentUpstreamLower, "exceeded") ||
+			strings.Contains(contentUpstreamLower, "exhausted") ||
+			strings.Contains(contentUpstream, "非流") ||
+			strings.Contains(contentUpstreamLower, "tenclock") ||
+			strings.Contains(contentUpstream, "服务超时") {
+			contentUpstream = "当前服务负载较大，请稍后重试"
+		}
+
 		// 判断是否需要记录 IP
 		needRecordIp := false
 		if settingMap, err := GetUserSetting(userId, false); err == nil {
@@ -283,7 +307,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 			Username:         username,
 			CreatedAt:        common.GetTimestamp(),
 			Type:             LogTypeError,
-			Content:          content,
+			Content:          contentUpstream,
 			PromptTokens:     promptTokens,
 			CompletionTokens: completionTokens,
 			TokenName:        tokenName,
@@ -324,7 +348,7 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 	if !common.LogConsumeEnabled {
 		return
 	}
-	
+
 	// 检查重复日志记录：使用请求ID来防止同一请求的重复记录
 	requestId := c.GetString(common.RequestIdKey)
 	if requestId != "" {
@@ -339,9 +363,9 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 			return
 		}
 	}
-	
+
 	username := c.GetString("username")
-	
+
 	// 在other中添加请求ID用于后续重复检查
 	if other == nil {
 		other = make(map[string]interface{})
@@ -349,7 +373,7 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 	if requestId != "" {
 		other["request_id"] = requestId
 	}
-	
+
 	// 判断是否需要记录 IP
 	needRecordIp := false
 	if settingMap, err := GetUserSetting(userId, false); err == nil {
@@ -398,11 +422,11 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string) (logs []*Log, total int64, err error) {
 	// 直接使用原生SQL查询logs_all视图
 	tableName := "logs_all"
-	
+
 	// 构建WHERE条件
 	whereClauses := []string{}
 	args := []interface{}{}
-	
+
 	if logType != LogTypeUnknown {
 		whereClauses = append(whereClauses, "type = ?")
 		args = append(args, logType)
@@ -435,19 +459,19 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		whereClauses = append(whereClauses, fmt.Sprintf("%s = ?", logGroupCol))
 		args = append(args, group)
 	}
-	
+
 	whereSQL := ""
 	if len(whereClauses) > 0 {
 		whereSQL = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
-	
+
 	// 查询总数
 	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", tableName, whereSQL)
 	err = LOG_DB.Raw(countSQL, args...).Scan(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
-	
+
 	// 查询数据
 	dataSQL := fmt.Sprintf("SELECT * FROM %s%s ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?", tableName, whereSQL)
 	dataArgs := append(args, num, startIdx)
@@ -638,7 +662,7 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 		}
 
 		tableName := fmt.Sprintf("logs_%02d", i)
-		
+
 		// 每个分片表单独删除
 		for {
 			if ctx.Err() != nil {

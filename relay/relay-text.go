@@ -548,8 +548,10 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 			other["image_ratio"] = imageRatio
 			other["image_output"] = imageTokens
 		}
-		model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
-			tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+		//model.RecordErrorLog(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
+		//	tokenName, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
+		model.RecordErrorLogDouble(ctx, relayInfo.UserId, relayInfo.ChannelId, modelName,
+			tokenName, logContent, logContent, relayInfo.TokenId, int(useTimeSeconds), relayInfo.IsStream, relayInfo.UsingGroup, other)
 		// 返回错误，触发重试机制
 		return fmt.Errorf("upstream timeout or invalid response: total tokens is 0")
 	} else {

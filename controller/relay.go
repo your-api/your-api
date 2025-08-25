@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
-	constant2 "one-api/constant"
 	"one-api/dto"
 	"one-api/middleware"
 	"one-api/model"
@@ -48,7 +47,8 @@ func relayHandler(c *gin.Context, relayMode int) *types.NewAPIError {
 		err = relay.TextHelper(c)
 	}
 
-	if constant2.ErrorLogEnabled && err != nil && types.IsRecordErrorLog(err) {
+	//if constant2.ErrorLogEnabled && err != nil && types.IsRecordErrorLog(err) {
+	if err != nil && types.IsRecordErrorLog(err) {
 		// 保存错误日志到mysql中
 		userId := c.GetInt("id")
 		tokenName := c.GetString("token_name")
