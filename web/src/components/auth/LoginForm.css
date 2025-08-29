@@ -1,0 +1,410 @@
+/* 登录页面主标题样式 */
+.login-main-title {
+  background: linear-gradient(135deg, #4a5568, #2d3748) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.login-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+/* 暗色主题下的标题适配 */
+[theme-mode="dark"] .login-main-title {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e0) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+[theme-mode="dark"] .login-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+/* 微信扫码登录样式 - 优化版 */
+.qr-login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 1rem;
+  margin: 0.5rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.qr-login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.03) 0%, rgba(74, 85, 104, 0.01) 100%);
+  border-radius: 1rem;
+}
+
+.qr-login-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wechat-qr-title {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.wechat-qr-title h3 {
+  background: linear-gradient(135deg, #4a5568, #2d3748);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.wechat-qr-subtitle {
+  color: var(--semi-color-text-1);
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.qr-wrapper {
+  position: relative;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.qr-code-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-expired-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 1rem;
+}
+
+.qr-expired-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.qr-expired {
+  opacity: 0.3;
+}
+
+.qr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.qr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.qr-info {
+  text-align: center;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.qr-status {
+  text-align: center;
+  margin-top: 0.5rem;
+  color: var(--semi-color-text-2);
+  font-size: 0.9rem;
+}
+
+.qr-security-notice {
+  margin-top: 1rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--semi-color-text-2);
+  padding: 0.5rem 1rem;
+  background: rgba(74, 85, 104, 0.05);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(74, 85, 104, 0.1);
+}
+
+.login-tab-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 响应式设计 - 移动端优化 */
+@media (max-width: 640px) {
+  .qr-login-container {
+    padding: 1rem 0.75rem;
+    margin: 0.25rem 0;
+  }
+  
+  .qr-code-wrapper svg {
+    width: 160px !important;
+    height: 160px !important;
+  }
+  
+  .wechat-qr-title h3 {
+    font-size: 1.25rem;
+  }
+  
+  .qr-status {
+    font-size: 0.85rem;
+  }
+  
+  .qr-security-notice {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 480px) {
+  .qr-login-container {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .qr-code-wrapper svg {
+    width: 120px !important;
+    height: 120px !important;
+  }
+  
+  .wechat-qr-title h3 {
+    font-size: 1.1rem;
+  }
+}
+
+/* 暗黑模式适配 - 使用项目标准方式 */
+[theme-mode="dark"] .qr-login-container {
+  background: linear-gradient(135deg, var(--semi-color-bg-1) 0%, var(--semi-color-bg-2) 100%);
+  border: 1px solid var(--semi-color-border);
+}
+
+[theme-mode="dark"] .qr-login-container::before {
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.08) 0%, rgba(74, 85, 104, 0.04) 100%);
+}
+
+[theme-mode="dark"] .qr-expired-overlay {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+[theme-mode="dark"] .wechat-qr-title h3 {
+  color: #cbd5e0 !important;
+  -webkit-text-fill-color: #cbd5e0 !important;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e0) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+[theme-mode="dark"] .wechat-qr-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+[theme-mode="dark"] .qr-status {
+  color: var(--semi-color-text-1) !important;
+}
+
+[theme-mode="dark"] .qr-info {
+  color: var(--semi-color-text-0) !important;
+}
+
+[theme-mode="dark"] .qr-security-notice {
+  color: var(--semi-color-text-1) !important;
+  background: rgba(74, 85, 104, 0.1);
+  border-color: rgba(74, 85, 104, 0.2);
+}
+
+/* Tab标签暗色主题适配 */
+[theme-mode="dark"] .login-tabs .semi-tabs-tab:hover {
+  background: rgba(74, 85, 104, 0.1) !important;
+}
+
+[theme-mode="dark"] .login-tabs .semi-tabs-tab-active {
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.15), rgba(74, 85, 104, 0.08)) !important;
+  color: var(--semi-color-text-0) !important;
+}
+
+/* 卡片暗色主题适配 */
+[theme-mode="dark"] .semi-card {
+  background-color: var(--semi-color-bg-1) !important;
+  border-color: var(--semi-color-border) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* 二维码样式 */
+.qr-code-wrapper canvas,
+.qr-code-wrapper svg {
+  padding: 1rem;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+[theme-mode="dark"] .qr-code-wrapper canvas,
+[theme-mode="dark"] .qr-code-wrapper svg {
+  background: var(--semi-color-bg-0);
+  border: 2px solid var(--semi-color-border);
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.3), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* 成功状态动画 */
+@keyframes checkmark {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+.qr-success-icon {
+  animation: checkmark 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Tab标签样式优化 */
+.login-tabs {
+  margin-bottom: 1rem !important;
+}
+
+.login-tabs .semi-tabs-tab {
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 500;
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  transition: all 0.3s ease;
+}
+
+.login-tabs .semi-tabs-tab:hover {
+  background: rgba(74, 85, 104, 0.05);
+}
+
+.login-tabs .semi-tabs-tab-active {
+  font-weight: 600;
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.08), rgba(74, 85, 104, 0.04));
+}
+
+/* 自定义按钮样式 */
+.wechat-refresh-btn {
+  background: linear-gradient(135deg, #718096, #4a5568) !important;
+  border: none !important;
+  padding: 0.75rem 2rem !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  box-shadow: 0 4px 14px 0 rgba(74, 85, 104, 0.2);
+}
+
+.wechat-refresh-btn:hover {
+  background: linear-gradient(135deg, #4a5568, #2d3748) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px 0 rgba(74, 85, 104, 0.3) !important;
+}
+
+.wechat-refresh-btn:active {
+  transform: translateY(0) !important;
+}
+
+/* 加载动画优化 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.qr-loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+
+/* 卡片整体样式优化 */
+.semi-card {
+  border-radius: 1.5rem !important;
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* 覆盖Semi的按钮主题色 */
+.semi-button-primary, .semi-button-primary[type="primary"] {
+  background-color: #4a5568 !important;
+  background-image: none !important;
+  border-color: #4a5568 !important;
+}
+
+.semi-button-primary:hover {
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
+}
+
+.semi-button-primary:active {
+  background-color: #1a202c !important;
+  border-color: #1a202c !important;
+}
+
+/* 暗色模式下的按钮 */
+[theme-mode="dark"] .semi-button-primary {
+  background-color: #718096 !important;
+  border-color: #718096 !important;
+}
+
+[theme-mode="dark"] .semi-button-primary:hover {
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
+}
+
+[theme-mode="dark"] .semi-button-primary:active {
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
+} 

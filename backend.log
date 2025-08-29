@@ -1,0 +1,155 @@
+[SYS] 2025/08/29 - 19:03:21 | 应用程序时区已设置为: Asia/Shanghai 
+[SYS] 2025/08/29 - 19:03:21 | WARNING: SESSION_SECRET not set, using default value. For security, please set SESSION_SECRET environment variable. 
+[SYS] 2025/08/29 - 19:03:21 | 警告：未设置SESSION_SECRET，使用默认值。为了安全，请设置SESSION_SECRET环境变量。 
+
+2025/08/29 19:03:23 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:77 [33mSLOW SQL >= 200ms
+[0m[31;1m[388.525ms] [33m[rows:1][35m SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'models' AND index_name = 'uk_model_name'[0m
+
+2025/08/29 19:03:23 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:79 [33mSLOW SQL >= 200ms
+[0m[31;1m[399.379ms] [33m[rows:0][35m ALTER TABLE models DROP INDEX uk_model_name;[0m
+
+2025/08/29 19:03:24 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:79 [33mSLOW SQL >= 200ms
+[0m[31;1m[398.110ms] [33m[rows:0][35m ALTER TABLE vendors DROP INDEX uk_vendor_name;[0m
+
+2025/08/29 19:03:25 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[387.053ms] [33m[rows:-][35m SELECT DATABASE()[0m
+
+2025/08/29 19:03:25 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[389.574ms] [33m[rows:1][35m SELECT SCHEMA_NAME from Information_schema.SCHEMATA where SCHEMA_NAME LIKE 'myapi%' ORDER BY SCHEMA_NAME='myapi' DESC,SCHEMA_NAME limit 1[0m
+
+2025/08/29 19:03:25 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[387.841ms] [33m[rows:-][35m SELECT count(*) FROM information_schema.tables WHERE table_schema = 'myapi' AND table_name = 'channels' AND table_type = 'BASE TABLE'[0m
+
+2025/08/29 19:03:26 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[391.101ms] [33m[rows:-][35m SELECT * FROM `channels` LIMIT 1[0m
+
+2025/08/29 19:03:27 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[387.770ms] [33m[rows:-][35m SELECT column_name, column_default, is_nullable = 'YES', data_type, character_maximum_length, column_type, column_key, extra, column_comment, numeric_precision, numeric_scale , datetime_precision FROM information_schema.columns WHERE table_schema = 'myapi' AND table_name = 'channels' ORDER BY ORDINAL_POSITION[0m
+
+2025/08/29 19:03:27 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[517.951ms] [33m[rows:0][35m ALTER TABLE `channels` ADD `header_override` text[0m
+
+2025/08/29 19:03:27 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[204.316ms] [33m[rows:-][35m SELECT DATABASE()[0m
+
+2025/08/29 19:03:28 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[383.799ms] [33m[rows:-][35m SELECT count(*) FROM information_schema.statistics WHERE table_schema = 'myapi' AND table_name = 'channels' AND index_name = 'idx_channels_name'[0m
+
+2025/08/29 19:03:30 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[387.954ms] [33m[rows:-][35m SELECT * FROM `tokens` LIMIT 1[0m
+
+2025/08/29 19:03:34 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[392.263ms] [33m[rows:-][35m SELECT * FROM `users` LIMIT 1[0m
+
+2025/08/29 19:03:43 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[390.223ms] [33m[rows:-][35m SELECT * FROM `options` LIMIT 1[0m
+
+2025/08/29 19:03:45 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[394.146ms] [33m[rows:-][35m SELECT * FROM `redemptions` LIMIT 1[0m
+
+2025/08/29 19:03:47 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[200.341ms] [33m[rows:1][35m SELECT SCHEMA_NAME from Information_schema.SCHEMATA where SCHEMA_NAME LIKE 'myapi%' ORDER BY SCHEMA_NAME='myapi' DESC,SCHEMA_NAME limit 1[0m
+
+2025/08/29 19:03:48 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[385.865ms] [33m[rows:-][35m SELECT * FROM `abilities` LIMIT 1[0m
+
+2025/08/29 19:03:52 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[394.063ms] [33m[rows:-][35m SELECT * FROM `logs` LIMIT 1[0m
+
+2025/08/29 19:03:53 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[393.368ms] [33m[rows:0][35m ALTER TABLE `logs` MODIFY COLUMN `is_stream` boolean DEFAULT false[0m
+
+2025/08/29 19:04:01 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[387.118ms] [33m[rows:-][35m SELECT * FROM `midjourneys` LIMIT 1[0m
+
+2025/08/29 19:04:07 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[386.089ms] [33m[rows:-][35m SELECT * FROM `top_ups` LIMIT 1[0m
+
+2025/08/29 19:04:10 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[385.924ms] [33m[rows:-][35m SELECT * FROM `quota_data` LIMIT 1[0m
+
+2025/08/29 19:04:13 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[386.065ms] [33m[rows:-][35m SELECT * FROM `tasks` LIMIT 1[0m
+
+2025/08/29 19:04:21 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[392.397ms] [33m[rows:-][35m SELECT * FROM `models` LIMIT 1[0m
+
+2025/08/29 19:04:22 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[423.704ms] [33m[rows:0][35m ALTER TABLE `models` ADD `icon` varchar(128)[0m
+
+2025/08/29 19:04:24 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[1129.828ms] [33m[rows:-][35m SELECT DATABASE()[0m
+
+2025/08/29 19:04:24 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[376.061ms] [33m[rows:1][35m SELECT SCHEMA_NAME from Information_schema.SCHEMATA where SCHEMA_NAME LIKE 'myapi%' ORDER BY SCHEMA_NAME='myapi' DESC,SCHEMA_NAME limit 1[0m
+
+2025/08/29 19:04:24 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[375.444ms] [33m[rows:-][35m SELECT count(*) FROM information_schema.statistics WHERE table_schema = 'myapi' AND table_name = 'models' AND index_name = 'uk_model_name'[0m
+
+2025/08/29 19:04:25 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[395.864ms] [33m[rows:0][35m CREATE UNIQUE INDEX `uk_model_name` ON `models`(`model_name`,`deleted_at`)[0m
+
+2025/08/29 19:04:26 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[375.934ms] [33m[rows:-][35m SELECT count(*) FROM information_schema.tables WHERE table_schema = 'myapi' AND table_name = 'vendors' AND table_type = 'BASE TABLE'[0m
+
+2025/08/29 19:04:27 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[378.809ms] [33m[rows:-][35m SELECT * FROM `vendors` LIMIT 1[0m
+
+2025/08/29 19:04:27 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[378.067ms] [33m[rows:-][35m SELECT column_name, column_default, is_nullable = 'YES', data_type, character_maximum_length, column_type, column_key, extra, column_comment, numeric_precision, numeric_scale , datetime_precision FROM information_schema.columns WHERE table_schema = 'myapi' AND table_name = 'vendors' ORDER BY ORDINAL_POSITION[0m
+
+2025/08/29 19:04:28 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[392.013ms] [33m[rows:0][35m CREATE UNIQUE INDEX `uk_vendor_name` ON `vendors`(`name`,`deleted_at`)[0m
+
+2025/08/29 19:04:30 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[379.833ms] [33m[rows:-][35m SELECT * FROM `prefill_groups` LIMIT 1[0m
+
+2025/08/29 19:04:33 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[377.799ms] [33m[rows:-][35m SELECT * FROM `setups` LIMIT 1[0m
+
+2025/08/29 19:04:35 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[379.750ms] [33m[rows:-][35m SELECT * FROM `two_fas` LIMIT 1[0m
+
+2025/08/29 19:04:35 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[386.123ms] [33m[rows:0][35m ALTER TABLE `two_fas` MODIFY COLUMN `is_enabled` boolean DEFAULT false[0m
+
+2025/08/29 19:04:38 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[378.119ms] [33m[rows:-][35m SELECT * FROM `two_fa_backup_codes` LIMIT 1[0m
+
+2025/08/29 19:04:38 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[383.881ms] [33m[rows:0][35m ALTER TABLE `two_fa_backup_codes` MODIFY COLUMN `is_used` boolean DEFAULT false[0m
+
+2025/08/29 19:04:41 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/main.go:292 [33mSLOW SQL >= 200ms
+[0m[31;1m[377.776ms] [33m[rows:-][35m SELECT * FROM `order_infos` LIMIT 1[0m
+
+2025/08/29 19:04:41 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/setup.go:11 [33mSLOW SQL >= 200ms
+[0m[31;1m[375.859ms] [33m[rows:1][35m SELECT * FROM `setups` ORDER BY `setups`.`id` LIMIT 1[0m
+
+2025/08/29 19:04:42 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/option.go:22 [33mSLOW SQL >= 200ms
+[0m[31;1m[573.970ms] [33m[rows:27][35m SELECT * FROM `options`[0m
+
+2025/08/29 19:04:42 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/ability.go:36 [33mSLOW SQL >= 200ms
+[0m[31;1m[375.217ms] [33m[rows:9][35m SELECT abilities.*, channels.type as channel_type FROM `abilities` left join channels on abilities.channel_id = channels.id WHERE abilities.enabled = true[0m
+
+2025/08/29 19:04:43 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/pricing.go:101 [33mSLOW SQL >= 200ms
+[0m[31;1m[377.383ms] [33m[rows:0][35m SELECT * FROM `models` WHERE `models`.`deleted_at` IS NULL[0m
+
+2025/08/29 19:04:43 [32m/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/model/pricing.go:153 [33mSLOW SQL >= 200ms
+[0m[31;1m[378.524ms] [33m[rows:0][35m SELECT * FROM `vendors` WHERE `vendors`.`deleted_at` IS NULL[0m
+panic: handlers are already registered for path '/api/vendors/'
+
+goroutine 1 [running]:
+github.com/gin-gonic/gin.(*node).addRoute(0x1010a897d?, {0x14000322e10, 0xd}, {0x1400080c4b0, 0x9, 0x9})
+	/Users/cgw/go/pkg/mod/github.com/gin-gonic/gin@v1.9.1/tree.go:260 +0x58c
+github.com/gin-gonic/gin.(*Engine).addRoute(0x140006a2b60, {0x1010a897d, 0x3}, {0x14000322e10, 0xd}, {0x1400080c4b0, 0x9, 0x9})
+	/Users/cgw/go/pkg/mod/github.com/gin-gonic/gin@v1.9.1/gin.go:335 +0x200
+github.com/gin-gonic/gin.(*RouterGroup).handle(0x140005e6340, {0x1010a897d, 0x3}, {0x1021e1f58?, 0x10262b2c0?}, {0x14000120998, 0x1, 0x100403074?})
+	/Users/cgw/go/pkg/mod/github.com/gin-gonic/gin@v1.9.1/routergroup.go:89 +0x11c
+github.com/gin-gonic/gin.(*RouterGroup).GET(...)
+	/Users/cgw/go/pkg/mod/github.com/gin-gonic/gin@v1.9.1/routergroup.go:117
+one-api/router.SetApiRouter(0x1400007f808?)
+	/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/router/api-router.go:261 +0x3f90
+one-api/router.SetRouter(0x140006a2b60, {0x1400004fee0?}, {0x103751ea0, 0x64c, 0x64c})
+	/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/router/main.go:15 +0x30
+main.main()
+	/Users/cgw/Desktop/cgw/personal/develop/docker/newapi/your-api/main.go:196 +0xae8

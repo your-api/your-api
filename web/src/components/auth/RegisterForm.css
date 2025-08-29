@@ -1,0 +1,167 @@
+/* 注册页面样式 */
+.register-main-title {
+  background: linear-gradient(135deg, #4a5568, #2d3748) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.register-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+/* 暗色主题下的标题适配 */
+[theme-mode="dark"] .register-main-title {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e0) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+[theme-mode="dark"] .register-subtitle {
+  color: var(--semi-color-text-1) !important;
+}
+
+/* Tab标签样式 */
+.register-tabs {
+  margin-bottom: 1rem !important;
+}
+
+.register-tabs .semi-tabs-tab {
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 500;
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  transition: all 0.3s ease;
+}
+
+.register-tabs .semi-tabs-tab:hover {
+  background: rgba(74, 85, 104, 0.05);
+}
+
+.register-tabs .semi-tabs-tab-active {
+  font-weight: 600;
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.08), rgba(74, 85, 104, 0.04));
+}
+
+/* Tab标签暗色主题适配 */
+[theme-mode="dark"] .register-tabs .semi-tabs-tab:hover {
+  background: rgba(74, 85, 104, 0.1) !important;
+}
+
+[theme-mode="dark"] .register-tabs .semi-tabs-tab-active {
+  background: linear-gradient(135deg, rgba(74, 85, 104, 0.15), rgba(74, 85, 104, 0.08)) !important;
+  color: var(--semi-color-text-0) !important;
+}
+
+/* 卡片样式 */
+.semi-card {
+  border-radius: 1.5rem !important;
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+    0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* 卡片暗色主题适配 */
+[theme-mode="dark"] .semi-card {
+  background-color: var(--semi-color-bg-1) !important;
+  border-color: var(--semi-color-border) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* 覆盖Semi的按钮主题色 */
+.semi-button-primary, .semi-button-primary[type="primary"] {
+  background-color: #4a5568 !important;
+  background-image: none !important;
+  border-color: #4a5568 !important;
+}
+
+.semi-button-primary:hover {
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
+}
+
+.semi-button-primary:active {
+  background-color: #1a202c !important;
+  border-color: #1a202c !important;
+}
+
+/* 暗色模式下的按钮 */
+[theme-mode="dark"] .semi-button-primary {
+  background-color: #718096 !important;
+  border-color: #718096 !important;
+}
+
+[theme-mode="dark"] .semi-button-primary:hover {
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
+}
+
+[theme-mode="dark"] .semi-button-primary:active {
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
+}
+
+/* 输入框样式优化 */
+.semi-input-wrapper {
+  border-radius: 0.5rem !important;
+}
+
+.semi-input-wrapper:hover {
+  border-color: #4a5568 !important;
+}
+
+.semi-input-wrapper-focus {
+  border-color: #4a5568 !important;
+  box-shadow: 0 0 0 2px rgba(74, 85, 104, 0.1) !important;
+}
+
+/* 密码强度提示样式 */
+.password-strength-weak {
+  color: var(--semi-color-danger) !important;
+}
+
+.password-strength-medium {
+  color: var(--semi-color-warning) !important;
+}
+
+.password-strength-strong {
+  color: var(--semi-color-success) !important;
+}
+
+/* 验证码按钮样式 */
+.verification-code-btn {
+  min-width: 100px;
+  font-size: 12px !important;
+}
+
+/* 第三方登录图标样式 */
+.oauth-icon-button {
+  margin: 0 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+.oauth-icon-button:hover {
+  transform: translateY(-2px);
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .semi-card {
+    border-radius: 1rem !important;
+  }
+  
+  .register-tabs .semi-tabs-tab {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem;
+  }
+}
+
+/* 超小屏幕适配 */
+@media (max-width: 480px) {
+  .register-tabs .semi-tabs-tab {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem;
+  }
+}
