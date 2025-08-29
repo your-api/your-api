@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import CardPro from '../../common/ui/CardPro';
-import ModelsTable from './ModelsTable.jsx';
-import ModelsActions from './ModelsActions.jsx';
-import ModelsFilters from './ModelsFilters.jsx';
-import ModelsTabs from './ModelsTabs.jsx';
-import EditModelModal from './modals/EditModelModal.jsx';
-import EditVendorModal from './modals/EditVendorModal.jsx';
+import ModelsTable from './ModelsTable';
+import ModelsActions from './ModelsActions';
+import ModelsFilters from './ModelsFilters';
+import ModelsTabs from './ModelsTabs';
+import EditModelModal from './modals/EditModelModal';
+import EditVendorModal from './modals/EditVendorModal';
 import { useModelsData } from '../../../hooks/models/useModelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';

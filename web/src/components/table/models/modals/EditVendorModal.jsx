@@ -159,10 +159,10 @@ const EditVendorModal = ({ visible, handleClose, refresh, editingVendor }) => {
             <Form.Input
               field="icon"
               label={t('供应商图标')}
-              placeholder={t('请输入图标名称，如：OpenAI、Claude.Color')}
+              placeholder={t("请输入图标名称")}
               extraText={
                 <span>
-                  {t('图标使用@lobehub/icons库，查询所有可用图标 ')}
+                  {t('图标使用@lobehub/icons库，如：OpenAI、Claude.Color，支持链式参数：OpenAI.Avatar.type={\'platform\'}、OpenRouter.Avatar.shape={\'square\'}，查询所有可用图标请 ')}
                   <Typography.Text
                     link={{ href: 'https://icons.lobehub.com/components/lobe-hub', target: '_blank' }}
                     icon={<IconLink />}

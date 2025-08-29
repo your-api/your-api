@@ -54,7 +54,7 @@ func RecordPreConsume(requestID string, userID, tokenID, quota int) {
 		Returned:         false,
 	}
 	
-	common.LogInfo(nil, fmt.Sprintf("记录预扣费: RequestID=%s, UserID=%d, Quota=%d", 
+	logger.LogInfo(nil, fmt.Sprintf("记录预扣费: RequestID=%s, UserID=%d, Quota=%d", 
 		requestID, userID, quota))
 }
 
@@ -69,7 +69,7 @@ func MarkAsReturned(requestID string) {
 	
 	if record, exists := quotaTracker.records[requestID]; exists {
 		record.Returned = true
-		common.LogInfo(nil, fmt.Sprintf("标记预扣费已返还: RequestID=%s", requestID))
+		logger.LogInfo(nil, fmt.Sprintf("标记预扣费已返还: RequestID=%s", requestID))
 	}
 }
 
@@ -83,7 +83,7 @@ func MarkAsConsumed(requestID string) {
 	defer quotaTracker.mu.Unlock()
 	
 	delete(quotaTracker.records, requestID)
-	common.LogInfo(nil, fmt.Sprintf("预扣费已正常消费: RequestID=%s", requestID))
+	logger.LogInfo(nil, fmt.Sprintf("预扣费已正常消费: RequestID=%s", requestID))
 }
 
 // cleanupExpiredRecords 定期清理过期的预扣费记录并返还未返还的额度
@@ -124,7 +124,7 @@ func (t *PreConsumedQuotaTracker) processExpiredRecords() {
 	}
 	
 	if len(expiredRecords) > 0 {
-		common.LogInfo(nil, fmt.Sprintf("发现 %d 条未返还的预扣费记录，正在自动返还", len(expiredRecords)))
+		logger.LogInfo(nil, fmt.Sprintf("发现 %d 条未返还的预扣费记录，正在自动返还", len(expiredRecords)))
 	}
 }
 
@@ -138,7 +138,7 @@ func (t *PreConsumedQuotaTracker) returnExpiredPreConsume(record *PreConsumedRec
 	err := tx.Model(&User{}).Where("id = ?", record.UserID).
 		Update("quota", gorm.Expr("quota + ?", record.PreConsumedQuota)).Error
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("自动返还预扣费失败 (用户): RequestID=%s, UserID=%d, Error=%v", 
+		logger.LogError(nil, fmt.Sprintf("自动返还预扣费失败 (用户): RequestID=%s, UserID=%d, Error=%v", 
 			record.RequestID, record.UserID, err))
 		return
 	}
@@ -148,7 +148,7 @@ func (t *PreConsumedQuotaTracker) returnExpiredPreConsume(record *PreConsumedRec
 		err = tx.Model(&Token{}).Where("id = ?", record.TokenID).
 			Update("remain_quota", gorm.Expr("remain_quota + ?", record.PreConsumedQuota)).Error
 		if err != nil {
-			common.LogError(nil, fmt.Sprintf("自动返还预扣费失败 (令牌): RequestID=%s, TokenID=%d, Error=%v", 
+			logger.LogError(nil, fmt.Sprintf("自动返还预扣费失败 (令牌): RequestID=%s, TokenID=%d, Error=%v", 
 				record.RequestID, record.TokenID, err))
 			return
 		}
@@ -169,17 +169,17 @@ func (t *PreConsumedQuotaTracker) returnExpiredPreConsume(record *PreConsumedRec
 	}).Error
 	
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("记录返还日志失败: %v", err))
+		logger.LogError(nil, fmt.Sprintf("记录返还日志失败: %v", err))
 		return
 	}
 	
 	// 提交事务
 	if err = tx.Commit().Error; err != nil {
-		common.LogError(nil, fmt.Sprintf("提交返还事务失败: %v", err))
+		logger.LogError(nil, fmt.Sprintf("提交返还事务失败: %v", err))
 		return
 	}
 	
-	common.LogInfo(nil, fmt.Sprintf("成功自动返还预扣费: RequestID=%s, UserID=%d, Quota=%d", 
+	logger.LogInfo(nil, fmt.Sprintf("成功自动返还预扣费: RequestID=%s, UserID=%d, Quota=%d", 
 		record.RequestID, record.UserID, record.PreConsumedQuota))
 }
 

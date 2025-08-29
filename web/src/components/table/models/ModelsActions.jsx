@@ -18,13 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
-import MissingModelsModal from './modals/MissingModelsModal.jsx';
-import PrefillGroupManagement from './modals/PrefillGroupManagement.jsx';
-import EditPrefillGroupModal from './modals/EditPrefillGroupModal.jsx';
+import MissingModelsModal from './modals/MissingModelsModal';
+import PrefillGroupManagement from './modals/PrefillGroupManagement';
+import EditPrefillGroupModal from './modals/EditPrefillGroupModal';
 import { Button, Modal } from '@douyinfe/semi-ui';
 import { showSuccess, showError, copy } from '../../../helpers';
 import CompactModeToggle from '../../common/ui/CompactModeToggle';
-import SelectionNotification from './components/SelectionNotification.jsx';
+import SelectionNotification from './components/SelectionNotification';
 
 const ModelsActions = ({
   selectedKeys,

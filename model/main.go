@@ -64,6 +64,22 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
+// dropIndexIfExists drops a MySQL index only if it exists to avoid noisy 1091 errors
+func dropIndexIfExists(tableName string, indexName string) {
+	if !common.UsingMySQL {
+		return
+	}
+	var count int64
+	// Check index existence via information_schema
+	err := DB.Raw(
+		"SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?",
+		tableName, indexName,
+	).Scan(&count).Error
+	if err == nil && count > 0 {
+		_ = DB.Exec("ALTER TABLE " + tableName + " DROP INDEX " + indexName + ";").Error
+	}
+}
+
 func createRootAccountIfNeed() error {
 	var user User
 	//if user.Status != common.UserStatusEnabled {
@@ -195,6 +211,12 @@ func InitDB() (err error) {
 			db = db.Debug()
 		}
 		DB = db
+		// MySQL charset/collation startup check: ensure Chinese-capable charset
+		if common.UsingMySQL {
+			if err := checkMySQLChineseSupport(DB); err != nil {
+				panic(err)
+			}
+		}
 		sqlDB, err := DB.DB()
 		if err != nil {
 			return err
@@ -229,6 +251,12 @@ func InitLogDB() (err error) {
 			db = db.Debug()
 		}
 		LOG_DB = db
+		// If log DB is MySQL, also ensure Chinese-capable charset
+		if common.LogSqlType == common.DatabaseTypeMySQL {
+			if err := checkMySQLChineseSupport(LOG_DB); err != nil {
+				panic(err)
+			}
+		}
 		sqlDB, err := LOG_DB.DB()
 		if err != nil {
 			return err
@@ -250,9 +278,16 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
-	if !common.UsingPostgreSQL {
-		return migrateDBFast()
-	}
+	// 修复旧版本留下的唯一索引，允许软删除后重新插入同名记录
+	// 删除单列唯一索引（列级 UNIQUE）及早期命名方式，防止与新复合唯一索引 (model_name, deleted_at) 冲突
+	dropIndexIfExists("models", "uk_model_name") // 新版复合索引名称（若已存在）
+	dropIndexIfExists("models", "model_name")    // 旧版列级唯一索引名称
+
+	dropIndexIfExists("vendors", "uk_vendor_name") // 新版复合索引名称（若已存在）
+	dropIndexIfExists("vendors", "name")           // 旧版列级唯一索引名称
+	//if !common.UsingPostgreSQL {
+	//	return migrateDBFast()
+	//}
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Token{},
@@ -280,6 +315,14 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	// 修复旧版本留下的唯一索引，允许软删除后重新插入同名记录
+	// 删除单列唯一索引（列级 UNIQUE）及早期命名方式，防止与新复合唯一索引冲突
+	dropIndexIfExists("models", "uk_model_name")
+	dropIndexIfExists("models", "model_name")
+
+	dropIndexIfExists("vendors", "uk_vendor_name")
+	dropIndexIfExists("vendors", "name")
+
 	var wg sync.WaitGroup
 
 	migrations := []struct {
@@ -298,7 +341,7 @@ func migrateDBFast() error {
 		{&QuotaData{}, "QuotaData"},
 		{&Task{}, "Task"},
 		{&Model{}, "Model"},
-        {&Vendor{}, "Vendor"},
+		{&Vendor{}, "Vendor"},
 		{&PrefillGroup{}, "PrefillGroup"},
 		{&Setup{}, "Setup"},
 		{&TwoFA{}, "TwoFA"},
@@ -362,6 +405,98 @@ func CloseDB() error {
 		}
 	}
 	return closeDB(DB)
+}
+
+// checkMySQLChineseSupport ensures the MySQL connection and current schema
+// default charset/collation can store Chinese characters. It allows common
+// Chinese-capable charsets (utf8mb4, utf8, gbk, big5, gb18030) and panics otherwise.
+func checkMySQLChineseSupport(db *gorm.DB) error {
+	// 仅检测：当前库默认字符集/排序规则 + 各表的排序规则（隐含字符集）
+
+	// Read current schema defaults
+	var schemaCharset, schemaCollation string
+	err := db.Raw("SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()").Row().Scan(&schemaCharset, &schemaCollation)
+	if err != nil {
+		return fmt.Errorf("读取当前库默认字符集/排序规则失败 / Failed to read schema default charset/collation: %v", err)
+	}
+
+	toLower := func(s string) string { return strings.ToLower(s) }
+	// Allowed charsets that can store Chinese text
+	allowedCharsets := map[string]string{
+		"utf8mb4": "utf8mb4_",
+		"utf8":    "utf8_",
+		"gbk":     "gbk_",
+		"big5":    "big5_",
+		"gb18030": "gb18030_",
+	}
+	isChineseCapable := func(cs, cl string) bool {
+		csLower := toLower(cs)
+		clLower := toLower(cl)
+		if prefix, ok := allowedCharsets[csLower]; ok {
+			if clLower == "" {
+				return true
+			}
+			return strings.HasPrefix(clLower, prefix)
+		}
+		// 如果仅提供了排序规则，尝试按排序规则前缀判断
+		for _, prefix := range allowedCharsets {
+			if strings.HasPrefix(clLower, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 1) 当前库默认值必须支持中文
+	if !isChineseCapable(schemaCharset, schemaCollation) {
+		return fmt.Errorf("当前库默认字符集/排序规则不支持中文：schema(%s/%s)。请将库设置为 utf8mb4/utf8/gbk/big5/gb18030 / Schema default charset/collation is not Chinese-capable: schema(%s/%s). Please set to utf8mb4/utf8/gbk/big5/gb18030",
+			schemaCharset, schemaCollation, schemaCharset, schemaCollation)
+	}
+
+	// 2) 所有物理表的排序规则（隐含字符集）必须支持中文
+	type tableInfo struct {
+		Name      string
+		Collation *string
+	}
+	var tables []tableInfo
+	if err := db.Raw("SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'").Scan(&tables).Error; err != nil {
+		return fmt.Errorf("读取表排序规则失败 / Failed to read table collations: %v", err)
+	}
+
+	var badTables []string
+	for _, t := range tables {
+		// NULL 或空表示继承库默认设置，已在上面校验库默认，视为通过
+		if t.Collation == nil || *t.Collation == "" {
+			continue
+		}
+		cl := *t.Collation
+		// 仅凭排序规则判断是否中文可用
+		ok := false
+		lower := strings.ToLower(cl)
+		for _, prefix := range allowedCharsets {
+			if strings.HasPrefix(lower, prefix) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			badTables = append(badTables, fmt.Sprintf("%s(%s)", t.Name, cl))
+		}
+	}
+
+	if len(badTables) > 0 {
+		// 限制输出数量以避免日志过长
+		maxShow := 20
+		shown := badTables
+		if len(shown) > maxShow {
+			shown = shown[:maxShow]
+		}
+		return fmt.Errorf(
+			"存在不支持中文的表，请修复其排序规则/字符集。示例（最多展示 %d 项）：%v / Found tables not Chinese-capable. Please fix their collation/charset. Examples (showing up to %d): %v",
+			maxShow, shown, maxShow, shown,
+		)
+	}
+	return nil
 }
 
 var (

@@ -17,115 +17,121 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-/*
-  统一计算模型筛选后的各种集合与动态计数，供多个组件复用
-*/
 import { useMemo } from 'react';
 
+// 工具函数：将 tags 字符串转为小写去重数组
+const normalizeTags = (tags = '') =>
+  tags
+    .toLowerCase()
+    .split(/[,;|\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+/**
+ * 统一计算模型筛选后的各种集合与动态计数，供多个组件复用
+ */
 export const usePricingFilterCounts = ({
   models = [],
   filterGroup = 'all',
   filterQuotaType = 'all',
   filterEndpointType = 'all',
   filterVendor = 'all',
+  filterTag = 'all',
   searchValue = '',
 }) => {
-  // 所有模型（不再需要分类过滤）
+  // 均使用同一份模型列表，避免创建新引用
   const allModels = models;
 
-  // 针对计费类型按钮计数
-  const quotaTypeModels = useMemo(() => {
-    let result = allModels;
-    if (filterGroup !== 'all') {
-      result = result.filter(m => m.enable_groups && m.enable_groups.includes(filterGroup));
+  /**
+   * 通用过滤函数
+   * @param {Object} model
+   * @param {Array<string>} ignore 需要忽略的过滤条件 key
+   * @returns {boolean}
+   */
+  const matchesFilters = (model, ignore = []) => {
+    // 分组
+    if (!ignore.includes('group') && filterGroup !== 'all') {
+      if (!model.enable_groups || !model.enable_groups.includes(filterGroup)) return false;
     }
-    if (filterEndpointType !== 'all') {
-      result = result.filter(m =>
-        m.supported_endpoint_types && m.supported_endpoint_types.includes(filterEndpointType)
-      );
+
+    // 计费类型
+    if (!ignore.includes('quota') && filterQuotaType !== 'all') {
+      if (model.quota_type !== filterQuotaType) return false;
     }
-    if (filterVendor !== 'all') {
+
+    // 端点类型
+    if (!ignore.includes('endpoint') && filterEndpointType !== 'all') {
+      if (
+        !model.supported_endpoint_types ||
+        !model.supported_endpoint_types.includes(filterEndpointType)
+      )
+        return false;
+    }
+
+    // 供应商
+    if (!ignore.includes('vendor') && filterVendor !== 'all') {
       if (filterVendor === 'unknown') {
-        result = result.filter(m => !m.vendor_name);
-      } else {
-        result = result.filter(m => m.vendor_name === filterVendor);
+        if (model.vendor_name) return false;
+      } else if (model.vendor_name !== filterVendor) {
+        return false;
       }
     }
-    return result;
-  }, [allModels, filterGroup, filterEndpointType, filterVendor]);
 
-  // 针对端点类型按钮计数
-  const endpointTypeModels = useMemo(() => {
-    let result = allModels;
-    if (filterGroup !== 'all') {
-      result = result.filter(m => m.enable_groups && m.enable_groups.includes(filterGroup));
+    // 标签
+    if (!ignore.includes('tag') && filterTag !== 'all') {
+      const tagsArr = normalizeTags(model.tags);
+      if (!tagsArr.includes(filterTag.toLowerCase())) return false;
     }
-    if (filterQuotaType !== 'all') {
-      result = result.filter(m => m.quota_type === filterQuotaType);
-    }
-    if (filterVendor !== 'all') {
-      if (filterVendor === 'unknown') {
-        result = result.filter(m => !m.vendor_name);
-      } else {
-        result = result.filter(m => m.vendor_name === filterVendor);
-      }
-    }
-    return result;
-  }, [allModels, filterGroup, filterQuotaType, filterVendor]);
 
-  // === 可用令牌分组计数模型（排除 group 过滤，保留其余过滤） ===
-  const groupCountModels = useMemo(() => {
-    let result = allModels;
-
-    // 不应用 filterGroup 本身
-    if (filterQuotaType !== 'all') {
-      result = result.filter(m => m.quota_type === filterQuotaType);
-    }
-    if (filterEndpointType !== 'all') {
-      result = result.filter(m =>
-        m.supported_endpoint_types && m.supported_endpoint_types.includes(filterEndpointType)
-      );
-    }
-    if (filterVendor !== 'all') {
-      if (filterVendor === 'unknown') {
-        result = result.filter(m => !m.vendor_name);
-      } else {
-        result = result.filter(m => m.vendor_name === filterVendor);
-      }
-    }
-    if (searchValue && searchValue.length > 0) {
+    // 搜索
+    if (!ignore.includes('search') && searchValue) {
       const term = searchValue.toLowerCase();
-      result = result.filter(m =>
-        m.model_name.toLowerCase().includes(term) ||
-        (m.description && m.description.toLowerCase().includes(term)) ||
-        (m.tags && m.tags.toLowerCase().includes(term)) ||
-        (m.vendor_name && m.vendor_name.toLowerCase().includes(term))
-      );
+      const tags = model.tags ? model.tags.toLowerCase() : '';
+      if (
+        !(
+          model.model_name.toLowerCase().includes(term) ||
+          (model.description && model.description.toLowerCase().includes(term)) ||
+          tags.includes(term) ||
+          (model.vendor_name && model.vendor_name.toLowerCase().includes(term))
+        )
+      )
+        return false;
     }
-    return result;
-  }, [allModels, filterQuotaType, filterEndpointType, filterVendor, searchValue]);
 
-  // 针对供应商按钮计数
-  const vendorModels = useMemo(() => {
-    let result = allModels;
-    if (filterGroup !== 'all') {
-      result = result.filter(m => m.enable_groups && m.enable_groups.includes(filterGroup));
-    }
-    if (filterQuotaType !== 'all') {
-      result = result.filter(m => m.quota_type === filterQuotaType);
-    }
-    if (filterEndpointType !== 'all') {
-      result = result.filter(m =>
-        m.supported_endpoint_types && m.supported_endpoint_types.includes(filterEndpointType)
-      );
-    }
-    return result;
-  }, [allModels, filterGroup, filterQuotaType, filterEndpointType]);
+    return true;
+  };
+
+  // 生成不同视图所需的模型集合
+  const quotaTypeModels = useMemo(
+    () => allModels.filter((m) => matchesFilters(m, ['quota'])),
+    [allModels, filterGroup, filterEndpointType, filterVendor, filterTag, searchValue]
+  );
+
+  const endpointTypeModels = useMemo(
+    () => allModels.filter((m) => matchesFilters(m, ['endpoint'])),
+    [allModels, filterGroup, filterQuotaType, filterVendor, filterTag, searchValue]
+  );
+
+  const vendorModels = useMemo(
+    () => allModels.filter((m) => matchesFilters(m, ['vendor'])),
+    [allModels, filterGroup, filterQuotaType, filterEndpointType, filterTag, searchValue]
+  );
+
+  const tagModels = useMemo(
+    () => allModels.filter((m) => matchesFilters(m, ['tag'])),
+    [allModels, filterGroup, filterQuotaType, filterEndpointType, filterVendor, searchValue]
+  );
+
+  const groupCountModels = useMemo(
+    () => allModels.filter((m) => matchesFilters(m, ['group'])),
+    [allModels, filterQuotaType, filterEndpointType, filterVendor, filterTag, searchValue]
+  );
 
   return {
     quotaTypeModels,
     endpointTypeModels,
     vendorModels,
     groupCountModels,
+    tagModels,
   };
 }; 

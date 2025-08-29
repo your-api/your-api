@@ -60,7 +60,6 @@ export default defineConfig({
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
           'semi-ui': ['@douyinfe/semi-icons', '@douyinfe/semi-ui'],
-          visactor: ['@visactor/react-vchart', '@visactor/vchart'],
           tools: ['axios', 'history', 'marked'],
           'react-components': [
             'react-dropzone',

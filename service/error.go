@@ -88,7 +88,8 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to read response body: %v", err))
 		return
 	}
-	common.CloseResponseBodyGracefully(resp)
+	CloseResponseBodyGracefully(resp)
+	var errResponse dto.GeneralErrorResponse
 
 	// 记录原始响应 - 使用 SysError 确保输出
 	common.SysError(fmt.Sprintf("[RelayErrorHandler] Status Code: %d, Response Body: %s", resp.StatusCode, string(responseBody)))

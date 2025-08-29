@@ -59,15 +59,22 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		return nil, errors.New("not supported model for image generation")
 	}
 
-	// convert size to aspect ratio
+	// convert size to aspect ratio but allow user to specify aspect ratio
 	aspectRatio := "1:1" // default aspect ratio
-	switch request.Size {
-	case "1024x1024":
-		aspectRatio = "1:1"
-	case "1024x1792":
-		aspectRatio = "9:16"
-	case "1792x1024":
-		aspectRatio = "16:9"
+	size := strings.TrimSpace(request.Size)
+	if size != "" {
+		if strings.Contains(size, ":") {
+			aspectRatio = size
+		} else {
+			switch size {
+			case "1024x1024":
+				aspectRatio = "1:1"
+			case "1024x1792":
+				aspectRatio = "9:16"
+			case "1792x1024":
+				aspectRatio = "16:9"
+			}
+		}
 	}
 
 	// build gemini imagen request
@@ -78,7 +85,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			},
 		},
 		Parameters: dto.GeminiImageParameters{
-			SampleCount:      request.N,
+			SampleCount:      int(request.N),
 			AspectRatio:      aspectRatio,
 			PersonGeneration: "allow_adult", // default allow adult
 		},
@@ -108,13 +115,17 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	version := model_setting.GetGeminiVersionSetting(info.UpstreamModelName)
 
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {
-		return fmt.Sprintf("%s/%s/models/%s:predict", info.BaseUrl, version, info.UpstreamModelName), nil
+		return fmt.Sprintf("%s/%s/models/%s:predict", info.ChannelBaseUrl, version, info.UpstreamModelName), nil
 	}
 
 	if strings.HasPrefix(info.UpstreamModelName, "text-embedding") ||
 		strings.HasPrefix(info.UpstreamModelName, "embedding") ||
 		strings.HasPrefix(info.UpstreamModelName, "gemini-embedding") {
-		return fmt.Sprintf("%s/%s/models/%s:embedContent", info.BaseUrl, version, info.UpstreamModelName), nil
+		action := "embedContent"
+		if info.IsGeminiBatchEmbedding {
+			action = "batchEmbedContents"
+		}
+		return fmt.Sprintf("%s/%s/models/%s:%s", info.ChannelBaseUrl, version, info.UpstreamModelName, action), nil
 	}
 
 	action := "generateContent"
@@ -124,7 +135,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			info.DisablePing = true
 		}
 	}
-	return fmt.Sprintf("%s/%s/models/%s:%s", info.BaseUrl, version, info.UpstreamModelName, action), nil
+	return fmt.Sprintf("%s/%s/models/%s:%s", info.ChannelBaseUrl, version, info.UpstreamModelName, action), nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
@@ -138,7 +149,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return nil, errors.New("request is nil")
 	}
 
-	geminiRequest, err := CovertGemini2OpenAI(*request, info)
+	geminiRequest, err := CovertGemini2OpenAI(c, *request, info)
 	if err != nil {
 		return nil, err
 	}
@@ -159,29 +170,38 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	if len(inputs) == 0 {
 		return nil, errors.New("input is empty")
 	}
-
-	// only process the first input
-	geminiRequest := dto.GeminiEmbeddingRequest{
-		Content: dto.GeminiChatContent{
-			Parts: []dto.GeminiPart{
-				{
-					Text: inputs[0],
+	// We always build a batch-style payload with `requests`, so ensure we call the
+	// batch endpoint upstream to avoid payload/endpoint mismatches.
+	info.IsGeminiBatchEmbedding = true
+	// process all inputs
+	geminiRequests := make([]map[string]interface{}, 0, len(inputs))
+	for _, input := range inputs {
+		geminiRequest := map[string]interface{}{
+			"model": fmt.Sprintf("models/%s", info.UpstreamModelName),
+			"content": dto.GeminiChatContent{
+				Parts: []dto.GeminiPart{
+					{
+						Text: input,
+					},
 				},
 			},
-		},
-	}
-
-	// set specific parameters for different models
-	// https://ai.google.dev/api/embeddings?hl=zh-cn#method:-models.embedcontent
-	switch info.UpstreamModelName {
-	case "text-embedding-004":
-		// except embedding-001 supports setting `OutputDimensionality`
-		if request.Dimensions > 0 {
-			geminiRequest.OutputDimensionality = request.Dimensions
 		}
+
+		// set specific parameters for different models
+		// https://ai.google.dev/api/embeddings?hl=zh-cn#method:-models.embedcontent
+		switch info.UpstreamModelName {
+		case "text-embedding-004", "gemini-embedding-exp-03-07", "gemini-embedding-001":
+			// Only newer models introduced after 2024 support OutputDimensionality
+			if request.Dimensions > 0 {
+				geminiRequest["outputDimensionality"] = request.Dimensions
+			}
+		}
+		geminiRequests = append(geminiRequests, geminiRequest)
 	}
 
-	return geminiRequest, nil
+	return map[string]interface{}{
+		"requests": geminiRequests,
+	}, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -195,6 +215,10 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	if info.RelayMode == constant.RelayModeGemini {
+		if strings.HasSuffix(info.RequestURLPath, ":embedContent") ||
+			strings.HasSuffix(info.RequestURLPath, ":batchEmbedContents") {
+			return NativeGeminiEmbeddingHandler(c, resp, info)
+		}
 		if info.IsStream {
 			return GeminiTextGenerationStreamHandler(c, info, resp)
 		} else {
@@ -219,18 +243,6 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		return GeminiChatHandler(c, info, resp)
 	}
 
-	//if usage.(*dto.Usage).CompletionTokenDetails.ReasoningTokens > 100 {
-	//	// 没有请求-thinking的情况下，产生思考token，则按照思考模型计费
-	//	if !strings.HasSuffix(info.OriginModelName, "-thinking") &&
-	//		!strings.HasSuffix(info.OriginModelName, "-nothinking") {
-	//		thinkingModelName := info.OriginModelName + "-thinking"
-	//		if operation_setting.SelfUseModeEnabled || helper.ContainPriceOrRatio(thinkingModelName) {
-	//			info.OriginModelName = thinkingModelName
-	//		}
-	//	}
-	//}
-
-	return nil, types.NewError(errors.New("not implemented"), types.ErrorCodeBadResponseBody)
 }
 
 func (a *Adaptor) GetModelList() []string {

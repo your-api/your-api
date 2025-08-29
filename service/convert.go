@@ -248,9 +248,10 @@ func StreamResponseOpenAI2Claude(openAIResponse *dto.ChatCompletionsStreamRespon
 				},
 			})
 			claudeResponses = append(claudeResponses, &dto.ClaudeResponse{
-				Type: "content_block_delta",
+				Index: &info.ClaudeConvertInfo.Index,
+				Type:  "content_block_delta",
 				Delta: &dto.ClaudeMediaMessage{
-					Type: "text",
+					Type: "text_delta",
 					Text: common.GetPointer[string](openAIResponse.Choices[0].Delta.GetContentString()),
 				},
 			})
@@ -569,9 +570,9 @@ func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycomm
 	}
 
 	// 转换工具调用
-	if len(geminiRequest.Tools) > 0 {
+	if len(geminiRequest.GetTools()) > 0 {
 		var tools []dto.ToolCallRequest
-		for _, tool := range geminiRequest.Tools {
+		for _, tool := range geminiRequest.GetTools() {
 			if tool.FunctionDeclarations != nil {
 				// 将 Gemini 的 FunctionDeclarations 转换为 OpenAI 的 ToolCallRequest
 				functionDeclarations, ok := tool.FunctionDeclarations.([]dto.FunctionRequest)

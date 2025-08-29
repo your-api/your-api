@@ -18,14 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import CardPro from '../../common/ui/CardPro.js';
-import LogsTable from './UsageLogsTable.jsx';
-import LogsActions from './UsageLogsActions.jsx';
-import LogsFilters from './UsageLogsFilters.jsx';
-import ColumnSelectorModal from './modals/ColumnSelectorModal.jsx';
-import UserInfoModal from './modals/UserInfoModal.jsx';
-import { useLogsData } from '../../../hooks/usage-logs/useUsageLogsData.js';
-import { useIsMobile } from '../../../hooks/common/useIsMobile.js';
+import CardPro from '../../common/ui/CardPro';
+import LogsTable from './UsageLogsTable';
+import LogsActions from './UsageLogsActions';
+import LogsFilters from './UsageLogsFilters';
+import ColumnSelectorModal from './modals/ColumnSelectorModal';
+import UserInfoModal from './modals/UserInfoModal';
+import { useLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
+import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const LogsPage = () => {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
+	"one-api/logger"
 	relaycommon "one-api/relay/common"
 	"one-api/setting/operation_setting"
 	"strings"
@@ -38,16 +39,8 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		}
 	}()
 
+
 	streamingTimeout := time.Duration(constant.StreamingTimeout) * time.Second
-	if strings.HasPrefix(info.UpstreamModelName, "o1") {
-		streamingTimeout *= 3
-	} else if strings.HasPrefix(info.UpstreamModelName, "o") {
-		streamingTimeout *= 2
-	} else if strings.Contains(strings.ToLower(info.UpstreamModelName), "thinking") ||
-		strings.Contains(strings.ToLower(info.UpstreamModelName), "reason") ||
-		strings.Contains(strings.ToLower(info.UpstreamModelName), "qwen-2.5-72b-instruct") {
-		streamingTimeout *= 2
-	}
 
 	var (
 		stopChan   = make(chan bool, 3) // 增加缓冲区避免阻塞
@@ -96,7 +89,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):
-			common.LogError(c, "timeout waiting for goroutines to exit")
+			logger.LogError(c, "timeout waiting for goroutines to exit")
 		}
 
 		close(stopChan)
@@ -118,7 +111,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			defer func() {
 				wg.Done()
 				if r := recover(); r != nil {
-					common.LogError(c, fmt.Sprintf("ping goroutine panic: %v", r))
+					logger.LogError(c, fmt.Sprintf("ping goroutine panic: %v", r))
 					common.SafeSendBool(stopChan, true)
 				}
 				if common.DebugEnabled {
@@ -145,14 +138,14 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 					select {
 					case err := <-done:
 						if err != nil {
-							common.LogError(c, "ping data error: "+err.Error())
+							logger.LogError(c, "ping data error: "+err.Error())
 							return
 						}
 						if common.DebugEnabled {
 							println("ping data sent")
 						}
 					case <-time.After(10 * time.Second):
-						common.LogError(c, "ping data send timeout")
+						logger.LogError(c, "ping data send timeout")
 						return
 					case <-ctx.Done():
 						return
@@ -168,7 +161,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 					c.Set("client_disconnected", true)
 					return
 				case <-pingTimeout.C:
-					common.LogError(c, "ping goroutine max duration reached")
+					logger.LogError(c, "ping goroutine max duration reached")
 					return
 				}
 			}
@@ -181,7 +174,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		defer func() {
 			wg.Done()
 			if r := recover(); r != nil {
-				common.LogError(c, fmt.Sprintf("scanner goroutine panic: %v", r))
+				logger.LogError(c, fmt.Sprintf("scanner goroutine panic: %v", r))
 			}
 			common.SafeSendBool(stopChan, true)
 			if common.DebugEnabled {
@@ -234,7 +227,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 						return
 					}
 				case <-time.After(10 * time.Second):
-					common.LogError(c, "data handler timeout")
+					logger.LogError(c, "data handler timeout")
 					return
 				case <-ctx.Done():
 					return
@@ -252,7 +245,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 
 		if err := scanner.Err(); err != nil {
 			if err != io.EOF {
-				common.LogError(c, "scanner error: "+err.Error())
+				logger.LogError(c, "scanner error: "+err.Error())
 			}
 		}
 	})
@@ -261,14 +254,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	select {
 	case <-ticker.C:
 		// 超时处理逻辑
-		common.LogError(c, "streaming timeout")
+		logger.LogError(c, "streaming timeout")
 	case <-stopChan:
 		// 正常结束
-		common.LogInfo(c, "streaming finished")
+		logger.LogInfo(c, "streaming finished")
 	case <-c.Request.Context().Done():
 		// 客户端断开连接
-		c.Set("client_disconnected", true)
-		common.LogInfo(c, "client disconnected")
+		logger.LogInfo(c, "client disconnected")
 	}
 }
 
@@ -336,7 +328,7 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 					err := PingData(c)
 					writeMutex.Unlock() // Unlock after writing
 					if err != nil {
-						common.LogError(c, "ping data error: "+err.Error())
+						logger.LogError(c, "ping data error: "+err.Error())
 						common.SafeSendBool(stopChan, true)
 						return
 					}
@@ -395,7 +387,7 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 
 		if err := scanner.Err(); err != nil {
 			if err != io.EOF {
-				common.LogError(c, "scanner error: "+err.Error())
+				logger.LogError(c, "scanner error: "+err.Error())
 			}
 		}
 
@@ -405,10 +397,10 @@ func StreamScannerHandlerWithDoneCallback(c *gin.Context, resp *http.Response, i
 	select {
 	case <-ticker.C:
 		// 超时处理逻辑
-		common.LogError(c, "streaming timeout")
+		logger.LogError(c, "streaming timeout")
 		common.SafeSendBool(stopChan, true)
 	case <-stopChan:
 		// 正常结束
-		common.LogInfo(c, "streaming finished")
+		logger.LogInfo(c, "streaming finished")
 	}
 }

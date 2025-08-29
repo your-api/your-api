@@ -54,7 +54,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if strings.HasPrefix(info.UpstreamModelName, "m3e") {
 		suffix = "embeddings"
 	}
-	fullRequestURL := fmt.Sprintf("%s/%s", info.BaseUrl, suffix)
+	fullRequestURL := fmt.Sprintf("%s/%s", info.ChannelBaseUrl, suffix)
 	return fullRequestURL, nil
 }
 

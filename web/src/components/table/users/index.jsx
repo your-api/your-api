@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import CardPro from '../../common/ui/CardPro';
-import UsersTable from './UsersTable.jsx';
-import UsersActions from './UsersActions.jsx';
-import UsersFilters from './UsersFilters.jsx';
-import UsersDescription from './UsersDescription.jsx';
-import AddUserModal from './modals/AddUserModal.jsx';
-import EditUserModal from './modals/EditUserModal.jsx';
+import UsersTable from './UsersTable';
+import UsersActions from './UsersActions';
+import UsersFilters from './UsersFilters';
+import UsersDescription from './UsersDescription';
+import AddUserModal from './modals/AddUserModal';
+import EditUserModal from './modals/EditUserModal';
 import { useUsersData } from '../../../hooks/users/useUsersData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';

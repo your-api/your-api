@@ -19,8 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useContext, useEffect } from 'react';
 import { getRelativeTime } from '../../helpers';
-import { UserContext } from '../../context/User/index.js';
-import { StatusContext } from '../../context/Status/index.js';
+import { UserContext } from '../../context/User';
+import { StatusContext } from '../../context/Status';
 
 import DashboardHeader from './DashboardHeader';
 import StatsCards from './StatsCards';
@@ -108,10 +108,18 @@ const Dashboard = () => {
 
   // ========== 数据准备 ==========
   const apiInfoData = statusState?.status?.api_info || [];
-  const announcementData = (statusState?.status?.announcements || []).map(item => ({
-    ...item,
-    time: getRelativeTime(item.publishDate)
-  }));
+  const announcementData = (statusState?.status?.announcements || []).map(item => {
+    const pubDate = item?.publishDate ? new Date(item.publishDate) : null;
+    const absoluteTime = pubDate && !isNaN(pubDate.getTime())
+      ? `${pubDate.getFullYear()}-${String(pubDate.getMonth() + 1).padStart(2, '0')}-${String(pubDate.getDate()).padStart(2, '0')} ${String(pubDate.getHours()).padStart(2, '0')}:${String(pubDate.getMinutes()).padStart(2, '0')}`
+      : (item?.publishDate || '');
+    const relativeTime = getRelativeTime(item.publishDate);
+    return ({
+      ...item,
+      time: absoluteTime,
+      relative: relativeTime
+    });
+  });
   const faqData = statusState?.status?.faq || [];
 
   const uptimeLegendData = Object.entries(UPTIME_STATUS_MAP).map(([status, info]) => ({

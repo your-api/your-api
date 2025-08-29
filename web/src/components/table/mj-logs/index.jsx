@@ -19,14 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Layout } from '@douyinfe/semi-ui';
-import CardPro from '../../common/ui/CardPro.js';
-import MjLogsTable from './MjLogsTable.jsx';
-import MjLogsActions from './MjLogsActions.jsx';
-import MjLogsFilters from './MjLogsFilters.jsx';
-import ColumnSelectorModal from './modals/ColumnSelectorModal.jsx';
-import ContentModal from './modals/ContentModal.jsx';
-import { useMjLogsData } from '../../../hooks/mj-logs/useMjLogsData.js';
-import { useIsMobile } from '../../../hooks/common/useIsMobile.js';
+import CardPro from '../../common/ui/CardPro';
+import MjLogsTable from './MjLogsTable';
+import MjLogsActions from './MjLogsActions';
+import MjLogsFilters from './MjLogsFilters';
+import ColumnSelectorModal from './modals/ColumnSelectorModal';
+import ContentModal from './modals/ContentModal';
+import { useMjLogsData } from '../../../hooks/mj-logs/useMjLogsData';
+import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const MjLogsPage = () => {

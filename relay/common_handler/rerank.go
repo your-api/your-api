@@ -8,6 +8,7 @@ import (
 	"one-api/dto"
 	"one-api/relay/channel/xinference"
 	relaycommon "one-api/relay/common"
+	"one-api/service"
 	"one-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ func RerankHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
-	common.CloseResponseBodyGracefully(resp)
+	service.CloseResponseBodyGracefully(resp)
 	if common.DebugEnabled {
 		println("reranker response body: ", string(responseBody))
 	}

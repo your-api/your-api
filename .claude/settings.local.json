@@ -55,7 +55,10 @@
       "Bash(./test_local_ws.sh:*)",
       "Bash(./test_ws_simple.sh:*)",
       "Bash(./test_nginx_ws.sh:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git diff:*)",
+      "Bash(do)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

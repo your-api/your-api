@@ -1,5 +1,24 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useState, useEffect } from 'react';
-import { useIsMobile } from '../../../../hooks/common/useIsMobile.js';
+import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import { Modal, Checkbox, Spin, Input, Typography, Empty, Tabs, Collapse } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
@@ -135,7 +154,7 @@ const ModelSelectModal = ({ visible, models = [], selected = [], onConfirm, onCa
     const allActiveKeys = categoryEntries.map((_, index) => `${categoryKeyPrefix}_${index}`);
 
     return (
-      <Collapse activeKey={allActiveKeys}>
+      <Collapse key={`${categoryKeyPrefix}_${categoryEntries.length}`} defaultActiveKey={[]}>
         {categoryEntries.map(([key, categoryData], index) => (
           <Collapse.Panel
             key={`${categoryKeyPrefix}_${index}`}

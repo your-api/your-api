@@ -193,7 +193,7 @@ func CountMessageTokens(c *gin.Context) {
 	}
 
 	// Log token counting request (optional)
-	common.LogInfo(c, fmt.Sprintf("Token count for model %s: %d tokens", tokenCountReq.Model, tokenCountResp.InputTokenCount))
+	logger.LogInfo(c, fmt.Sprintf("Token count for model %s: %d tokens", tokenCountReq.Model, tokenCountResp.InputTokenCount))
 
 	// Return response
 	c.JSON(http.StatusOK, tokenCountResp)

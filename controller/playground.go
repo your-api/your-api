@@ -56,5 +56,5 @@ func Playground(c *gin.Context) {
 	//middleware.SetupContextForSelectedChannel(c, channel, playgroundRequest.Model)
 	common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
 
-	Relay(c)
+	Relay(c, types.RelayFormatOpenAI)
 }

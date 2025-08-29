@@ -2,6 +2,7 @@ package volcengine
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -188,17 +189,17 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	switch info.RelayMode {
 	case constant.RelayModeChatCompletions:
 		if strings.HasPrefix(info.UpstreamModelName, "bot") {
-			return fmt.Sprintf("%s/api/v3/bots/chat/completions", info.BaseUrl), nil
+			return fmt.Sprintf("%s/api/v3/bots/chat/completions", info.ChannelBaseUrl), nil
 		}
-		return fmt.Sprintf("%s/api/v3/chat/completions", info.BaseUrl), nil
+		return fmt.Sprintf("%s/api/v3/chat/completions", info.ChannelBaseUrl), nil
 	case constant.RelayModeEmbeddings:
-		return fmt.Sprintf("%s/api/v3/embeddings", info.BaseUrl), nil
+		return fmt.Sprintf("%s/api/v3/embeddings", info.ChannelBaseUrl), nil
 	case constant.RelayModeImagesGenerations:
-		return fmt.Sprintf("%s/api/v3/images/generations", info.BaseUrl), nil
+		return fmt.Sprintf("%s/api/v3/images/generations", info.ChannelBaseUrl), nil
 	case constant.RelayModeImagesEdits:
-		return fmt.Sprintf("%s/api/v3/images/edits", info.BaseUrl), nil
+		return fmt.Sprintf("%s/api/v3/images/edits", info.ChannelBaseUrl), nil
 	case constant.RelayModeRerank:
-		return fmt.Sprintf("%s/api/v3/rerank", info.BaseUrl), nil
+		return fmt.Sprintf("%s/api/v3/rerank", info.ChannelBaseUrl), nil
 	default:
 	}
 	return "", fmt.Errorf("unsupported relay mode: %d", info.RelayMode)
@@ -213,6 +214,12 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
 	if request == nil {
 		return nil, errors.New("request is nil")
+	}
+	// 适配 方舟deepseek混合模型 的 thinking 后缀
+	if strings.HasSuffix(info.UpstreamModelName, "-thinking") && strings.HasPrefix(info.UpstreamModelName, "deepseek") {
+		info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
+		request.Model = info.UpstreamModelName
+		request.THINKING = json.RawMessage(`{"type": "enabled"}`)
 	}
 	return request, nil
 }

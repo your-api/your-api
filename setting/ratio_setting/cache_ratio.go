@@ -89,7 +89,7 @@ func CacheRatio2JSONString() string {
 	defer cacheRatioMapMutex.RUnlock()
 	jsonBytes, err := json.Marshal(cacheRatioMap)
 	if err != nil {
-		common.SysError("error marshalling cache ratio: " + err.Error())
+		common.SysLog("error marshalling cache ratio: " + err.Error())
 	}
 	return string(jsonBytes)
 }

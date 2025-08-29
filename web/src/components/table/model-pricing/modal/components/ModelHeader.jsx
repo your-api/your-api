@@ -29,9 +29,19 @@ const CARD_STYLES = {
 };
 
 const ModelHeader = ({ modelData, vendorsMap = {}, t }) => {
-  // 获取模型图标（使用供应商图标）
+  // 获取模型图标（优先模型图标，其次供应商图标）
   const getModelIcon = () => {
-    // 优先使用供应商图标
+    // 1) 优先使用模型自定义图标
+    if (modelData?.icon) {
+      return (
+        <div className={CARD_STYLES.container}>
+          <div className={CARD_STYLES.icon}>
+            {getLobeHubIcon(modelData.icon, 32)}
+          </div>
+        </div>
+      );
+    }
+    // 2) 退化为供应商图标
     if (modelData?.vendor_icon) {
       return (
         <div className={CARD_STYLES.container}>

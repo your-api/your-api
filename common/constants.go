@@ -69,6 +69,7 @@ var EmailLoginAuthServerList = []string{
 
 var DebugEnabled bool
 var MemoryCacheEnabled bool
+var LoggingEnabled bool
 
 var LogConsumeEnabled = true
 
@@ -83,6 +84,7 @@ var GitHubClientId = ""
 var GitHubClientSecret = ""
 var LinuxDOClientId = ""
 var LinuxDOClientSecret = ""
+var LinuxDOMinimumTrustLevel = 0
 
 var WeChatServerAddress = ""
 var WeChatServerToken = ""

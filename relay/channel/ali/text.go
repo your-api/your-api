@@ -8,6 +8,7 @@ import (
 	"one-api/common"
 	"one-api/dto"
 	"one-api/relay/helper"
+	"one-api/service"
 	"strings"
 
 	"one-api/types"
@@ -46,7 +47,7 @@ func aliEmbeddingHandler(c *gin.Context, resp *http.Response) (*types.NewAPIErro
 		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError), nil
 	}
 
-	common.CloseResponseBodyGracefully(resp)
+	service.CloseResponseBodyGracefully(resp)
 
 	model := c.GetString("model")
 	if model == "" {
@@ -148,7 +149,7 @@ func aliStreamHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, 
 			var aliResponse AliResponse
 			err := json.Unmarshal([]byte(data), &aliResponse)
 			if err != nil {
-				common.SysError("error unmarshalling stream response: " + err.Error())
+				common.SysLog("error unmarshalling stream response: " + err.Error())
 				return true
 			}
 			if aliResponse.Usage.OutputTokens != 0 {
@@ -161,7 +162,7 @@ func aliStreamHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, 
 			lastResponseText = aliResponse.Output.Text
 			jsonResponse, err := json.Marshal(response)
 			if err != nil {
-				common.SysError("error marshalling stream response: " + err.Error())
+				common.SysLog("error marshalling stream response: " + err.Error())
 				return true
 			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})
@@ -171,7 +172,7 @@ func aliStreamHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, 
 			return false
 		}
 	})
-	common.CloseResponseBodyGracefully(resp)
+	service.CloseResponseBodyGracefully(resp)
 	return nil, &usage
 }
 
@@ -181,7 +182,7 @@ func aliHandler(c *gin.Context, resp *http.Response) (*types.NewAPIError, *dto.U
 	if err != nil {
 		return types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError), nil
 	}
-	common.CloseResponseBodyGracefully(resp)
+	service.CloseResponseBodyGracefully(resp)
 	err = json.Unmarshal(responseBody, &aliResponse)
 	if err != nil {
 		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError), nil

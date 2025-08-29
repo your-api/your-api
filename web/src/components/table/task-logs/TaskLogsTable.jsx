@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import { Empty } from '@douyinfe/semi-ui';
-import CardTable from '../../common/ui/CardTable.js';
+import CardTable from '../../common/ui/CardTable';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
-import { getTaskLogsColumns } from './TaskLogsColumnDefs.js';
+import { getTaskLogsColumns } from './TaskLogsColumnDefs';
 
 const TaskLogsTable = (taskLogsData) => {
   const {
@@ -39,6 +39,7 @@ const TaskLogsTable = (taskLogsData) => {
     handlePageSizeChange,
     copyText,
     openContentModal,
+    openVideoModal,
     isAdminUser,
     t,
     COLUMN_KEYS,
@@ -51,6 +52,7 @@ const TaskLogsTable = (taskLogsData) => {
       COLUMN_KEYS,
       copyText,
       openContentModal,
+      openVideoModal,
       isAdminUser,
     });
   }, [
@@ -58,6 +60,7 @@ const TaskLogsTable = (taskLogsData) => {
     COLUMN_KEYS,
     copyText,
     openContentModal,
+    openVideoModal,
     isAdminUser,
   ]);
 

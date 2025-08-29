@@ -61,13 +61,13 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	switch a.BotType {
 	case BotTypeWorkFlow:
-		return fmt.Sprintf("%s/v1/workflows/run", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/workflows/run", info.ChannelBaseUrl), nil
 	case BotTypeCompletion:
-		return fmt.Sprintf("%s/v1/completion-messages", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/completion-messages", info.ChannelBaseUrl), nil
 	case BotTypeAgent:
 		fallthrough
 	default:
-		return fmt.Sprintf("%s/v1/chat-messages", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/chat-messages", info.ChannelBaseUrl), nil
 	}
 }
 

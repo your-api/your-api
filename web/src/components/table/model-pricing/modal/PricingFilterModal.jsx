@@ -40,6 +40,7 @@ const PricingFilterModal = ({
       setFilterQuotaType: sidebarProps.setFilterQuotaType,
       setFilterEndpointType: sidebarProps.setFilterEndpointType,
       setFilterVendor: sidebarProps.setFilterVendor,
+      setFilterTag: sidebarProps.setFilterTag,
       setCurrentPage: sidebarProps.setCurrentPage,
       setTokenUnit: sidebarProps.setTokenUnit,
     });

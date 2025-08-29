@@ -18,12 +18,21 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+<<<<<<< HEAD
 import { Card, Avatar, Skeleton } from '@douyinfe/semi-ui';
+=======
+import { Card, Avatar, Skeleton, Tag } from '@douyinfe/semi-ui';
+import { VChart } from '@visactor/react-vchart';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+>>>>>>> alpha
 
 const StatsCards = ({
   groupedStatsData,
   loading
 }) => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
   return (
     <div className="mb-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -67,6 +76,29 @@ const StatsCards = ({
                       </div>
                     </div>
                   </div>
+<<<<<<< HEAD
+=======
+                  {item.title === t('当前余额') ? (
+                    <Tag
+                      color="white"
+                      shape='circle'
+                      size="large"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/console/topup');
+                      }}
+                    >
+                      {t('充值')}
+                    </Tag>
+                  ) : (loading || (item.trendData && item.trendData.length > 0)) && (
+                    <div className="w-24 h-10">
+                      <VChart
+                        spec={getTrendSpec(item.trendData, item.trendColor)}
+                        option={CHART_CONFIG}
+                      />
+                    </div>
+                  )}
+>>>>>>> alpha
                 </div>
               ))}
             </div>

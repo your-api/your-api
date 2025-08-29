@@ -12,7 +12,7 @@ func NotifyRootUser(t string, subject string, content string) {
 	user := model.GetRootUser().ToBaseUser()
 	err := NotifyUser(user.Id, user.Email, user.GetSetting(), dto.NewNotify(t, subject, content, nil))
 	if err != nil {
-		common.SysError(fmt.Sprintf("failed to notify root user: %s", err.Error()))
+		common.SysLog(fmt.Sprintf("failed to notify root user: %s", err.Error()))
 	}
 }
 
@@ -25,7 +25,7 @@ func NotifyUser(userId int, userEmail string, userSetting dto.UserSetting, data 
 	// Check notification limit
 	canSend, err := CheckNotificationLimit(userId, data.Type)
 	if err != nil {
-		common.SysError(fmt.Sprintf("failed to check notification limit: %s", err.Error()))
+		common.SysLog(fmt.Sprintf("failed to check notification limit: %s", err.Error()))
 		return err
 	}
 	if !canSend {
@@ -44,7 +44,7 @@ func NotifyUser(userId int, userEmail string, userSetting dto.UserSetting, data 
 	case dto.NotifyTypeWebhook:
 		webhookURLStr := userSetting.WebhookUrl
 		if webhookURLStr == "" {
-			common.SysError(fmt.Sprintf("user %d has no webhook url, skip sending webhook", userId))
+			common.SysLog(fmt.Sprintf("user %d has no webhook url, skip sending webhook", userId))
 			return nil
 		}
 

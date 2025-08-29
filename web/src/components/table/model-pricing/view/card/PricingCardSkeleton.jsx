@@ -26,7 +26,7 @@ const PricingCardSkeleton = ({
   showRatio = false
 }) => {
   const placeholder = (
-    <div className="p-4">
+    <div className="px-2">
       <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
         {Array.from({ length: skeletonCount }).map((_, index) => (
           <Card
@@ -123,7 +123,7 @@ const PricingCardSkeleton = ({
       </div>
 
       {/* 分页骨架 */}
-      <div className="flex justify-center mt-6 pt-4 border-t pricing-pagination-divider">
+      <div className="flex justify-center mt-6 py-4 border-t pricing-pagination-divider">
         <Skeleton.Button style={{ width: 300, height: 32 }} />
       </div>
     </div>

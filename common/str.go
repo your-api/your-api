@@ -99,12 +99,75 @@ func GetJsonString(data any) string {
 	return string(b)
 }
 
-// MaskSensitiveInfo masks sensitive information like URLs, IPs in a string
+// MaskEmail masks a user email to prevent PII leakage in logs
+// Returns "***masked***" if email is empty, otherwise shows only the domain part
+func MaskEmail(email string) string {
+	if email == "" {
+		return "***masked***"
+	}
+
+	// Find the @ symbol
+	atIndex := strings.Index(email, "@")
+	if atIndex == -1 {
+		// No @ symbol found, return masked
+		return "***masked***"
+	}
+
+	// Return only the domain part with @ symbol
+	return "***@" + email[atIndex+1:]
+}
+
+// maskHostTail returns the tail parts of a domain/host that should be preserved.
+// It keeps 2 parts for likely country-code TLDs (e.g., co.uk, com.cn), otherwise keeps only the TLD.
+func maskHostTail(parts []string) []string {
+	if len(parts) < 2 {
+		return parts
+	}
+	lastPart := parts[len(parts)-1]
+	secondLastPart := parts[len(parts)-2]
+	if len(lastPart) == 2 && len(secondLastPart) <= 3 {
+		// Likely country code TLD like co.uk, com.cn
+		return []string{secondLastPart, lastPart}
+	}
+	return []string{lastPart}
+}
+
+// maskHostForURL collapses subdomains and keeps only masked prefix + preserved tail.
+// Example: api.openai.com -> ***.com, sub.domain.co.uk -> ***.co.uk
+func maskHostForURL(host string) string {
+	parts := strings.Split(host, ".")
+	if len(parts) < 2 {
+		return "***"
+	}
+	tail := maskHostTail(parts)
+	return "***." + strings.Join(tail, ".")
+}
+
+// maskHostForPlainDomain masks a plain domain and reflects subdomain depth with multiple ***.
+// Example: openai.com -> ***.com, api.openai.com -> ***.***.com, sub.domain.co.uk -> ***.***.co.uk
+func maskHostForPlainDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		return domain
+	}
+	tail := maskHostTail(parts)
+	numStars := len(parts) - len(tail)
+	if numStars < 1 {
+		numStars = 1
+	}
+	stars := strings.TrimSuffix(strings.Repeat("***.", numStars), ".")
+	return stars + "." + strings.Join(tail, ".")
+}
+
+// MaskSensitiveInfo masks sensitive information like URLs, IPs, and domain names in a string
 // Example:
 // http://example.com -> http://***.com
 // https://api.test.org/v1/users/123?key=secret -> https://***.org/***/***/?key=***
 // https://sub.domain.co.uk/path/to/resource -> https://***.co.uk/***/***
 // 192.168.1.1 -> ***.***.***.***
+// openai.com -> ***.com
+// www.openai.com -> ***.***.com
+// api.openai.com -> ***.***.com
 func MaskSensitiveInfo(str string) string {
 	// Mask URLs
 	urlPattern := regexp.MustCompile(`(http|https)://[^\s/$.?#].[^\s]*`)
@@ -119,32 +182,8 @@ func MaskSensitiveInfo(str string) string {
 			return urlStr
 		}
 
-		// Split host by dots
-		parts := strings.Split(host, ".")
-		if len(parts) < 2 {
-			// If less than 2 parts, just mask the whole host
-			return u.Scheme + "://***" + u.Path
-		}
-
-		// Keep the TLD (Top Level Domain) and mask the rest
-		var maskedHost string
-		if len(parts) == 2 {
-			// example.com -> ***.com
-			maskedHost = "***." + parts[len(parts)-1]
-		} else {
-			// Handle cases like sub.domain.co.uk or api.example.com
-			// Keep last 2 parts if they look like country code TLD (co.uk, com.cn, etc.)
-			lastPart := parts[len(parts)-1]
-			secondLastPart := parts[len(parts)-2]
-
-			if len(lastPart) == 2 && len(secondLastPart) <= 3 {
-				// Likely country code TLD like co.uk, com.cn
-				maskedHost = "***." + secondLastPart + "." + lastPart
-			} else {
-				// Regular TLD like .com, .org
-				maskedHost = "***." + lastPart
-			}
-		}
+		// Mask host with unified logic
+		maskedHost := maskHostForURL(host)
 
 		result := u.Scheme + "://" + maskedHost
 
@@ -182,6 +221,12 @@ func MaskSensitiveInfo(str string) string {
 		}
 
 		return result
+	})
+
+	// Mask domain names without protocol (like openai.com, www.openai.com)
+	domainPattern := regexp.MustCompile(`\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b`)
+	str = domainPattern.ReplaceAllStringFunc(str, func(domain string) string {
+		return maskHostForPlainDomain(domain)
 	})
 
 	// Mask IP addresses

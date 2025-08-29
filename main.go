@@ -9,6 +9,7 @@ import (
 	"one-api/common"
 	"one-api/constant"
 	"one-api/controller"
+	"one-api/logger"
 	"one-api/middleware"
 	"one-api/model"
 	"one-api/router"
@@ -71,6 +72,8 @@ func main() {
 		common.SysLog("memory cache enabled")
 		if common.DebugEnabled {
 			common.SysDebug(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
+		} else {
+			common.SysLog(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
 		}
 
 		// Add panic recovery and retry for InitChannelCache
@@ -80,16 +83,13 @@ func main() {
 					common.SysError(fmt.Sprintf("InitChannelCache panic: %v, attempting recovery", r))
 					// 尝试清理和恢复
 					time.Sleep(1 * time.Second)
-
-					// 尝试修复数据库中的能力数据
-					//_, _, fixErr := model.FixAbility()
-					//if fixErr != nil {
-					//	common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
-					//} else {
-					//	if common.DebugEnabled {
-					//		common.SysDebug("FixAbility completed successfully during recovery")
-					//	}
-					//}
+					// 从alpha分支获取的修复逻辑作为后备方案
+					_, _, fixErr := model.FixAbility()
+					if fixErr != nil {
+						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
+					} else if common.DebugEnabled {
+						common.SysDebug("FixAbility completed successfully during recovery")
+					}
 				}
 			}()
 
@@ -156,12 +156,21 @@ func main() {
 	// 配置信任的代理IP（Docker网络）
 	server.SetTrustedProxies([]string{"172.0.0.0/8", "10.0.0.0/8", "192.168.0.0/16", "127.0.0.1"})
 
-	// 使用我们的全局panic恢复中间件
+	// 使用我们的全局panic恢复中间件，增强错误提示
 	server.Use(middleware.GlobalPanicRecover())
+	// 作为后备，也添加Gin的自定义恢复
+	server.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+		common.SysLog(fmt.Sprintf("panic detected: %v", err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/Calcium-Ion/new-api", err),
+				"type":    "new_api_panic",
+			},
+		})
+	}))
 
 	// 添加全局CORS中间件，解决跨域问题
 	server.Use(middleware.CORS())
-
 	// This will cause SSE not to work!!!
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
@@ -208,7 +217,7 @@ func InitResources() error {
 	// 加载环境变量
 	common.InitEnv()
 
-	common.SetupLogger()
+	logger.SetupLogger()
 
 	// 在环境变量加载后立即初始化HTTP客户端，确保使用正确的超时配置
 	service.InitHttpClient()

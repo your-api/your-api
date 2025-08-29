@@ -19,10 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import CardPro from '../../common/ui/CardPro';
-import RedemptionsTable from './RedemptionsTable.jsx';
-import RedemptionsActions from './RedemptionsActions.jsx';
-import RedemptionsFilters from './RedemptionsFilters.jsx';
-import RedemptionsDescription from './RedemptionsDescription.jsx';
+import RedemptionsTable from './RedemptionsTable';
+import RedemptionsActions from './RedemptionsActions';
+import RedemptionsFilters from './RedemptionsFilters';
+import RedemptionsDescription from './RedemptionsDescription';
 import EditRedemptionModal from './modals/EditRedemptionModal';
 import { useRedemptionsData } from '../../../hooks/redemptions/useRedemptionsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';

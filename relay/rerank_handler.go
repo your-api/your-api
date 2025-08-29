@@ -16,71 +16,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func getRerankPromptToken(rerankRequest dto.RerankRequest) int {
-	token := service.CountTokenInput(rerankRequest.Query, rerankRequest.Model)
-	for _, document := range rerankRequest.Documents {
-		tkm := service.CountTokenInput(document, rerankRequest.Model)
-		token += tkm
+func RerankHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
+	info.InitChannelMeta(c)
+
+	rerankReq, ok := info.Request.(*dto.RerankRequest)
+	if !ok {
+		return types.NewErrorWithStatusCode(fmt.Errorf("invalid request type, expected dto.RerankRequest, got %T", info.Request), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
-	return token
-}
 
-func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError) {
-
-	var rerankRequest *dto.RerankRequest
-	err := common.UnmarshalBodyReusable(c, &rerankRequest)
+	request, err := common.DeepCopy(rerankReq)
 	if err != nil {
-		common.LogError(c, fmt.Sprintf("getAndValidateTextRequest failed: %s", err.Error()))
-		return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		return types.NewError(fmt.Errorf("failed to copy request to ImageRequest: %w", err), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 
-	relayInfo := relaycommon.GenRelayInfoRerank(c, rerankRequest)
-
-	if rerankRequest.Query == "" {
-		return types.NewError(fmt.Errorf("query is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-	if len(rerankRequest.Documents) == 0 {
-		return types.NewError(fmt.Errorf("documents is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-
-	err = helper.ModelMappedHelper(c, relayInfo, rerankRequest)
+	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
-	promptToken := getRerankPromptToken(*rerankRequest)
-	relayInfo.PromptTokens = promptToken
-
-	priceData, err := helper.ModelPriceHelper(c, relayInfo, promptToken, 0)
-	if err != nil {
-		return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry())
-	}
-	// pre-consume quota 预消耗配额
-	preConsumedQuota, userQuota, newAPIError := preConsumeQuota(c, priceData.ShouldPreConsumedQuota, relayInfo)
-	if newAPIError != nil {
-		return newAPIError
-	}
-	defer func() {
-		if newAPIError != nil {
-			returnPreConsumedQuota(c, relayInfo, userQuota, preConsumedQuota)
-		}
-	}()
-
-	adaptor := GetAdaptor(relayInfo.ApiType)
+	adaptor := GetAdaptor(info.ApiType)
 	if adaptor == nil {
-		return types.NewError(fmt.Errorf("invalid api type: %d", relayInfo.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
+		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
-	adaptor.Init(relayInfo)
+	adaptor.Init(info)
 
 	var requestBody io.Reader
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || relayInfo.ChannelSetting.PassThroughBodyEnabled {
+	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 		body, err := common.GetRequestBody(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 		}
 		requestBody = bytes.NewBuffer(body)
 	} else {
-		convertedRequest, err := adaptor.ConvertRerankRequest(c, relayInfo.RelayMode, *rerankRequest)
+		convertedRequest, err := adaptor.ConvertRerankRequest(c, info.RelayMode, *request)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
@@ -90,13 +58,8 @@ func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError
 		}
 
 		// apply param override
-		if len(relayInfo.ParamOverride) > 0 {
-			reqMap := make(map[string]interface{})
-			_ = common.Unmarshal(jsonData, &reqMap)
-			for key, value := range relayInfo.ParamOverride {
-				reqMap[key] = value
-			}
-			jsonData, err = common.Marshal(reqMap)
+		if len(info.ParamOverride) > 0 {
+			jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride)
 			if err != nil {
 				return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
 			}
@@ -108,7 +71,7 @@ func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError
 		requestBody = bytes.NewBuffer(jsonData)
 	}
 
-	resp, err := adaptor.DoRequest(c, relayInfo, requestBody)
+	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
 		return types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
 	}
@@ -123,16 +86,14 @@ func RerankHelper(c *gin.Context, relayMode int) (newAPIError *types.NewAPIError
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 			return newAPIError
 		}
-		
-		// 只有在状态码为 200 时才处理响应
-		usage, newAPIError := adaptor.DoResponse(c, httpResp, relayInfo)
+	}
+
+	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
 	}
-		var preConsumedRefunded bool
-		postConsumeQuota(c, relayInfo, usage.(*dto.Usage), preConsumedQuota, userQuota, priceData, "", &preConsumedRefunded)
-	}
+	postConsumeQuota(c, info, usage.(*dto.Usage), "")
 	return nil
 }

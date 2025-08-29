@@ -39,7 +39,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/captcha/image/base64", middleware.CriticalRateLimit(), controller.GenerateImageCaptchaBase64)
 		apiRouter.GET("/captcha/verify", controller.VerifyImageCaptchaAPI)
 
-		apiRouter.GET("/verification", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
+		apiRouter.GET("/verification", middleware.EmailVerificationRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
 		apiRouter.POST("/sms/send", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPhoneVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
 		apiRouter.POST("/reset_password_phone", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.ResetPasswordByPhone)
@@ -172,6 +172,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/models", controller.ChannelListModels)
 			channelRoute.GET("/models_enabled", controller.EnabledListModels)
 			channelRoute.GET("/:id", controller.GetChannel)
+			channelRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetChannelKey)
 			channelRoute.GET("/test", controller.TestAllChannels)
 			channelRoute.GET("/test/:id", controller.TestChannel)
 			channelRoute.GET("/update_balance", controller.UpdateAllChannelsBalance)
@@ -201,6 +202,17 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.PUT("/", controller.UpdateToken)
 			tokenRoute.DELETE("/:id", controller.DeleteToken)
 		}
+
+		usageRoute := apiRouter.Group("/usage")
+		usageRoute.Use(middleware.CriticalRateLimit())
+		{
+			tokenUsageRoute := usageRoute.Group("/token")
+			tokenUsageRoute.Use(middleware.TokenAuth())
+			{
+				tokenUsageRoute.GET("/", controller.GetTokenUsage)
+			}
+		}
+
 		redemptionRoute := apiRouter.Group("/redemption")
 		redemptionRoute.Use(middleware.AdminAuth())
 		{
@@ -227,7 +239,6 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.Use(middleware.CORS())
 		{
 			logRoute.GET("/token", controller.GetLogByKey)
-
 		}
 		groupRoute := apiRouter.Group("/group")
 		groupRoute.Use(middleware.AdminAuth())
@@ -242,6 +253,29 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
+		}
+
+		vendorRoute := apiRouter.Group("/vendors")
+		vendorRoute.Use(middleware.AdminAuth())
+		{
+			vendorRoute.GET("/", controller.GetAllVendors)
+			vendorRoute.GET("/search", controller.SearchVendors)
+			vendorRoute.GET("/:id", controller.GetVendorMeta)
+			vendorRoute.POST("/", controller.CreateVendorMeta)
+			vendorRoute.PUT("/", controller.UpdateVendorMeta)
+			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
+		}
+
+		modelsRoute := apiRouter.Group("/models")
+		modelsRoute.Use(middleware.AdminAuth())
+		{
+			modelsRoute.GET("/missing", controller.GetMissingModels)
+			modelsRoute.GET("/", controller.GetAllModelsMeta)
+			modelsRoute.GET("/search", controller.SearchModelsMeta)
+			modelsRoute.GET("/:id", controller.GetModelMeta)
+			modelsRoute.POST("/", controller.CreateModelMeta)
+			modelsRoute.PUT("/", controller.UpdateModelMeta)
+			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 	}
 }

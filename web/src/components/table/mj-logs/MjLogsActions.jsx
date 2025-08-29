@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Skeleton, Typography } from '@douyinfe/semi-ui';
+import { useMinimumLoadingTime } from '../../../hooks/common/useMinimumLoadingTime';
 import { IconEyeOpened } from '@douyinfe/semi-icons';
 import CompactModeToggle from '../../common/ui/CompactModeToggle';
 
@@ -32,26 +33,28 @@ const MjLogsActions = ({
   setCompactMode,
   t,
 }) => {
+  const showSkeleton = useMinimumLoadingTime(loading);
+
+  const placeholder = (
+    <div className="flex items-center mb-2 md:mb-0">
+      <IconEyeOpened className="mr-2" />
+      <Skeleton.Title style={{ width: 300, height: 21, borderRadius: 6 }} />
+    </div>
+  );
+
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 w-full">
-      <div className="flex items-center text-orange-500 mb-2 md:mb-0">
-        <IconEyeOpened className="mr-2" />
-        {loading ? (
-          <Skeleton.Title
-            style={{
-              width: 300,
-              marginBottom: 0,
-              marginTop: 0
-            }}
-          />
-        ) : (
+      <Skeleton loading={showSkeleton} active placeholder={placeholder}>
+        <div className="flex items-center mb-2 md:mb-0">
+          <IconEyeOpened className="mr-2" />
           <Text>
             {isAdminUser && showBanner
               ? t('当前未开启Midjourney回调，部分项目可能无法获得绘图结果，可在运营设置中开启。')
               : t('Midjourney 任务记录')}
           </Text>
-        )}
-      </div>
+        </div>
+      </Skeleton>
+
       <CompactModeToggle
         compactMode={compactMode}
         setCompactMode={setCompactMode}

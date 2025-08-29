@@ -31,7 +31,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	openaiRequest.(*dto.GeneralOpenAIRequest).StreamOptions = &dto.StreamOptions{
 		IncludeUsage: true,
 	}
-	return requestOpenAI2Ollama(openaiRequest.(*dto.GeneralOpenAIRequest))
+	return requestOpenAI2Ollama(c, openaiRequest.(*dto.GeneralOpenAIRequest))
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
@@ -48,14 +48,14 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if info.RelayFormat == relaycommon.RelayFormatClaude {
-		return info.BaseUrl + "/v1/chat/completions", nil
+	if info.RelayFormat == types.RelayFormatClaude {
+		return info.ChannelBaseUrl + "/v1/chat/completions", nil
 	}
 	switch info.RelayMode {
 	case relayconstant.RelayModeEmbeddings:
-		return info.BaseUrl + "/api/embed", nil
+		return info.ChannelBaseUrl + "/api/embed", nil
 	default:
-		return relaycommon.GetFullRequestURL(info.BaseUrl, info.RequestURLPath, info.ChannelType), nil
+		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
 	}
 }
 
@@ -69,7 +69,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-	return requestOpenAI2Ollama(request)
+	return requestOpenAI2Ollama(c, request)
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {

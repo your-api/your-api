@@ -122,7 +122,7 @@ func (a *Adaptor) GetModelList() []string {
 
 // GetRequestURL implements channel.Adaptor.
 func (a *Adaptor) GetRequestURL(info *common.RelayInfo) (string, error) {
-	return fmt.Sprintf("%s/v3/chat", info.BaseUrl), nil
+	return fmt.Sprintf("%s/v3/chat", info.ChannelBaseUrl), nil
 }
 
 // Init implements channel.Adaptor.

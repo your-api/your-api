@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
-import { IconRefresh, IconSearch } from '@douyinfe/semi-icons';
+import { RefreshCw, Search } from 'lucide-react';
 
 const DashboardHeader = ({
   getGreeting,
@@ -42,13 +42,13 @@ const DashboardHeader = ({
       <div className="flex gap-3">
         <Button
           type='tertiary'
-          icon={<IconSearch />}
+          icon={<Search size={16} />}
           onClick={showSearchModal}
           className={`bg-green-500 hover:bg-green-600 ${ICON_BUTTON_CLASS}`}
         />
         <Button
           type='tertiary'
-          icon={<IconRefresh />}
+          icon={<RefreshCw size={16} />}
           onClick={refresh}
           loading={loading}
           className={`bg-blue-500 hover:bg-blue-600 ${ICON_BUTTON_CLASS}`}

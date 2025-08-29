@@ -56,14 +56,14 @@ func GetPricing(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"success":      true,
-		"data":         pricing,
-		"vendors":      model.GetVendors(),
-		"group_ratio":  groupRatio,
-        "usable_group": usableGroup,
-        "supported_endpoint": model.GetSupportedEndpointMap(),
-        "auto_groups": setting.AutoGroups,
-    })
+		"success":            true,
+		"data":               pricing,
+		"vendors":            model.GetVendors(),
+		"group_ratio":        groupRatio,
+		"usable_group":       usableGroup,
+		"supported_endpoint": model.GetSupportedEndpointMap(),
+		"auto_groups":        setting.AutoGroups,
+	})
 }
 
 func ResetModelRatio(c *gin.Context) {

@@ -27,8 +27,8 @@ import {
   Typography
 } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
-import { copy, showError, showInfo, showSuccess } from '../../../../helpers/index.js';
-import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants/index.js';
+import { copy, showError, showInfo, showSuccess } from '../../../../helpers';
+import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants';
 
 const ModelTestModal = ({
   showModelTestModal,

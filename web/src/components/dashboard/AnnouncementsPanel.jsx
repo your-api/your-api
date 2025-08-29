@@ -68,26 +68,29 @@ const AnnouncementsPanel = ({
     >
       <ScrollableContainer maxHeight="24rem">
         {announcementData.length > 0 ? (
-          <Timeline mode="alternate">
-            {announcementData.map((item, idx) => (
-              <Timeline.Item
-                key={idx}
-                type={item.type || 'default'}
-                time={item.time}
-              >
-                <div>
-                  <div
-                    dangerouslySetInnerHTML={{ __html: marked.parse(item.content || '') }}
-                  />
-                  {item.extra && (
+          <Timeline mode="left">
+            {announcementData.map((item, idx) => {
+              const htmlExtra = item.extra ? marked.parse(item.extra) : '';
+              return (
+                <Timeline.Item
+                  key={idx}
+                  type={item.type || 'default'}
+                  time={`${item.relative ? item.relative + ' ' : ''}${item.time}`}
+                  extra={item.extra ? (
                     <div
                       className="text-xs text-gray-500"
-                      dangerouslySetInnerHTML={{ __html: marked.parse(item.extra) }}
+                      dangerouslySetInnerHTML={{ __html: htmlExtra }}
                     />
-                  )}
-                </div>
-              </Timeline.Item>
-            ))}
+                  ) : null}
+                >
+                  <div>
+                    <div
+                      dangerouslySetInnerHTML={{ __html: marked.parse(item.content || '') }}
+                    />
+                  </div>
+                </Timeline.Item>
+              );
+            })}
           </Timeline>
         ) : (
           <div className="flex justify-center items-center py-8">

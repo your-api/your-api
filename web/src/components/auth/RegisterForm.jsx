@@ -1,0 +1,1294 @@
+import React, { useContext, useEffect, useState, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  API,
+  getLogo,
+  showError,
+  showInfo,
+  showSuccess,
+  updateAPI,
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+=======
+  getSystemName,
+  setUserData
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+} from '../../helpers';
+import Turnstile from 'react-turnstile';
+import {
+  Button,
+  Card,
+  Divider,
+  Form,
+  Icon,
+  Layout,
+  Modal,
+  Tabs,
+  TabPane,
+  Input,
+} from '@douyinfe/semi-ui';
+import Title from '@douyinfe/semi-ui/lib/es/typography/title';
+import Text from '@douyinfe/semi-ui/lib/es/typography/text';
+import { IconGithubLogo, IconEyeOpened, IconEyeClosed } from '@douyinfe/semi-icons';
+import {
+  onGitHubOAuthClicked,
+  onLinuxDOOAuthClicked,
+  onOIDCClicked,
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+} from '../utils.js';
+import OIDCIcon from '../common/logo/OIDCIcon.js';
+import LinuxDoIcon from '../common/logo/LinuxDoIcon.js';
+import WeChatIcon from '../common/logo/WeChatIcon.js';
+import ImageCaptcha from '../ImageCaptcha.js';
+import TelegramLoginButton from 'react-telegram-login/src';
+import { setUserData } from '../../helpers/data.js';
+import { UserContext } from '../../context/User/index.js';
+=======
+} from '../../helpers';
+import OIDCIcon from '../common/logo/OIDCIcon';
+import LinuxDoIcon from '../common/logo/LinuxDoIcon';
+import WeChatIcon from '../common/logo/WeChatIcon';
+import TelegramLoginButton from 'react-telegram-login/src';
+import { UserContext } from '../../context/User';
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+import { useTranslation } from 'react-i18next';
+
+const RegisterForm = () => {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const [inputs, setInputs] = useState({
+    username: '',
+    password: '',
+    password2: '',
+    email: '',
+    verification_code: '',
+    phone: '',
+    phone_code: '',
+  });
+  const { username, password, password2 } = inputs;
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  
+  // 根据URL参数设置默认标签页
+  const getDefaultTabKey = () => {
+    const fromParam = searchParams.get('from');
+    if (fromParam === 'phone') {
+      return 'phone';
+    }
+    return 'email'; // 默认显示邮箱注册或从密码登录来的
+  };
+  
+  const [activeTabKey, setActiveTabKey] = useState(getDefaultTabKey());
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const phoneCountdownRef = useRef(null);
+  const [userState, userDispatch] = useContext(UserContext);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+  const [status, setStatus] = useState({});
+  const [wechatQRData, setWechatQRData] = useState(null);
+  const [checkingQRLogin, setCheckingQRLogin] = useState(false);
+  const [qrLoginInterval, setQrLoginInterval] = useState(null);
+  const [imageCaptchaData, setImageCaptchaData] = useState(null);
+  const [showImageCaptcha, setShowImageCaptcha] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef(null);
+  
+  // 密码显示状态
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
+  
+  let navigate = useNavigate();
+=======
+  const [showEmailRegister, setShowEmailRegister] = useState(false);
+  const [wechatLoading, setWechatLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [oidcLoading, setOidcLoading] = useState(false);
+  const [linuxdoLoading, setLinuxdoLoading] = useState(false);
+  const [emailRegisterLoading, setEmailRegisterLoading] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [verificationCodeLoading, setVerificationCodeLoading] = useState(false);
+  const [otherRegisterOptionsLoading, setOtherRegisterOptionsLoading] = useState(false);
+  const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
+  const [disableButton, setDisableButton] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+  const logo = getLogo();
+
+  let affCode = new URLSearchParams(window.location.search).get('aff');
+  if (affCode) {
+    localStorage.setItem('aff', affCode);
+  }
+
+  // 监听URL参数变化，更新活动标签页
+  useEffect(() => {
+    const fromParam = searchParams.get('from');
+    if (fromParam === 'phone') {
+      setActiveTabKey('phone');
+    } else {
+      setActiveTabKey('email');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    let status = localStorage.getItem('status');
+    if (status) {
+      status = JSON.parse(status);
+      setStatus(status);
+      setShowEmailVerification(status.email_verification);
+      if (status.turnstile_check) {
+        setTurnstileEnabled(true);
+        setTurnstileSiteKey(status.turnstile_site_key);
+      }
+    }
+  });
+
+  // 倒计时逻辑
+  useEffect(() => {
+    if (countdown > 0) {
+      countdownRef.current = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    }
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+    return () => {
+      if (countdownRef.current) {
+        clearTimeout(countdownRef.current);
+      }
+    };
+  }, [countdown]);
+=======
+  }, [status]);
+
+  useEffect(() => {
+    let countdownInterval = null;
+    if (disableButton && countdown > 0) {
+      countdownInterval = setInterval(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    } else if (countdown === 0) {
+      setDisableButton(false);
+      setCountdown(30);
+    }
+    return () => clearInterval(countdownInterval); // Clean up on unmount
+  }, [disableButton, countdown]);
+
+  const onWeChatLoginClicked = () => {
+    setWechatLoading(true);
+    setShowWeChatLoginModal(true);
+    setWechatLoading(false);
+  };
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+
+  // 手机号倒计时逻辑
+  useEffect(() => {
+    if (phoneCountdown > 0) {
+      phoneCountdownRef.current = setTimeout(() => {
+        setPhoneCountdown(phoneCountdown - 1);
+      }, 1000);
+    }
+    return () => {
+      if (phoneCountdownRef.current) {
+        clearTimeout(phoneCountdownRef.current);
+      }
+    };
+  }, [phoneCountdown]);
+
+  const onWeChatLoginClicked = async () => {
+    try {
+      // 动态获取二维码
+      const res = await API.get('/api/oauth/wechat/qr');
+      if (res.data.success) {
+        setWechatQRData(res.data.data);
+        setShowWeChatLoginModal(true);
+        // 开始轮询检查登录状态
+        startQRLoginCheck(res.data.data.ticket);
+      } else {
+        showError(res.data.message || '获取二维码失败');
+      }
+    } catch (error) {
+      showError('获取微信二维码失败，请稍后重试');
+    }
+  };
+
+  // 开始轮询检查二维码登录状态
+  const startQRLoginCheck = (ticket) => {
+    if (qrLoginInterval) {
+      clearInterval(qrLoginInterval);
+    }
+    
+    setCheckingQRLogin(true);
+    const interval = setInterval(async () => {
+      try {
+        const res = await API.get(`/api/oauth/wechat/qr/login?ticket=${ticket}`);
+        if (res.data.success && res.data.status === 'success') {
+          // 登录成功
+          clearInterval(interval);
+          setCheckingQRLogin(false);
+          userDispatch({ type: 'login', payload: res.data.data });
+          localStorage.setItem('user', JSON.stringify(res.data.data));
+          setUserData(res.data.data);
+          updateAPI();
+          navigate('/console/token');
+          showSuccess('登录成功！');
+          setShowWeChatLoginModal(false);
+        } else if (res.data.status === 'error') {
+          // 出错了
+          clearInterval(interval);
+          setCheckingQRLogin(false);
+          showError(res.data.message || '登录失败');
+        }
+        // status === 'waiting' 时继续轮询
+      } catch (error) {
+        console.error('检查登录状态失败:', error);
+      }
+    }, 2000); // 每2秒检查一次
+    
+    setQrLoginInterval(interval);
+  };
+
+  // 清理轮询
+  const stopQRLoginCheck = () => {
+    if (qrLoginInterval) {
+      clearInterval(qrLoginInterval);
+      setQrLoginInterval(null);
+    }
+    setCheckingQRLogin(false);
+  };
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (qrLoginInterval) {
+        clearInterval(qrLoginInterval);
+      }
+    };
+  }, [qrLoginInterval]);
+
+  function handleChange(name, value) {
+    setInputs((inputs) => ({ ...inputs, [name]: value }));
+  }
+
+  async function handleSubmit(e) {
+    if (password.length < 8) {
+      showInfo('密码长度不得小于 8 位！');
+      return;
+    }
+    if (password !== password2) {
+      showInfo('两次输入的密码不一致');
+      return;
+    }
+    
+    // 验证注册方式
+    if (activeTabKey === 'email') {
+      // 邮箱注册验证
+      if (!username) {
+        showError('请输入用户名');
+        return;
+      }
+      if (showEmailVerification) {
+        if (!inputs.email) {
+          showError('请输入邮箱地址');
+          return;
+        }
+        const emailDomain = inputs.email.split('@')[1];
+        if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
+          showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+          return;
+        }
+        if (!inputs.verification_code) {
+          showError('请输入邮箱验证码');
+          return;
+        }
+      }
+    } else if (activeTabKey === 'phone') {
+      // 手机号注册验证
+      if (!inputs.phone) {
+        showError('请输入手机号');
+        return;
+      }
+      const phoneRegex = /^1[3-9]\d{9}$/;
+      if (!phoneRegex.test(inputs.phone)) {
+        showError('请输入正确的手机号格式');
+        return;
+      }
+      if (!inputs.phone_code) {
+        showError('请输入手机验证码');
+        return;
+      }
+      // 手机注册时，将手机号设置为用户名
+      inputs.username = inputs.phone;
+    }
+    
+    // 根据注册方式检查必填字段
+    const isEmailRegister = activeTabKey === 'email';
+    const isPhoneRegister = activeTabKey === 'phone';
+    
+    if ((isEmailRegister && username && password) || (isPhoneRegister && inputs.phone && password)) {
+      if (turnstileEnabled && turnstileToken === '') {
+        showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+        return;
+      }
+      setLoading(true);
+      if (!affCode) {
+        affCode = localStorage.getItem('aff');
+      }
+      inputs.aff_code = affCode;
+      const res = await API.post(
+        `/api/user/register?turnstile=${turnstileToken}`,
+        inputs,
+      );
+      const { success, message } = res.data;
+      if (success) {
+        navigate('/login');
+        showSuccess('注册成功！');
+      } else {
+        showError(message);
+      }
+      setLoading(false);
+    }
+  }
+
+  // 处理图片验证码验证成功
+  const handleImageCaptchaVerified = (captchaData) => {
+    setImageCaptchaData(captchaData);
+    setShowImageCaptcha(false);
+    // 根据当前选中的tab发送对应的验证码
+    if (activeTabKey === 'email') {
+      // 验证成功后自动发送邮箱验证码
+      sendEmailVerificationAfterCaptcha(captchaData);
+    } else if (activeTabKey === 'phone') {
+      // 验证成功后自动发送手机验证码
+      sendPhoneVerificationAfterCaptcha(captchaData);
+    }
+  };
+
+  // 图片验证码验证失败或错误
+  const handleImageCaptchaError = (error) => {
+    console.error('图片验证码错误:', error);
+    setImageCaptchaData(null);
+    // 重新显示验证码对话框
+    setShowImageCaptcha(true);
+  };
+
+  // 发送邮箱验证码（在图片验证码验证成功后）
+  const sendEmailVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.email === '') return;
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await API.get(
+        `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}&image_captcha_id=${captchaData.captcha_id}&image_captcha_code=${captchaData.captcha_code}`,
+      );
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess('验证码发送成功，请检查你的邮箱！');
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+        setCountdown(60); // 开始60秒倒计时
+=======
+        setDisableButton(true); // 发送成功后禁用按钮，开始倒计时
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo('请重新完成图片验证码验证');
+          setImageCaptchaData(null);
+          setShowImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      showError('发送验证码失败，请重试');
+      // 网络错误时也提示重新验证
+      showInfo('请重新完成图片验证码验证');
+      setImageCaptchaData(null);
+      setShowImageCaptcha(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 点击获取验证码按钮
+  const sendVerificationCode = async () => {
+    if (inputs.email === '') {
+      showError('请先输入邮箱地址');
+      return;
+    }
+    
+    // 检查邮箱域名是否为QQ或Gmail
+    const emailDomain = inputs.email.split('@')[1];
+    if (emailDomain !== 'qq.com' && emailDomain !== 'gmail.com') {
+      showError('仅支持QQ邮箱(@qq.com)和Gmail邮箱(@gmail.com)');
+      return;
+    }
+    
+    // 显示图片验证码模态框
+    setShowImageCaptcha(true);
+  };
+
+  // 发送手机验证码（在图片验证码验证成功后）
+  const sendPhoneVerificationAfterCaptcha = async (captchaData) => {
+    if (inputs.phone === '') return;
+    if (turnstileEnabled && turnstileToken === '') {
+      showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await API.post('/api/sms/send', {
+        phone: inputs.phone,
+        purpose: 'register',
+        image_captcha_id: captchaData.captcha_id,
+        image_captcha_code: captchaData.captcha_code,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess('验证码发送成功，请检查你的手机！');
+        setPhoneCountdown(60); // 开始60秒倒计时
+      } else {
+        showError(message);
+        // 如果发送失败，提示用户重新验证
+        if (message.includes('图片验证码') || message.includes('验证码错误') || message.includes('已过期')) {
+          showInfo('请重新完成图片验证码验证');
+          setImageCaptchaData(null);
+          setShowImageCaptcha(true);
+        }
+      }
+    } catch (error) {
+      showError('发送验证码失败，请重试');
+      // 网络错误时也提示重新验证
+      showInfo('请重新完成图片验证码验证');
+      setImageCaptchaData(null);
+      setShowImageCaptcha(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 点击获取手机验证码按钮
+  const sendPhoneVerificationCode = async () => {
+    if (inputs.phone === '') {
+      showError('请先输入手机号');
+      return;
+    }
+    
+    // 检查手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(inputs.phone)) {
+      showError('请输入正确的手机号格式');
+      return;
+    }
+    
+    // 显示图片验证码模态框
+    setShowImageCaptcha(true);
+  };
+
+  const onTelegramLoginClicked = async (response) => {
+    const fields = [
+      'id',
+      'first_name',
+      'last_name',
+      'username',
+      'photo_url',
+      'auth_date',
+      'hash',
+      'lang',
+    ];
+    const params = {};
+    fields.forEach((field) => {
+      if (response[field]) {
+        params[field] = response[field];
+      }
+    });
+    const res = await API.get(`/api/oauth/telegram/login`, { params });
+    const { success, message, data } = res.data;
+    if (success) {
+      userDispatch({ type: 'login', payload: data });
+      localStorage.setItem('user', JSON.stringify(data));
+      showSuccess('登录成功！');
+      setUserData(data);
+      updateAPI();
+      navigate('/');
+    } else {
+      showError(message);
+    }
+  };
+
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+  return (
+    <div>
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      <Layout>
+        <Layout.Header></Layout.Header>
+        <Layout.Content>
+          <div
+            style={{
+              justifyContent: 'center',
+              display: 'flex',
+              marginTop: 120,
+            }}
+          >
+            <div style={{ width: 500 }}>
+              <Card>
+                <Title heading={2} style={{ textAlign: 'center', marginBottom: 16 }}>
+                  {t('新用户注册')}
+                </Title>
+                
+                {/* Tab切换 */}
+                <Tabs 
+                  activeKey={activeTabKey} 
+                  onChange={setActiveTabKey}
+                  centered
+                  style={{ marginBottom: 16 }}
+                >
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg style={{ width: '1rem', height: '1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zM16 8v6m0-6c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V8zm0 0V7a3 3 0 00-3-3H7a3 3 0 00-3 3v8a3 3 0 003 3v0" />
+                        </svg>
+                        <span>{t('邮箱注册')}</span>
+                      </div>
+                    } 
+                    itemKey="email"
+                  >
+                    <Form size='large'>
+                      <Form.Input
+                        field={'username'}
+                        label={t('用户名')}
+                        placeholder={t('用户名')}
+                        name='username'
+                        onChange={(value) => handleChange('username', value)}
+                      />
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                          name='password'
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(value) => handleChange('password', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword(!showPassword)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password && password.length < 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码长度至少8位')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('确认密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('确认密码')}
+                          name='password2'
+                          type={showPassword2 ? 'text' : 'password'}
+                          value={password2}
+                          onChange={(value) => handleChange('password2', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword2 ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword2(!showPassword2)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password2 && password && password2 !== password && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('两次输入的密码不一致')}
+                          </div>
+                        )}
+                        {password2 && password && password2 === password && password.length >= 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-success)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码确认正确')}
+                          </div>
+                        )}
+                      </div>
+                      {showEmailVerification ? (
+                        <>
+                          <Form.Input
+                            field={'email'}
+                            label={t('邮箱(仅限QQ/谷歌邮箱)')}
+                            placeholder={t('输入邮箱地址')}
+                            onChange={(value) => handleChange('email', value)}
+                            name='email'
+                            type='email'
+                            suffix={
+                              <Button
+                                onClick={sendVerificationCode}
+                                disabled={loading || countdown > 0}
+                                size="small"
+                              >
+                                {countdown > 0 ? `${countdown}秒后重试` : t('获取验证码')}
+                              </Button>
+                            }
+                          />
+                          <Form.Input
+                            field={'verification_code'}
+                            label={t('验证码')}
+                            placeholder={t('输入验证码')}
+                            onChange={(value) =>
+                              handleChange('verification_code', value)
+                            }
+                            name='verification_code'
+                          />
+                        </>
+                      ) : (
+                        <></>
+                      )}
+                      <Button
+                        theme='solid'
+                        style={{ width: '100%' }}
+                        type={'primary'}
+                        size='large'
+                        htmlType={'submit'}
+                        onClick={handleSubmit}
+                        loading={loading}
+                      >
+                        {t('注册')}
+                      </Button>
+                    </Form>
+                  </TabPane>
+                  
+                  <TabPane 
+                    tab={
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <svg style={{ width: '1rem', height: '1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span>{t('手机注册')}</span>
+                      </div>
+                    } 
+                    itemKey="phone"
+                  >
+                    <Form size='large'>
+                      <Form.Input
+                        field={'phone'}
+                        label={t('手机号')}
+                        placeholder={t('请输入手机号')}
+                        name='phone'
+                        onChange={(value) => handleChange('phone', value)}
+                      />
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                          name='password'
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(value) => handleChange('password', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword(!showPassword)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password && password.length < 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码长度至少8位')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: 'var(--semi-color-text-0)' 
+                          }}>
+                            {t('确认密码')}
+                          </label>
+                        </div>
+                        <Input
+                          placeholder={t('确认密码')}
+                          name='password2'
+                          type={showPassword2 ? 'text' : 'password'}
+                          value={password2}
+                          onChange={(value) => handleChange('password2', value)}
+                          suffix={
+                            <Button
+                              type="tertiary"
+                              theme="borderless"
+                              icon={showPassword2 ? <IconEyeClosed /> : <IconEyeOpened />}
+                              onClick={() => setShowPassword2(!showPassword2)}
+                              style={{ padding: '4px' }}
+                            />
+                          }
+                          style={{ height: '40px' }}
+                        />
+                        {password2 && password && password2 !== password && (
+                          <div style={{ 
+                            color: 'var(--semi-color-danger)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('两次输入的密码不一致')}
+                          </div>
+                        )}
+                        {password2 && password && password2 === password && password.length >= 8 && (
+                          <div style={{ 
+                            color: 'var(--semi-color-success)', 
+                            fontSize: '12px', 
+                            marginTop: '4px' 
+                          }}>
+                            {t('密码确认正确')}
+                          </div>
+                        )}
+                      </div>
+                      <Form.Input
+                        field={'phone_code'}
+                        label={t('验证码')}
+                        placeholder={t('请输入短信验证码')}
+                        name='phone_code'
+                        onChange={(value) => handleChange('phone_code', value)}
+                        suffix={
+                          <Button
+                            onClick={sendPhoneVerificationCode}
+                            disabled={loading || phoneCountdown > 0}
+                            loading={loading}
+                            size="small"
+                          >
+                            {phoneCountdown > 0 ? `${phoneCountdown}秒后重试` : t('获取验证码')}
+                          </Button>
+                        }
+                      />
+                      <Button
+                        theme='solid'
+                        style={{ width: '100%' }}
+                        type={'primary'}
+                        size='large'
+                        htmlType={'submit'}
+                        onClick={handleSubmit}
+                        loading={loading}
+                      >
+                        {t('注册')}
+                      </Button>
+                    </Form>
+                  </TabPane>
+                </Tabs>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: 20,
+                  }}
+                >
+                  <Text>
+                    {t('已有账户？')}
+                  </Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Button
+                      theme="solid"
+                      type="primary"
+                      size="small"
+                      onClick={() => navigate('/login')}
+                    >
+                      {t('点击登录')}
+                    </Button>
+                  </div>
+                </div>
+                {status.github_oauth ||
+                status.oidc_enabled ||
+                status.wechat_login ||
+                status.telegram_oauth ||
+                status.linuxdo_oauth ? (
+                  <>
+                    <Divider margin='12px' align='center'>
+                      {t('第三方登录')}
+                    </Divider>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        marginTop: 20,
+                      }}
+                    >
+                      {status.github_oauth ? (
+                        <Button
+                          type='primary'
+                          icon={<IconGithubLogo />}
+                          onClick={() =>
+                            onGitHubOAuthClicked(status.github_client_id)
+                          }
+                        />
+                      ) : (
+                        <></>
+                      )}
+                      {status.oidc_enabled ? (
+                        <Button
+                          type='primary'
+                          icon={<OIDCIcon />}
+                          onClick={() =>
+                            onOIDCClicked(
+                              status.oidc_authorization_endpoint,
+                              status.oidc_client_id,
+                            )
+                          }
+                        />
+                      ) : (
+                        <></>
+                      )}
+                      {status.linuxdo_oauth ? (
+                        <Button
+                          icon={<LinuxDoIcon />}
+                          onClick={() =>
+                            onLinuxDOOAuthClicked(status.linuxdo_client_id)
+                          }
+                        />
+                      ) : (
+                        <></>
+                      )}
+                    </div>
+                    {status.telegram_oauth ? (
+                      <>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            marginTop: 5,
+                          }}
+                        >
+                          <TelegramLoginButton
+                            dataOnauth={onTelegramLoginClicked}
+                            botName={status.telegram_bot_name}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <></>
+                    )}
+=======
+  const renderOAuthOptions = () => {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center mb-6 gap-2">
+            <img src={logo} alt="Logo" className="h-10 rounded-full" />
+            <Title heading={3} className='!text-gray-800'>{systemName}</Title>
+          </div>
+
+          <Card className="border-0 !rounded-2xl overflow-hidden">
+            <div className="flex justify-center pt-6 pb-2">
+              <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('注 册')}</Title>
+            </div>
+            <div className="px-2 py-8">
+              <div className="space-y-3">
+                {status.wechat_login && (
+                  <Button
+                    theme='outline'
+                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+                    type="tertiary"
+                    icon={<Icon svg={<WeChatIcon />} style={{ color: '#07C160' }} />}
+                    onClick={onWeChatLoginClicked}
+                    loading={wechatLoading}
+                  >
+                    <span className="ml-3">{t('使用 微信 继续')}</span>
+                  </Button>
+                )}
+
+                {status.github_oauth && (
+                  <Button
+                    theme='outline'
+                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+                    type="tertiary"
+                    icon={<IconGithubLogo size="large" />}
+                    onClick={handleGitHubClick}
+                    loading={githubLoading}
+                  >
+                    <span className="ml-3">{t('使用 GitHub 继续')}</span>
+                  </Button>
+                )}
+
+                {status.oidc_enabled && (
+                  <Button
+                    theme='outline'
+                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+                    type="tertiary"
+                    icon={<OIDCIcon style={{ color: '#1877F2' }} />}
+                    onClick={handleOIDCClick}
+                    loading={oidcLoading}
+                  >
+                    <span className="ml-3">{t('使用 OIDC 继续')}</span>
+                  </Button>
+                )}
+
+                {status.linuxdo_oauth && (
+                  <Button
+                    theme='outline'
+                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+                    type="tertiary"
+                    icon={<LinuxDoIcon style={{ color: '#E95420', width: '20px', height: '20px' }} />}
+                    onClick={handleLinuxDOClick}
+                    loading={linuxdoLoading}
+                  >
+                    <span className="ml-3">{t('使用 LinuxDO 继续')}</span>
+                  </Button>
+                )}
+
+                {status.telegram_oauth && (
+                  <div className="flex justify-center my-2">
+                    <TelegramLoginButton
+                      dataOnauth={onTelegramLoginClicked}
+                      botName={status.telegram_bot_name}
+                    />
+                  </div>
+                )}
+
+                <Divider margin='12px' align='center'>
+                  {t('或')}
+                </Divider>
+
+                <Button
+                  theme="solid"
+                  type="primary"
+                  className="w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors"
+                  icon={<IconMail size="large" />}
+                  onClick={handleEmailRegisterClick}
+                  loading={emailRegisterLoading}
+                >
+                  <span className="ml-3">{t('使用 用户名 注册')}</span>
+                </Button>
+              </div>
+
+              <div className="mt-6 text-center text-sm">
+                <Text>{t('已有账户？')} <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">{t('登录')}</Link></Text>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEmailRegisterForm = () => {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center mb-6 gap-2">
+            <img src={logo} alt="Logo" className="h-10 rounded-full" />
+            <Title heading={3} className='!text-gray-800'>{systemName}</Title>
+          </div>
+
+          <Card className="border-0 !rounded-2xl overflow-hidden">
+            <div className="flex justify-center pt-6 pb-2">
+              <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('注 册')}</Title>
+            </div>
+            <div className="px-2 py-8">
+              <Form className="space-y-3">
+                <Form.Input
+                  field="username"
+                  label={t('用户名')}
+                  placeholder={t('请输入用户名')}
+                  name="username"
+                  onChange={(value) => handleChange('username', value)}
+                  prefix={<IconUser />}
+                />
+
+                <Form.Input
+                  field="password"
+                  label={t('密码')}
+                  placeholder={t('输入密码，最短 8 位，最长 20 位')}
+                  name="password"
+                  mode="password"
+                  onChange={(value) => handleChange('password', value)}
+                  prefix={<IconLock />}
+                />
+
+                <Form.Input
+                  field="password2"
+                  label={t('确认密码')}
+                  placeholder={t('确认密码')}
+                  name="password2"
+                  mode="password"
+                  onChange={(value) => handleChange('password2', value)}
+                  prefix={<IconLock />}
+                />
+
+                {showEmailVerification && (
+                  <>
+                    <Form.Input
+                      field="email"
+                      label={t('邮箱')}
+                      placeholder={t('输入邮箱地址')}
+                      name="email"
+                      type="email"
+                      onChange={(value) => handleChange('email', value)}
+                      prefix={<IconMail />}
+                      suffix={
+                        <Button
+                          onClick={sendVerificationCode}
+                          loading={verificationCodeLoading}
+                          disabled={disableButton || verificationCodeLoading}
+                        >
+                          {disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}
+                        </Button>
+                      }
+                    />
+                    <Form.Input
+                      field="verification_code"
+                      label={t('验证码')}
+                      placeholder={t('输入验证码')}
+                      name="verification_code"
+                      onChange={(value) => handleChange('verification_code', value)}
+                      prefix={<IconKey />}
+                    />
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+                  </>
+                ) : (
+                  <></>
+                )}
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+              </Card>
+
+              {/* 图片验证码模态框 */}
+              <Modal
+                title={t('请完成图片验证码验证')}
+                visible={showImageCaptcha}
+                onCancel={() => setShowImageCaptcha(false)}
+                footer={null}
+                width={400}
+                centered
+              >
+                <div style={{ padding: '20px 0' }}>
+                  <p style={{ marginBottom: '20px', textAlign: 'center', color: '#666' }}>
+                    {t('为了防止恶意操作，请先完成图片验证码验证')}
+                  </p>
+                  <ImageCaptcha
+                    onVerified={handleImageCaptchaVerified}
+                    onError={handleImageCaptchaError}
+                    style={{ display: 'flex', justifyContent: 'center' }}
+                  />
+                </div>
+              </Modal>
+
+              <Modal
+                title={t('微信扫码登录')}
+                visible={showWeChatLoginModal}
+                maskClosable={true}
+                onCancel={() => {
+                  setShowWeChatLoginModal(false);
+                  stopQRLoginCheck();
+                }}
+                footer={null}
+                size={'small'}
+                centered={true}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItem: 'center',
+                    flexDirection: 'column',
+                  }}
+                >
+                  {wechatQRData && wechatQRData.qr_url ? (
+                    <img src={wechatQRData.qr_url} alt="微信二维码" style={{ width: '256px', height: '256px' }} />
+                  ) : (
+                    <div style={{ width: '256px', height: '256px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+                      <Text type="tertiary">加载二维码中...</Text>
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                  {checkingQRLogin ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '16px', height: '16px', border: '2px solid #1890ff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: '8px' }}></div>
+                      <Text>{t('等待扫码中...')}</Text>
+                    </div>
+                  ) : (
+                    <p>{t('请使用微信扫描二维码登录')}</p>
+                  )}
+                </div>
+              </Modal>
+              {turnstileEnabled ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginTop: 20,
+                  }}
+                >
+                  <Turnstile
+                    sitekey={turnstileSiteKey}
+                    onVerify={(token) => {
+                      setTurnstileToken(token);
+                    }}
+                  />
+                </div>
+              ) : (
+                <></>
+=======
+
+                <div className="space-y-2 pt-2">
+                  <Button
+                    theme="solid"
+                    className="w-full !rounded-full"
+                    type="primary"
+                    htmlType="submit"
+                    onClick={handleSubmit}
+                    loading={registerLoading}
+                  >
+                    {t('注册')}
+                  </Button>
+                </div>
+              </Form>
+
+              {(status.github_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth) && (
+                <>
+                  <Divider margin='12px' align='center'>
+                    {t('或')}
+                  </Divider>
+
+                  <div className="mt-4 text-center">
+                    <Button
+                      theme="outline"
+                      type="tertiary"
+                      className="w-full !rounded-full"
+                      onClick={handleOtherRegisterOptionsClick}
+                      loading={otherRegisterOptionsLoading}
+                    >
+                      {t('其他注册选项')}
+                    </Button>
+                  </div>
+                </>
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+              )}
+            </div>
+<<<<<<< HEAD:web/src/components/auth/RegisterForm.js
+=======
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  const renderWeChatLoginModal = () => {
+    return (
+      <Modal
+        title={t('微信扫码登录')}
+        visible={showWeChatLoginModal}
+        maskClosable={true}
+        onOk={onSubmitWeChatVerificationCode}
+        onCancel={() => setShowWeChatLoginModal(false)}
+        okText={t('登录')}
+        centered={true}
+        okButtonProps={{
+          loading: wechatCodeSubmitLoading,
+        }}
+      >
+        <div className="flex flex-col items-center">
+          <img src={status.wechat_qrcode} alt="微信二维码" className="mb-4" />
+        </div>
+
+        <div className="text-center mb-4">
+          <p>{t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}</p>
+        </div>
+
+        <Form>
+          <Form.Input
+            field="wechat_verification_code"
+            placeholder={t('验证码')}
+            label={t('验证码')}
+            value={inputs.wechat_verification_code}
+            onChange={(value) => handleChange('wechat_verification_code', value)}
+          />
+        </Form>
+      </Modal>
+    );
+  };
+
+  return (
+    <div className="relative overflow-hidden bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {/* 背景模糊晕染球 */}
+      <div className="blur-ball blur-ball-indigo" style={{ top: '-80px', right: '-80px', transform: 'none' }} />
+      <div className="blur-ball blur-ball-teal" style={{ top: '50%', left: '-120px' }} />
+      <div className="w-full max-w-sm mt-[60px]">
+        {showEmailRegister || !(status.github_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth)
+          ? renderEmailRegisterForm()
+          : renderOAuthOptions()}
+        {renderWeChatLoginModal()}
+
+        {turnstileEnabled && (
+          <div className="flex justify-center mt-6">
+            <Turnstile
+              sitekey={turnstileSiteKey}
+              onVerify={(token) => {
+                setTurnstileToken(token);
+              }}
+            />
+>>>>>>> alpha:web/src/components/auth/RegisterForm.jsx
+          </div>
+        </Layout.Content>
+      </Layout>
+    </div>
+  );
+};
+
+export default RegisterForm;

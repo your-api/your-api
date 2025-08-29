@@ -19,8 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Card, Button, Spin, Tabs, TabPane, Tag, Empty } from '@douyinfe/semi-ui';
-import { Gauge } from 'lucide-react';
-import { IconRefresh } from '@douyinfe/semi-icons';
+import { Gauge, RefreshCw } from 'lucide-react';
 import { IllustrationConstruction, IllustrationConstructionDark } from '@douyinfe/semi-illustrations';
 import ScrollableContainer from '../common/ui/ScrollableContainer';
 
@@ -47,7 +46,7 @@ const UptimePanel = ({
             {t('服务可用性')}
           </div>
           <Button
-            icon={<IconRefresh />}
+            icon={<RefreshCw size={14} />}
             onClick={loadUptimeData}
             loading={uptimeLoading}
             size="small"

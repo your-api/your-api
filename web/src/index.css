@@ -58,7 +58,7 @@ code {
 }
 
 /* ==================== 导航和侧边栏样式 ==================== */
-/* 导航项样式 */
+.semi-radio,
 .semi-tagInput,
 .semi-input-textarea-wrapper,
 .semi-navigation-sub-title,
@@ -392,6 +392,7 @@ code {
 }
 
 /* ==================== 组件特定样式 ==================== */
+<<<<<<< HEAD
 /* 模型定价侧边栏按钮样式修复 */
 .pricing-sidebar .semi-button {
   display: flex !important;
@@ -760,6 +761,27 @@ button[type="danger"]:hover,
 
 .semi-typography-paragraph {
   margin-bottom: 12px !important;
+=======
+/* SelectableButtonGroup */
+.sbg-button .semi-button-content {
+  min-width: 0 !important;
+}
+
+.sbg-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sbg-ellipsis {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+>>>>>>> alpha
 }
 
 /* Tabs组件样式 */
@@ -827,6 +849,21 @@ button[type="danger"]:hover,
 }
 
 /* ==================== 滚动条样式统一管理 ==================== */
+/* 通用隐藏滚动条工具类 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  /* Chrome, Safari, Opera */
+}
+
 /* 表格滚动条样式 */
 .semi-table-body::-webkit-scrollbar {
   width: 6px;
@@ -1066,6 +1103,60 @@ html:not(.dark) .blur-ball-teal {
   opacity: 0.2;
 }
 
+/* ==================== 卡片马卡龙模糊球（类封装） ==================== */
+/* 使用方式：给容器加上 with-pastel-balls 类即可，无需在 JSX 中插入额外节点 */
+.with-pastel-balls {
+  position: relative;
+  overflow: hidden;
+  /* 默认变量（明亮模式） */
+  --pb1: #ffd1dc;
+  /* 粉 */
+  --pb2: #e5d4ff;
+  /* 薰衣草 */
+  --pb3: #d1fff6;
+  /* 薄荷 */
+  --pb4: #ffe5d9;
+  /* 桃 */
+  --pb-opacity: 0.55;
+  --pb-blur: 60px;
+}
+
+.with-pastel-balls::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at -5% -10%, var(--pb1) 0%, transparent 60%),
+    radial-gradient(circle at 105% -10%, var(--pb2) 0%, transparent 55%),
+    radial-gradient(circle at 5% 110%, var(--pb3) 0%, transparent 55%),
+    radial-gradient(circle at 105% 110%, var(--pb4) 0%, transparent 50%);
+  filter: blur(var(--pb-blur));
+  opacity: var(--pb-opacity);
+  transform: translateZ(0);
+}
+
+/* 暗黑模式下更柔和的色彩和透明度 */
+html.dark .with-pastel-balls {
+  /* 使用与明亮模式一致的“刚才那组”马卡龙色，但整体更柔和 */
+  --pb1: #ffd1dc;
+  /* 粉 */
+  --pb2: #e5d4ff;
+  /* 薰衣草 */
+  --pb3: #d1fff6;
+  /* 薄荷 */
+  --pb4: #ffe5d9;
+  /* 桃 */
+  --pb-opacity: 0.36;
+  --pb-blur: 65px;
+}
+
+/* 暗黑模式下用更柔和的混合模式避免突兀的高亮 */
+html.dark .with-pastel-balls::before {
+  mix-blend-mode: screen;
+}
+
 /* ==================== 表格卡片滚动设置 ==================== */
 .table-scroll-card {
   display: flex;
@@ -1077,13 +1168,23 @@ html:not(.dark) .blur-ball-teal {
 .table-scroll-card .semi-card-body {
   flex: 1 1 auto;
   overflow-y: auto;
-
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
 
 .table-scroll-card .semi-card-body::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.table-scroll-card .semi-card-body::-webkit-scrollbar-thumb {
+  background: rgba(var(--semi-grey-2), 0.3);
+  border-radius: 2px;
+}
+
+.table-scroll-card .semi-card-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--semi-grey-2), 0.5);
+}
+
+.table-scroll-card .semi-card-body::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 @media (max-width: 767px) {
@@ -1101,11 +1202,10 @@ html:not(.dark) .blur-ball-teal {
 }
 
 .pricing-sidebar {
-  min-width: 460px;
-  max-width: 460px;
+  min-width: 400px;
+  max-width: 400px;
   height: calc(100vh - 60px);
   background-color: var(--semi-color-bg-0);
-  border-right: 1px solid var(--semi-color-border);
   overflow: auto;
 }
 
@@ -1128,8 +1228,7 @@ html:not(.dark) .blur-ball-teal {
 }
 
 .pricing-search-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--semi-color-border);
+  padding: 0.5rem;
   background-color: var(--semi-color-bg-0);
   flex-shrink: 0;
   position: sticky;
@@ -1146,4 +1245,9 @@ html:not(.dark) .blur-ball-teal {
   flex: 1;
   overflow: auto;
   min-height: 0;
+}
+
+/* ==================== semi-ui 组件自定义样式 ==================== */
+.semi-card-header {
+  padding: 10px !important;
 }

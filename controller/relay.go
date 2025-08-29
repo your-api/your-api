@@ -3,7 +3,6 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,81 +10,146 @@ import (
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
+	"one-api/logger"
 	"one-api/middleware"
 	"one-api/model"
 	"one-api/relay"
+	relaycommon "one-api/relay/common"
 	relayconstant "one-api/relay/constant"
 	"one-api/relay/helper"
 	"one-api/service"
+	"one-api/setting"
 	"one-api/types"
 	"strings"
+
+	"github.com/bytedance/gopkg/util/gopool"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
-func relayHandler(c *gin.Context, relayMode int) *types.NewAPIError {
+func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
 	var err *types.NewAPIError
-	switch relayMode {
+	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
-		err = relay.ImageHelper(c)
+		err = relay.ImageHelper(c, info)
 	case relayconstant.RelayModeAudioSpeech:
 		fallthrough
 	case relayconstant.RelayModeAudioTranslation:
 		fallthrough
 	case relayconstant.RelayModeAudioTranscription:
-		err = relay.AudioHelper(c)
+		err = relay.AudioHelper(c, info)
 	case relayconstant.RelayModeRerank:
-		err = relay.RerankHelper(c, relayMode)
+		err = relay.RerankHelper(c, info)
 	case relayconstant.RelayModeEmbeddings:
-		err = relay.EmbeddingHelper(c)
+		err = relay.EmbeddingHelper(c, info)
 	case relayconstant.RelayModeResponses:
-		err = relay.ResponsesHelper(c)
-	case relayconstant.RelayModeGemini:
-		err = relay.GeminiHelper(c)
+		err = relay.ResponsesHelper(c, info)
 	default:
-		err = relay.TextHelper(c)
+		err = relay.TextHelper(c, info)
 	}
-
-	//if constant2.ErrorLogEnabled && err != nil && types.IsRecordErrorLog(err) {
-	if err != nil && types.IsRecordErrorLog(err) {
-		// 保存错误日志到mysql中
-		userId := c.GetInt("id")
-		tokenName := c.GetString("token_name")
-		modelName := c.GetString("original_model")
-		tokenId := c.GetInt("token_id")
-		userGroup := c.GetString("group")
-		channelId := c.GetInt("channel_id")
-		other := make(map[string]interface{})
-		other["error_type"] = err.GetErrorType()
-		other["error_code"] = err.GetErrorCode()
-		other["status_code"] = err.StatusCode
-		other["channel_id"] = channelId
-		other["channel_name"] = c.GetString("channel_name")
-		other["channel_type"] = c.GetInt("channel_type")
-		adminInfo := make(map[string]interface{})
-		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
-		isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
-		if isMultiKey {
-			adminInfo["is_multi_key"] = true
-			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
-		}
-		other["admin_info"] = adminInfo
-
-		// 使用RecordErrorLogDouble进行脱敏处理
-		// content是展示给用户的错误信息，contentUpstream是需要脱敏的上游错误信息
-		model.RecordErrorLogDouble(c, userId, channelId, modelName, tokenName, err.Error(), err.MaskSensitiveError(), tokenId, 0, false, userGroup, other)
-	}
-
 	return err
 }
 
-func Relay(c *gin.Context) {
-	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
+func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	var err *types.NewAPIError
+	if strings.Contains(c.Request.URL.Path, "embed") {
+		err = relay.GeminiEmbeddingHandler(c, info)
+	} else {
+		err = relay.GeminiHelper(c, info)
+	}
+	return err
+}
+
+func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	requestId := c.GetString(common.RequestIdKey)
-	group := c.GetString("group")
-	originalModel := c.GetString("original_model")
-	var newAPIError *types.NewAPIError
+	group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
+
+	var (
+		newAPIError *types.NewAPIError
+		ws          *websocket.Conn
+	)
+
+	if relayFormat == types.RelayFormatOpenAIRealtime {
+		var err error
+		ws, err = upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			helper.WssError(c, ws, types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry()).ToOpenAIError())
+			return
+		}
+		defer ws.Close()
+	}
+
+	defer func() {
+		if newAPIError != nil {
+			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
+			switch relayFormat {
+			case types.RelayFormatOpenAIRealtime:
+				helper.WssError(c, ws, newAPIError.ToOpenAIError())
+			case types.RelayFormatClaude:
+				c.JSON(newAPIError.StatusCode, gin.H{
+					"type":  "error",
+					"error": newAPIError.ToClaudeError(),
+				})
+			default:
+				c.JSON(newAPIError.StatusCode, gin.H{
+					"error": newAPIError.ToOpenAIError(),
+				})
+			}
+		}
+	}()
+
+	request, err := helper.GetAndValidateRequest(c, relayFormat)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest)
+		return
+	}
+
+	relayInfo, err := relaycommon.GenRelayInfo(c, relayFormat, request, ws)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
+		return
+	}
+
+	meta := request.GetTokenCountMeta()
+
+	if setting.ShouldCheckPromptSensitive() {
+		contains, words := service.CheckSensitiveText(meta.CombineText)
+		if contains {
+			logger.LogWarn(c, fmt.Sprintf("user sensitive words detected: %s", strings.Join(words, ", ")))
+			newAPIError = types.NewError(err, types.ErrorCodeSensitiveWordsDetected)
+			return
+		}
+	}
+
+	tokens, err := service.CountRequestToken(c, meta, relayInfo)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeCountTokenFailed)
+		return
+	}
+
+	relayInfo.SetPromptTokens(tokens)
+
+	priceData, err := helper.ModelPriceHelper(c, relayInfo, tokens, meta)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError)
+		return
+	}
+
+	// common.SetContextKey(c, constant.ContextKeyTokenCountMeta, meta)
+
+	preConsumedQuota, newAPIError := service.PreConsumeQuota(c, priceData.ShouldPreConsumedQuota, relayInfo)
+	if newAPIError != nil {
+		return
+	}
+
+	defer func() {
+		// Only return quota if downstream failed and quota was actually pre-consumed
+		if newAPIError != nil && preConsumedQuota != 0 {
+			service.ReturnPreConsumedQuota(c, relayInfo, preConsumedQuota)
+		}
+	}()
 
 	for i := 0; i <= common.RetryTimes; i++ {
 		// 设置重试次数到上下文中
@@ -107,172 +171,41 @@ func Relay(c *gin.Context) {
 
 		channel, err := getChannel(c, group, originalModel, i)
 		if err != nil {
-			common.LogError(c, err.Error())
+			logger.LogError(c, err.Error())
 			newAPIError = err
 			break
 		}
 
-		newAPIError = relayRequest(c, relayMode, channel)
+		addUsedChannel(c, channel.Id)
+		requestBody, _ := common.GetRequestBody(c)
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 
-		if newAPIError == nil {
-			return // 成功处理请求，直接返回
+		switch relayFormat {
+		case types.RelayFormatOpenAIRealtime:
+			newAPIError = relay.WssHelper(c, relayInfo)
+		case types.RelayFormatClaude:
+			newAPIError = relay.ClaudeHelper(c, relayInfo)
+		case types.RelayFormatGemini:
+			newAPIError = geminiRelayHandler(c, relayInfo)
+		default:
+			newAPIError = relayHandler(c, relayInfo)
 		}
 
-		go processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+		if newAPIError == nil {
+			return
+		}
+
+		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 
 		if !shouldRetry(c, newAPIError, common.RetryTimes-i) {
 			break
 		}
 	}
+
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
-		common.LogInfo(c, retryLogStr)
-	}
-
-	if newAPIError != nil {
-		if newAPIError.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", newAPIError.Error()))
-			newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
-		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
-			// 上游错误，根据错误类型决定是否暴露具体信息
-			common.LogError(c, fmt.Sprintf("upstream error (status %d): %s", newAPIError.StatusCode, newAPIError.Error()))
-			errorMessage := newAPIError.Error()
-			errorMessageLower := strings.ToLower(errorMessage)
-			if strings.Contains(errorMessageLower, "quota") ||
-				strings.Contains(errorMessage, "配额") ||
-				strings.Contains(errorMessage, "非流") ||
-				strings.Contains(errorMessageLower, "poe") ||
-				strings.Contains(errorMessageLower, "tenclock") ||
-				strings.Contains(errorMessage, "服务超时") ||
-				strings.Contains(errorMessage, "额度") ||
-				strings.Contains(errorMessageLower, "credit") ||
-				strings.Contains(errorMessageLower, "points") ||
-				strings.Contains(errorMessageLower, "enough") ||
-				strings.Contains(errorMessage, "无可用") ||
-				strings.Contains(errorMessageLower, "insufficient") ||
-				strings.Contains(errorMessageLower, "balance") ||
-				strings.Contains(errorMessageLower, "limit") ||
-				strings.Contains(errorMessageLower, "exceeded") ||
-				strings.Contains(errorMessageLower, "exhausted") {
-				newAPIError.SetMessage("当前模型负载较大，请稍后重试，如有任何问题，请联系我们")
-			}
-			// 非配额相关错误保持原始错误信息
-		}
-		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
-
-		// 检查是否是 CLI 请求
-		userAgent := c.Request.Header.Get("User-Agent")
-		isCLIRequest := strings.Contains(strings.ToLower(userAgent), "cli")
-
-		// 使用 SysError 确保日志输出
-		common.SysError(fmt.Sprintf("[Relay] User-Agent: %s, isCLIRequest: %v, ErrorType: %v, StatusCode: %d, Error: %s",
-			userAgent, isCLIRequest, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
-
-		if isCLIRequest {
-			// 对于 CLI 请求，检查是否已经是 clove 格式的错误
-			var responseData gin.H
-
-			// 尝试检查 RelayError 是否已经是 clove 格式
-			if newAPIError.RelayError != nil {
-				// 尝试转换为 map 来检查结构
-				if relayMap, ok := newAPIError.RelayError.(map[string]interface{}); ok {
-					// 检查是否包含 detail 字段且结构符合 clove 格式
-					if detail, hasDetail := relayMap["detail"]; hasDetail {
-						if detailMap, ok := detail.(map[string]interface{}); ok {
-							// 检查必要字段：code, message, context
-							_, hasCode := detailMap["code"]
-							_, hasMessage := detailMap["message"]
-							context, hasContext := detailMap["context"]
-
-							// 如果有 context，进一步检查其结构
-							if hasCode && hasMessage && hasContext {
-								if contextMap, ok := context.(map[string]interface{}); ok {
-									// 检查 context 中的必要字段
-									_, hasErrorMessage := contextMap["error_message"]
-									_, hasErrorType := contextMap["error_type"]
-									_, hasStatusCode := contextMap["status_code"]
-									_, hasUrl := contextMap["url"]
-
-									if hasErrorMessage && hasErrorType && hasStatusCode && hasUrl {
-										// 这是一个完整的 clove 格式错误
-										// 检查错误信息是否包含 prompt too long，如果是则添加 /compact 提示
-										if errorMsg, ok := contextMap["error_message"].(string); ok {
-											if strings.Contains(errorMsg, "prompt is too long") {
-												contextMap["error_message"] = errorMsg + ". Please use /compact command to reduce context and continue."
-											}
-										}
-										// 同时检查 message 字段
-										if msg, ok := detailMap["message"].(string); ok {
-											if strings.Contains(msg, "prompt is too long") {
-												detailMap["message"] = msg + ". Please use /compact command to reduce context and continue."
-											}
-										}
-										responseData = relayMap
-										common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format passthrough): StatusCode=%d", newAPIError.StatusCode))
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// 如果不是 clove 格式，构建新的 clove 格式错误
-			if responseData == nil {
-				errorMessage := newAPIError.Error()
-
-				// 检查是否是 prompt too long 错误，如果是则添加 /compact 提示
-				if strings.Contains(errorMessage, "prompt is too long") {
-					errorMessage += ". Please use /compact command to reduce context and continue."
-				}
-
-				// 确定错误类型
-				errorType := "invalid_request_error"
-				if newAPIError.StatusCode == http.StatusTooManyRequests {
-					errorType = "rate_limit_error"
-				} else if newAPIError.StatusCode == http.StatusUnauthorized {
-					errorType = "authentication_error"
-				} else if newAPIError.StatusCode >= 500 {
-					errorType = "api_error"
-				}
-
-				// 构建 clove 格式的错误响应
-				responseData = gin.H{
-					"detail": gin.H{
-						"code":    503130,
-						"message": fmt.Sprintf("HTTP error occurred when calling Claude AI: %s - %s (Status: %d)", errorType, errorMessage, newAPIError.StatusCode),
-						"context": gin.H{
-							"url":           "https://api.anthropic.com/v1/messages",
-							"status_code":   newAPIError.StatusCode,
-							"error_type":    errorType,
-							"error_message": errorMessage,
-						},
-					},
-				}
-			}
-
-			// 记录最终返回给客户端的响应
-			responseBytes, _ := json.Marshal(responseData)
-			// CLI 请求使用上游返回的状态码
-			statusCode := newAPIError.StatusCode
-			common.SysError(fmt.Sprintf("[Relay] CLI error response (clove format): StatusCode=%d, Body=%s", statusCode, string(responseBytes)))
-
-			c.JSON(statusCode, responseData)
-		} else {
-			// 非 CLI 请求，返回 OpenAI 格式
-			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-			openAIError := newAPIError.ToOpenAIError()
-			responseData := gin.H{
-				"error": openAIError,
-			}
-
-			// 记录最终返回给客户端的响应 - 使用 SysError 确保输出
-			responseBytes, _ := json.Marshal(responseData)
-			common.SysError(fmt.Sprintf("[Relay] Final response to client: StatusCode=%d, Body=%s", newAPIError.StatusCode, string(responseBytes)))
-
-			c.JSON(newAPIError.StatusCode, responseData)
-		}
+		logger.LogInfo(c, retryLogStr)
 	}
 }
 
@@ -281,234 +214,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // 允许跨域
 	},
-}
-
-func WssRelay(c *gin.Context) {
-	// 将 HTTP 连接升级为 WebSocket 连接
-
-	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		helper.WssError(c, nil, types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry()).ToOpenAIError())
-		return
-	}
-	defer ws.Close()
-
-	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
-	requestId := c.GetString(common.RequestIdKey)
-	group := c.GetString("group")
-	//wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01
-	originalModel := c.GetString("original_model")
-	var newAPIError *types.NewAPIError
-
-	for i := 0; i <= common.RetryTimes; i++ {
-		// 设置重试次数到上下文中
-		c.Set("retry_times", fmt.Sprintf("%d", i))
-		if i == common.RetryTimes {
-			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
-		} else {
-			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
-		}
-
-		// 重置 client_disconnected 标记，避免影响重试
-		if i > 0 {
-			c.Set("client_disconnected", false)
-			// 清理可能存在的错误状态
-			c.Set("error_response", nil)
-			// 清理流式响应头部标记，允许重新设置
-			c.Set("event_stream_headers_set", nil)
-		}
-
-		channel, err := getChannel(c, group, originalModel, i)
-		if err != nil {
-			common.LogError(c, err.Error())
-			newAPIError = err
-			break
-		}
-
-		newAPIError = wssRequest(c, ws, relayMode, channel)
-
-		if newAPIError == nil {
-			return // 成功处理请求，直接返回
-		}
-
-		go processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
-
-		if !shouldRetry(c, newAPIError, common.RetryTimes-i) {
-			break
-		}
-	}
-	useChannel := c.GetStringSlice("use_channel")
-	if len(useChannel) > 1 {
-		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
-		common.LogInfo(c, retryLogStr)
-	}
-
-	if newAPIError != nil {
-		if newAPIError.StatusCode == http.StatusTooManyRequests {
-			newAPIError.SetMessage("当前分组上游负载已饱和，请稍后再试")
-		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
-			// 上游错误，根据错误类型决定是否暴露具体信息
-			common.LogError(c, fmt.Sprintf("upstream wss error (status %d): %s", newAPIError.StatusCode, newAPIError.Error()))
-			errorMessage := newAPIError.Error()
-			errorMessageLower := strings.ToLower(errorMessage)
-			if strings.Contains(errorMessageLower, "quota") ||
-				strings.Contains(errorMessage, "配额") ||
-				strings.Contains(errorMessage, "非流") ||
-				strings.Contains(errorMessageLower, "poe") ||
-				strings.Contains(errorMessageLower, "tenclock") ||
-				strings.Contains(errorMessage, "服务超时") ||
-				strings.Contains(errorMessage, "额度") ||
-				strings.Contains(errorMessageLower, "credit") ||
-				strings.Contains(errorMessageLower, "points") ||
-				strings.Contains(errorMessageLower, "enough") ||
-				strings.Contains(errorMessage, "无可用") ||
-				strings.Contains(errorMessageLower, "insufficient") ||
-				strings.Contains(errorMessageLower, "balance") ||
-				strings.Contains(errorMessageLower, "limit") ||
-				strings.Contains(errorMessageLower, "exceeded") ||
-				strings.Contains(errorMessageLower, "exhausted") {
-				newAPIError.SetMessage("当前模型负载较大，请稍后重试，如有任何问题，请联系我们")
-			}
-			// 非配额相关错误保持原始错误信息
-		}
-		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
-
-		newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-		helper.WssError(c, ws, newAPIError.ToOpenAIError())
-	}
-}
-
-func RelayClaude(c *gin.Context) {
-	//relayMode := constant.Path2RelayMode(c.Request.URL.Path)
-	requestId := c.GetString(common.RequestIdKey)
-	group := c.GetString("group")
-	originalModel := c.GetString("original_model")
-	var newAPIError *types.NewAPIError
-
-	for i := 0; i <= common.RetryTimes; i++ {
-		// 设置重试次数到上下文中
-		c.Set("retry_times", fmt.Sprintf("%d", i))
-		if i == common.RetryTimes {
-			c.Set("is_last", true) // 最后一次重试时设置 is_last 为 true
-		} else {
-			c.Set("is_last", false) // 其他重试次数设置 is_last 为 false
-		}
-
-		// 重置 client_disconnected 标记，避免影响重试
-		if i > 0 {
-			c.Set("client_disconnected", false)
-			// 清理可能存在的错误状态
-			c.Set("error_response", nil)
-			// 清理流式响应头部标记，允许重新设置
-			c.Set("event_stream_headers_set", nil)
-		}
-
-		channel, err := getChannel(c, group, originalModel, i)
-		if err != nil {
-			common.LogError(c, err.Error())
-			newAPIError = err
-			break
-		}
-
-		newAPIError = claudeRequest(c, channel)
-
-		if newAPIError == nil {
-			return // 成功处理请求，直接返回
-		}
-
-		go processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
-
-		if !shouldRetry(c, newAPIError, common.RetryTimes-i) {
-			break
-		}
-	}
-	useChannel := c.GetStringSlice("use_channel")
-	if len(useChannel) > 1 {
-		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
-		common.LogInfo(c, retryLogStr)
-	}
-
-	if newAPIError != nil {
-		// 检查是否是 Claude Code CLI
-		userAgent := c.Request.Header.Get("User-Agent")
-		isClaudeCLI := strings.Contains(strings.ToLower(userAgent), "cli")
-
-		// 使用 SysError 确保日志输出
-		common.SysError(fmt.Sprintf("[RelayClaude] User-Agent: %s, isCLIRequest: %v, ErrorType: %v, StatusCode: %d, Error: %s",
-			userAgent, isClaudeCLI, newAPIError.GetErrorType(), newAPIError.StatusCode, newAPIError.Error()))
-
-		// 非 CLI 请求，构建原有的错误格式
-		claudeErr := &types.ClaudeError{
-			Message: newAPIError.Error(),
-			Type:    "error",
-		}
-
-		// 处理错误信息（保持原有逻辑）
-		if newAPIError.StatusCode == http.StatusTooManyRequests {
-			common.LogError(c, fmt.Sprintf("origin 429 error: %s", claudeErr.Message))
-			claudeErr.Message = "当前分组上游负载已饱和，请稍后再试"
-		} else if newAPIError.GetErrorType() != types.ErrorTypeNewAPIError {
-			// 上游错误，根据错误类型决定是否暴露具体信息
-			common.LogError(c, fmt.Sprintf("upstream claude error (status %d): %s", newAPIError.StatusCode, claudeErr.Message))
-			errorMessageLower := strings.ToLower(claudeErr.Message)
-			if strings.Contains(errorMessageLower, "quota") ||
-				strings.Contains(claudeErr.Message, "配额") ||
-				strings.Contains(claudeErr.Message, "非流") ||
-				strings.Contains(errorMessageLower, "poe") ||
-				strings.Contains(errorMessageLower, "tenclock") ||
-				strings.Contains(claudeErr.Message, "服务超时") ||
-				strings.Contains(claudeErr.Message, "额度") ||
-				strings.Contains(errorMessageLower, "credit") ||
-				strings.Contains(errorMessageLower, "points") ||
-				strings.Contains(errorMessageLower, "enough") ||
-				strings.Contains(claudeErr.Message, "无可用") ||
-				strings.Contains(errorMessageLower, "insufficient") ||
-				strings.Contains(errorMessageLower, "balance") ||
-				strings.Contains(errorMessageLower, "limit") ||
-				strings.Contains(errorMessageLower, "exceeded") ||
-				strings.Contains(errorMessageLower, "exhausted") {
-				claudeErr.Message = "当前模型负载较大，请稍后重试，如有任何问题，请联系我们"
-			}
-			// 非配额相关错误保持原始错误信息
-		}
-		// 本地错误（ErrorTypeNewAPIError）直接返回原始错误信息
-
-		claudeErr.Message = common.MessageWithRequestId(claudeErr.Message, requestId)
-
-		// 返回原有格式
-		c.JSON(newAPIError.StatusCode, gin.H{
-			"type":  "error",
-			"error": claudeErr,
-		})
-
-	}
-}
-
-func relayRequest(c *gin.Context, relayMode int, channel *model.Channel) *types.NewAPIError {
-	addUsedChannel(c, channel.Id)
-	// 重试时清理缓存的请求体，强制重新读取
-	//c.Set(common.KeyRequestBody, nil)
-	requestBody, _ := common.GetRequestBody(c)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
-	return relayHandler(c, relayMode)
-}
-
-func wssRequest(c *gin.Context, ws *websocket.Conn, relayMode int, channel *model.Channel) *types.NewAPIError {
-	addUsedChannel(c, channel.Id)
-	// 重试时清理缓存的请求体，强制重新读取
-	//c.Set(common.KeyRequestBody, nil)
-	requestBody, _ := common.GetRequestBody(c)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
-	return relay.WssHelper(c, ws)
-}
-
-func claudeRequest(c *gin.Context, channel *model.Channel) *types.NewAPIError {
-	addUsedChannel(c, channel.Id)
-	// 重试时清理缓存的请求体，强制重新读取
-	//c.Set(common.KeyRequestBody, nil)
-	requestBody, _ := common.GetRequestBody(c)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
-	return relay.ClaudeHelper(c)
 }
 
 func addUsedChannel(c *gin.Context, channelId int) {
@@ -535,10 +240,10 @@ func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*m
 	// 直接获取渠道，不检查是否已尝试过
 	channel, selectGroup, err := model.CacheGetRandomSatisfiedChannel(c, group, originalModel, retryCount)
 	if err != nil {
-		return nil, types.NewError(errors.New(fmt.Sprintf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, originalModel, err.Error())), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, originalModel, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if channel == nil {
-		return nil, types.NewError(errors.New(fmt.Sprintf("分组 %s 下模型 %s 的可用渠道不存在（数据库一致性已被破坏，retry）", selectGroup, originalModel)), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（数据库一致性已被破坏，retry）", selectGroup, originalModel), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 
 	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, originalModel)
@@ -606,6 +311,17 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if openaiErr.StatusCode/100 == 5 {
 		return true
 	}
+	
+	if openaiErr.StatusCode == http.StatusBadRequest {
+		return false
+	}
+	if openaiErr.StatusCode == 408 {
+		// azure处理超时不重试
+		return false
+	}
+	if openaiErr.StatusCode/100 == 2 {
+		return false
+	}
 
 	// 3xx 重定向重试
 	if openaiErr.StatusCode/100 == 3 {
@@ -617,44 +333,84 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 }
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
-	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
-	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
-	common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, err.Error()))
-	if service.ShouldDisableChannel(channelError.ChannelId, err) && channelError.AutoBan {
-		service.DisableChannel(channelError, err.Error())
+	logger.LogError(c, fmt.Sprintf("relay error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, err.Error()))
+
+	gopool.Go(func() {
+		// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
+		// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
+		if service.ShouldDisableChannel(channelError.ChannelId, err) && channelError.AutoBan {
+			service.DisableChannel(channelError, err.Error())
+		}
+	})
+
+	if constant.ErrorLogEnabled && types.IsRecordErrorLog(err) {
+		// 保存错误日志到mysql中
+		userId := c.GetInt("id")
+		tokenName := c.GetString("token_name")
+		modelName := c.GetString("original_model")
+		tokenId := c.GetInt("token_id")
+		userGroup := c.GetString("group")
+		channelId := c.GetInt("channel_id")
+		other := make(map[string]interface{})
+		other["error_type"] = err.GetErrorType()
+		other["error_code"] = err.GetErrorCode()
+		other["status_code"] = err.StatusCode
+		other["channel_id"] = channelId
+		other["channel_name"] = c.GetString("channel_name")
+		other["channel_type"] = c.GetInt("channel_type")
+		adminInfo := make(map[string]interface{})
+		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
+		isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
+		if isMultiKey {
+			adminInfo["is_multi_key"] = true
+			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
+		}
+		other["admin_info"] = adminInfo
+		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveError(), tokenId, 0, false, userGroup, other)
 	}
+
 }
 
 func RelayMidjourney(c *gin.Context) {
-	relayMode := c.GetInt("relay_mode")
-	var err *dto.MidjourneyResponse
-	switch relayMode {
+	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatMjProxy, nil, nil)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"description": fmt.Sprintf("failed to generate relay info: %s", err.Error()),
+			"type":        "upstream_error",
+			"code":        4,
+		})
+		return
+	}
+
+	var mjErr *dto.MidjourneyResponse
+	switch relayInfo.RelayMode {
 	case relayconstant.RelayModeMidjourneyNotify:
-		err = relay.RelayMidjourneyNotify(c)
+		mjErr = relay.RelayMidjourneyNotify(c)
 	case relayconstant.RelayModeMidjourneyTaskFetch, relayconstant.RelayModeMidjourneyTaskFetchByCondition:
-		err = relay.RelayMidjourneyTask(c, relayMode)
+		mjErr = relay.RelayMidjourneyTask(c, relayInfo.RelayMode)
 	case relayconstant.RelayModeMidjourneyTaskImageSeed:
-		err = relay.RelayMidjourneyTaskImageSeed(c)
+		mjErr = relay.RelayMidjourneyTaskImageSeed(c)
 	case relayconstant.RelayModeSwapFace:
-		err = relay.RelaySwapFace(c)
+		mjErr = relay.RelaySwapFace(c, relayInfo)
 	default:
-		err = relay.RelayMidjourneySubmit(c, relayMode)
+		mjErr = relay.RelayMidjourneySubmit(c, relayInfo)
 	}
 	//err = relayMidjourneySubmit(c, relayMode)
-	log.Println(err)
-	if err != nil {
+	log.Println(mjErr)
+	if mjErr != nil {
 		statusCode := http.StatusBadRequest
-		if err.Code == 30 {
-			err.Result = "当前分组负载已饱和，请稍后再试，或升级账户以提升服务质量。"
+		if mjErr.Code == 30 {
+			mjErr.Result = "当前分组负载已饱和，请稍后再试，或升级账户以提升服务质量。"
 			statusCode = http.StatusTooManyRequests
 		}
 		c.JSON(statusCode, gin.H{
-			"description": fmt.Sprintf("%s %s", err.Description, err.Result),
+			"description": fmt.Sprintf("%s %s", mjErr.Description, mjErr.Result),
 			"type":        "upstream_error",
-			"code":        err.Code,
+			"code":        mjErr.Code,
 		})
 		channelId := c.GetInt("channel_id")
-		common.LogError(c, fmt.Sprintf("relay error (channel #%d, status code %d): %s", channelId, statusCode, fmt.Sprintf("%s %s", err.Description, err.Result)))
+		logger.LogError(c, fmt.Sprintf("relay error (channel #%d, status code %d): %s", channelId, statusCode, fmt.Sprintf("%s %s", mjErr.Description, mjErr.Result)))
 	}
 }
 
@@ -685,7 +441,6 @@ func RelayNotFound(c *gin.Context) {
 func RelayTask(c *gin.Context) {
 	retryTimes := common.RetryTimes
 	channelId := c.GetInt("channel_id")
-	relayMode := c.GetInt("relay_mode")
 	group := c.GetString("group")
 	originalModel := c.GetString("original_model")
 	c.Set("use_channel", []string{fmt.Sprintf("%d", channelId)})
@@ -693,7 +448,11 @@ func RelayTask(c *gin.Context) {
 	// 收集所有错误
 	var allErrors []*dto.TaskError
 
-	taskErr := taskRelayHandler(c, relayMode)
+	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
+	if err != nil {
+		return
+	}
+	taskErr := taskRelayHandler(c, relayInfo)
 	if taskErr != nil {
 		allErrors = append(allErrors, taskErr)
 	} else {
@@ -703,7 +462,7 @@ func RelayTask(c *gin.Context) {
 	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
 		channel, newAPIError := getChannel(c, group, originalModel, i)
 		if newAPIError != nil {
-			common.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", newAPIError.Error()))
+			logger.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", newAPIError.Error()))
 			taskErr = service.TaskErrorWrapperLocal(newAPIError.Err, "get_channel_failed", http.StatusInternalServerError)
 			allErrors = append(allErrors, taskErr)
 			break
@@ -712,12 +471,12 @@ func RelayTask(c *gin.Context) {
 		useChannel := c.GetStringSlice("use_channel")
 		useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
 		c.Set("use_channel", useChannel)
-		common.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, i))
+		logger.LogInfo(c, fmt.Sprintf("using channel #%d to retry (remain times %d)", channel.Id, i))
 		//middleware.SetupContextForSelectedChannel(c, channel, originalModel)
 
 		requestBody, _ := common.GetRequestBody(c)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
-		taskErr = taskRelayHandler(c, relayMode)
+		taskErr = taskRelayHandler(c, relayInfo)
 		if taskErr != nil {
 			allErrors = append(allErrors, taskErr)
 		}
@@ -726,7 +485,7 @@ func RelayTask(c *gin.Context) {
 	useChannel := c.GetStringSlice("use_channel")
 	if len(useChannel) > 1 {
 		retryLogStr := fmt.Sprintf("重试：%s", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(useChannel)), "->"), "[]"))
-		common.LogInfo(c, retryLogStr)
+		logger.LogInfo(c, retryLogStr)
 	}
 
 	if taskErr != nil {
@@ -736,14 +495,13 @@ func RelayTask(c *gin.Context) {
 	}
 }
 
-func taskRelayHandler(c *gin.Context, _ int) *dto.TaskError {
-	relayMode := c.GetInt("relay_mode")
+func taskRelayHandler(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dto.TaskError {
 	var err *dto.TaskError
-	switch relayMode {
+	switch relayInfo.RelayMode {
 	case relayconstant.RelayModeSunoFetch, relayconstant.RelayModeSunoFetchByID, relayconstant.RelayModeVideoFetchByID:
-		err = relay.RelayTaskFetch(c, relayMode)
+		err = relay.RelayTaskFetch(c, relayInfo.RelayMode)
 	default:
-		err = relay.RelayTaskSubmit(c, relayMode)
+		err = relay.RelayTaskSubmit(c, relayInfo)
 	}
 	return err
 }

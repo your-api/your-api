@@ -63,7 +63,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 
 	var claudeReq *dto.ClaudeRequest
 	var err error
-	claudeReq, err = claude.RequestOpenAI2ClaudeMessage(*request)
+	claudeReq, err = claude.RequestOpenAI2ClaudeMessage(c, *request)
 	if err != nil {
 		return nil, err
 	}

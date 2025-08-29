@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"one-api/common"
+	"one-api/logger"
+	"one-api/types"
 	"os"
 	"strings"
 	"time"
@@ -127,13 +129,13 @@ func RecordLog(userId int, logType int, content string) {
 	table := getLogTableByUser(userId)
 	err := LOG_DB.Table(table).Create(log).Error
 	if err != nil {
-		common.SysError("failed to record log: " + err.Error())
+		common.SysLog("failed to record log: " + err.Error())
 	}
 }
 
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
-	common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
+	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
 	username := c.GetString("username")
 	otherStr := common.MapToJsonStr(other)
 	// 判断是否需要记录 IP
@@ -171,7 +173,7 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 	table := getLogTableByUser(userId)
 	err := LOG_DB.Table(table).Create(log).Error
 	if err != nil {
-		common.LogError(c, "failed to record log: "+err.Error())
+		logger.LogError(c, "failed to record log: "+err.Error())
 	}
 }
 
@@ -196,7 +198,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 
 	// 判断contentUpstream是否不为空
 	if contentUpstream != "" {
-		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+		logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
 			userId, channelId, modelName, tokenName, content))
 
 		username := c.GetString("username")
@@ -263,13 +265,13 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 		}
 		table := getLogTableByUser(userIdRecord)
 		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
-			common.LogError(c, "failed to record log: "+err.Error())
+			logger.LogError(c, "failed to record log: "+err.Error())
 		}
 	}
 
 	// 如果是最后一次重试，记录用户的错误日志
 	if isLast, exists := c.Get("is_last"); exists && isLast == true {
-		common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
+		logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s",
 			userId, channelId, modelName, tokenName, content))
 		username := c.GetString("username")
 
@@ -328,7 +330,7 @@ func RecordErrorLogDouble(c *gin.Context, userId int, channelId int, modelName s
 		}
 		table := getLogTableByUser(userId)
 		if err := LOG_DB.Table(table).Create(log).Error; err != nil {
-			common.LogError(c, "failed to record log: "+err.Error())
+			logger.LogError(c, "failed to record log: "+err.Error())
 		}
 	}
 }
@@ -338,13 +340,16 @@ type RecordConsumeLogParams struct {
 	PromptTokens     int                    `json:"prompt_tokens"`
 	CompletionTokens int                    `json:"completion_tokens"`
 	Quota            int                    `json:"quota"`
+	Content          string                 `json:"content"`
+	TokenId          int                    `json:"token_id"`
 	UseTime          int                    `json:"use_time"`
+	UseTimeSeconds   int                    `json:"use_time_seconds"`
 	IsStream         bool                   `json:"is_stream"`
 	Other            map[string]interface{} `json:"other"`
 }
 
 func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens int, completionTokens int, modelName string, tokenName string, quota int, content string, tokenId int, userQuota int, useTimeSeconds int, isStream bool, group string, other map[string]interface{}) {
-	common.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, 用户调用前余额=%d, channelId=%d, promptTokens=%d, completionTokens=%d, modelName=%s, tokenName=%s, quota=%d, content=%s", userId, userQuota, channelId, promptTokens, completionTokens, modelName, tokenName, quota, content))
+	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, 用户调用前余额=%d, channelId=%d, promptTokens=%d, completionTokens=%d, modelName=%s, tokenName=%s, quota=%d, content=%s", userId, userQuota, channelId, promptTokens, completionTokens, modelName, tokenName, quota, content))
 	if !common.LogConsumeEnabled {
 		return
 	}
@@ -359,11 +364,10 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 			Count(&existingCount).Error
 
 		if err == nil && existingCount > 0 {
-			common.LogWarn(c, fmt.Sprintf("检测到重复的消费日志记录，请求ID: %s, 用户ID: %d，跳过记录", requestId, userId))
+			logger.LogWarn(c, fmt.Sprintf("检测到重复的消费日志记录，请求ID: %s, 用户ID: %d，跳过记录", requestId, userId))
 			return
 		}
 	}
-
 	username := c.GetString("username")
 
 	// 在other中添加请求ID用于后续重复检查
@@ -410,7 +414,7 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 	table := getLogTableByUser(userId)
 	err := LOG_DB.Table(table).Create(log).Error
 	if err != nil {
-		common.LogError(c, "failed to record log: "+err.Error())
+		logger.LogError(c, "failed to record log: "+err.Error())
 	}
 	if common.DataExportEnabled {
 		gopool.Go(func() {
@@ -480,26 +484,22 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		return nil, 0, err
 	}
 
-	channelIdsMap := make(map[int]struct{})
-	channelMap := make(map[int]string)
+	channelIds := types.NewSet[int]()
 	for _, log := range logs {
 		if log.ChannelId != 0 {
-			channelIdsMap[log.ChannelId] = struct{}{}
+			channelIds.Add(log.ChannelId)
 		}
 	}
 
-	channelIds := make([]int, 0, len(channelIdsMap))
-	for channelId := range channelIdsMap {
-		channelIds = append(channelIds, channelId)
-	}
-	if len(channelIds) > 0 {
+	if channelIds.Len() > 0 {
 		var channels []struct {
 			Id   int    `gorm:"column:id"`
 			Name string `gorm:"column:name"`
 		}
-		if err = DB.Table("channels").Select("id, name").Where("id IN ?", channelIds).Find(&channels).Error; err != nil {
+		if err = DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
 			return logs, total, err
 		}
+		channelMap := make(map[int]string, len(channels))
 		for _, channel := range channels {
 			channelMap[channel.Id] = channel.Name
 		}

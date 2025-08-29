@@ -67,7 +67,7 @@ func CheckInUser(c *gin.Context) {
 		"data": gin.H{
 			"quota_reward":      checkIn.QuotaReward,
 			"consecutive_days":  checkIn.ConsecutiveDays,
-			"quota_reward_text": common.LogQuota(checkIn.QuotaReward),
+			"quota_reward_text": logger.LogQuota(checkIn.QuotaReward),
 		},
 	})
 }
@@ -102,7 +102,7 @@ func GetCheckInStatus(c *gin.Context) {
 		"has_checked_in_today": status.HasCheckedInToday,
 		"can_check_in":         status.CanCheckIn,
 		"next_reward_quota":    status.NextRewardQuota,
-		"next_reward_text":     common.LogQuota(status.NextRewardQuota),
+		"next_reward_text":     logger.LogQuota(status.NextRewardQuota),
 		"consecutive_bonus":    status.ConsecutiveBonus,
 	}
 
@@ -152,7 +152,7 @@ func GetCheckInCalendar(c *gin.Context) {
 		}
 
 		if day.HasCheckIn {
-			dayData["quota_reward_text"] = common.LogQuota(day.QuotaReward)
+			dayData["quota_reward_text"] = logger.LogQuota(day.QuotaReward)
 		}
 
 		formattedCalendar = append(formattedCalendar, dayData)
@@ -189,7 +189,7 @@ func GetCheckInStats(c *gin.Context) {
 	formattedStats := gin.H{
 		"total_check_in_days":  stats["total_check_in_days"],
 		"total_quota_earned":   stats["total_quota_earned"],
-		"total_quota_text":     common.LogQuota(int(stats["total_quota_earned"].(int64))),
+		"total_quota_text":     logger.LogQuota(int(stats["total_quota_earned"].(int64))),
 		"max_consecutive_days": stats["max_consecutive_days"],
 		"this_month_check_ins": stats["this_month_check_ins"],
 	}

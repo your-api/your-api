@@ -45,15 +45,15 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	switch info.RelayMode {
 	case constant.RelayModeChatCompletions:
-		return fmt.Sprintf("%s/v2/chat/completions", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v2/chat/completions", info.ChannelBaseUrl), nil
 	case constant.RelayModeEmbeddings:
-		return fmt.Sprintf("%s/v2/embeddings", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v2/embeddings", info.ChannelBaseUrl), nil
 	case constant.RelayModeImagesGenerations:
-		return fmt.Sprintf("%s/v2/images/generations", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v2/images/generations", info.ChannelBaseUrl), nil
 	case constant.RelayModeImagesEdits:
-		return fmt.Sprintf("%s/v2/images/edits", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v2/images/edits", info.ChannelBaseUrl), nil
 	case constant.RelayModeRerank:
-		return fmt.Sprintf("%s/v2/rerank", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v2/rerank", info.ChannelBaseUrl), nil
 	default:
 	}
 	return "", fmt.Errorf("unsupported relay mode: %d", info.RelayMode)
@@ -81,20 +81,23 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if strings.HasSuffix(info.UpstreamModelName, "-search") {
 		info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-search")
 		request.Model = info.UpstreamModelName
-		toMap := request.ToMap()
-		toMap["web_search"] = map[string]any{
-			"enable":          true,
-			"enable_citation": true,
-			"enable_trace":    true,
-			"enable_status":   false,
+		if len(request.WebSearch) == 0 {
+			toMap := request.ToMap()
+			toMap["web_search"] = map[string]any{
+				"enable":          true,
+				"enable_citation": true,
+				"enable_trace":    true,
+				"enable_status":   false,
+			}
+			return toMap, nil
 		}
-		return toMap, nil
+		return request, nil
 	}
 	return request, nil
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {

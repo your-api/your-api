@@ -18,19 +18,19 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import CardPro from '../../common/ui/CardPro.js';
-import ChannelsTable from './ChannelsTable.jsx';
-import ChannelsActions from './ChannelsActions.jsx';
-import ChannelsFilters from './ChannelsFilters.jsx';
-import ChannelsTabs from './ChannelsTabs.jsx';
-import { useChannelsData } from '../../../hooks/channels/useChannelsData.js';
-import { useIsMobile } from '../../../hooks/common/useIsMobile.js';
-import BatchTagModal from './modals/BatchTagModal.jsx';
-import ModelTestModal from './modals/ModelTestModal.jsx';
-import ColumnSelectorModal from './modals/ColumnSelectorModal.jsx';
-import EditChannelModal from './modals/EditChannelModal.jsx';
-import EditTagModal from './modals/EditTagModal.jsx';
-import MultiKeyManageModal from './modals/MultiKeyManageModal.jsx';
+import CardPro from '../../common/ui/CardPro';
+import ChannelsTable from './ChannelsTable';
+import ChannelsActions from './ChannelsActions';
+import ChannelsFilters from './ChannelsFilters';
+import ChannelsTabs from './ChannelsTabs';
+import { useChannelsData } from '../../../hooks/channels/useChannelsData';
+import { useIsMobile } from '../../../hooks/common/useIsMobile';
+import BatchTagModal from './modals/BatchTagModal';
+import ModelTestModal from './modals/ModelTestModal';
+import ColumnSelectorModal from './modals/ColumnSelectorModal';
+import EditChannelModal from './modals/EditChannelModal';
+import EditTagModal from './modals/EditTagModal';
+import MultiKeyManageModal from './modals/MultiKeyManageModal';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const ChannelsPage = () => {

@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"one-api/common"
+	"one-api/logger"
 	"one-api/model"
 	"one-api/service"
 	"one-api/setting"
@@ -257,7 +258,6 @@ func EpayNotify(c *gin.Context) {
 				log.Printf("易支付回调更新用户失败: 订单号=%s, 错误=%v, 详情=%+v", topUp.TradeNo, err, topUp)
 				return
 			}
-
 			// 处理邀请充值返利：用户前三次充值时给邀请者返利
 			if user.InviterId > 0 && user.PayCount <= 3 {
 				// 计算返利额度：充值额度的5%
@@ -276,7 +276,7 @@ func EpayNotify(c *gin.Context) {
 					// 记录邀请者的返利日志
 					model.RecordLog(user.InviterId, model.LogTypeSystem,
 						fmt.Sprintf("邀请用户充值返利 %s (来自用户: %s, 第%d次充值)",
-							common.LogQuota(commissionQuota), user.Username, user.PayCount))
+							logger.LogQuota(commissionQuota), user.Username, user.PayCount))
 				}
 			}
 
@@ -287,7 +287,7 @@ func EpayNotify(c *gin.Context) {
 			}
 
 			log.Printf("易支付回调更新用户成功 订单号: %s, 用户ID: %d, 增加额度: %d, 支付金额: %f", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money)
-			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%f", topUp.TradeNo, common.LogQuota(quotaToAdd), topUp.Money))
+			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%f", topUp.TradeNo, logger.LogQuota(quotaToAdd), topUp.Money))
 		}
 	} else {
 		log.Printf("易支付异常回调: %v", verifyInfo)

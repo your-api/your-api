@@ -45,9 +45,9 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.RelayMode == constant.RelayModeRerank {
-		return fmt.Sprintf("%s/v1/rerank", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/rerank", info.ChannelBaseUrl), nil
 	} else if info.RelayMode == constant.RelayModeEmbeddings {
-		return fmt.Sprintf("%s/v1/embeddings", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/embeddings", info.ChannelBaseUrl), nil
 	}
 	return "", errors.New("invalid relay mode")
 }

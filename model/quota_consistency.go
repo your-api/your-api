@@ -68,7 +68,7 @@ func (q *QuotaConsistencyChecker) run() {
 
 // checkAndFixInconsistencies 检查并修复额度不一致问题
 func (q *QuotaConsistencyChecker) checkAndFixInconsistencies() {
-	common.LogInfo(nil, "开始检查用户额度一致性...")
+	logger.LogInfo(nil, "开始检查用户额度一致性...")
 	
 	// 查询有额度不一致问题的用户
 	var inconsistentUsers []struct {
@@ -112,16 +112,16 @@ func (q *QuotaConsistencyChecker) checkAndFixInconsistencies() {
 	
 	err := DB.Raw(query, common.QuotaPerUnit).Scan(&inconsistentUsers).Error
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("检查额度一致性失败: %v", err))
+		logger.LogError(nil, fmt.Sprintf("检查额度一致性失败: %v", err))
 		return
 	}
 	
 	if len(inconsistentUsers) == 0 {
-		common.LogInfo(nil, "所有用户额度正常，无需修复")
+		logger.LogInfo(nil, "所有用户额度正常，无需修复")
 		return
 	}
 	
-	common.LogInfo(nil, fmt.Sprintf("发现 %d 个用户存在额度不一致问题", len(inconsistentUsers)))
+	logger.LogInfo(nil, fmt.Sprintf("发现 %d 个用户存在额度不一致问题", len(inconsistentUsers)))
 	
 	// 修复每个用户的额度
 	for _, user := range inconsistentUsers {
@@ -145,7 +145,7 @@ func (q *QuotaConsistencyChecker) fixUserQuota(userID int, username string, curr
 	// 更新用户额度
 	err := tx.Model(&User{}).Where("id = ?", userID).Update("quota", correctQuota).Error
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("修复用户 %s (ID: %d) 额度失败: %v", username, userID, err))
+		logger.LogError(nil, fmt.Sprintf("修复用户 %s (ID: %d) 额度失败: %v", username, userID, err))
 		return
 	}
 	
@@ -164,17 +164,17 @@ func (q *QuotaConsistencyChecker) fixUserQuota(userID int, username string, curr
 	}).Error
 	
 	if err != nil {
-		common.LogError(nil, fmt.Sprintf("记录修复日志失败: %v", err))
+		logger.LogError(nil, fmt.Sprintf("记录修复日志失败: %v", err))
 		return
 	}
 	
 	// 提交事务
 	if err = tx.Commit().Error; err != nil {
-		common.LogError(nil, fmt.Sprintf("提交修复事务失败: %v", err))
+		logger.LogError(nil, fmt.Sprintf("提交修复事务失败: %v", err))
 		return
 	}
 	
-	common.LogInfo(nil, fmt.Sprintf("成功修复用户 %s (ID: %d) 的额度差异: %d", username, userID, -difference))
+	logger.LogInfo(nil, fmt.Sprintf("成功修复用户 %s (ID: %d) 的额度差异: %d", username, userID, -difference))
 }
 
 // CheckUserQuotaConsistency 检查单个用户的额度一致性

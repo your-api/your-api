@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import { Empty } from '@douyinfe/semi-ui';
-import CardTable from '../../common/ui/CardTable.js';
+import CardTable from '../../common/ui/CardTable';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
-import { getTokensColumns } from './TokensColumnDefs.js';
+import { getTokensColumns } from './TokensColumnDefs';
 
 const TokensTable = (tokensData) => {
   const {

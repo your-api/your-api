@@ -23,6 +23,7 @@ import PricingGroups from '../filter/PricingGroups';
 import PricingQuotaTypes from '../filter/PricingQuotaTypes';
 import PricingEndpointTypes from '../filter/PricingEndpointTypes';
 import PricingVendors from '../filter/PricingVendors';
+import PricingTags from '../filter/PricingTags';
 import PricingDisplaySettings from '../filter/PricingDisplaySettings';
 import { resetPricingFilters } from '../../../../helpers/utils';
 import { usePricingFilterCounts } from '../../../../hooks/model-pricing/usePricingFilterCounts';
@@ -40,12 +41,15 @@ const PricingSidebar = ({
   setViewMode,
   filterGroup,
   setFilterGroup,
+  handleGroupClick,
   filterQuotaType,
   setFilterQuotaType,
   filterEndpointType,
   setFilterEndpointType,
   filterVendor,
   setFilterVendor,
+  filterTag,
+  setFilterTag,
   currentPage,
   setCurrentPage,
   tokenUnit,
@@ -59,6 +63,7 @@ const PricingSidebar = ({
     quotaTypeModels,
     endpointTypeModels,
     vendorModels,
+    tagModels,
     groupCountModels,
   } = usePricingFilterCounts({
     models: categoryProps.models,
@@ -66,6 +71,7 @@ const PricingSidebar = ({
     filterQuotaType,
     filterEndpointType,
     filterVendor,
+    filterTag,
     searchValue: categoryProps.searchValue,
   });
 
@@ -80,12 +86,13 @@ const PricingSidebar = ({
       setFilterQuotaType,
       setFilterEndpointType,
       setFilterVendor,
+      setFilterTag,
       setCurrentPage,
       setTokenUnit,
     });
 
   return (
-    <div className="p-4">
+    <div className="p-2">
       <div className="flex items-center justify-between mb-6">
         <div className="text-lg font-semibold text-gray-800">
           {t('筛选')}
@@ -124,9 +131,18 @@ const PricingSidebar = ({
         t={t}
       />
 
+      <PricingTags
+        filterTag={filterTag}
+        setFilterTag={setFilterTag}
+        models={tagModels}
+        allModels={categoryProps.models}
+        loading={loading}
+        t={t}
+      />
+
       <PricingGroups
         filterGroup={filterGroup}
-        setFilterGroup={setFilterGroup}
+        setFilterGroup={handleGroupClick}
         usableGroup={categoryProps.usableGroup}
         groupRatio={categoryProps.groupRatio}
         models={groupCountModels}

@@ -8,6 +8,7 @@ import (
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
+	"one-api/logger"
 	"one-api/model"
 	"strconv"
 	"strings"
@@ -65,6 +66,29 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
+	// 检查是否启用2FA
+	if model.IsTwoFAEnabled(user.Id) {
+		// 设置pending session，等待2FA验证
+		session := sessions.Default(c)
+		session.Set("pending_username", user.Username)
+		session.Set("pending_user_id", user.Id)
+		err := session.Save()
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "无法保存会话信息，请重试",
+				"success": false,
+			})
+			return
+		}
+		
+		c.JSON(http.StatusOK, gin.H{
+			"message": "需要2FA验证",
+			"success": true,
+			"data":    gin.H{"require_2fa": true},
+		})
+		return
+	}
+	
 	setupLogin(&user, c)
 }
 
@@ -119,7 +143,7 @@ func PhoneLogin(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	setupLogin(&user, c)
 }
 
@@ -242,7 +266,7 @@ func Register(c *gin.Context) {
 			"success": false,
 			"message": "数据库错误，请稍后重试",
 		})
-		common.SysError(fmt.Sprintf("CheckUserExistOrDeleted error: %v", err))
+		common.SysLog(fmt.Sprintf("CheckUserExistOrDeleted error: %v", err))
 		return
 	}
 	if exist {
@@ -292,7 +316,7 @@ func Register(c *gin.Context) {
 				"success": false,
 				"message": "生成默认令牌失败",
 			})
-			common.SysError("failed to generate token key: " + err.Error())
+			common.SysLog("failed to generate token key: " + err.Error())
 			return
 		}
 		// 生成默认令牌
@@ -442,7 +466,7 @@ func GenerateAccessToken(c *gin.Context) {
 			"success": false,
 			"message": "生成失败",
 		})
-		common.SysError("failed to generate key: " + err.Error())
+		common.SysLog("failed to generate key: " + err.Error())
 		return
 	}
 	user.SetAccessToken(key)
@@ -816,7 +840,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	if originUser.Quota != updatedUser.Quota {
-		model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s修改为 %s", common.LogQuota(originUser.Quota), common.LogQuota(updatedUser.Quota)))
+		model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s修改为 %s", logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -1243,11 +1267,58 @@ type topUpRequest struct {
 	Key string `json:"key"`
 }
 
-var topUpLock = sync.Mutex{}
+var topUpLocks sync.Map
+var topUpCreateLock sync.Mutex
+
+type topUpTryLock struct {
+	ch chan struct{}
+}
+
+func newTopUpTryLock() *topUpTryLock {
+	return &topUpTryLock{ch: make(chan struct{}, 1)}
+}
+
+func (l *topUpTryLock) TryLock() bool {
+	select {
+	case l.ch <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (l *topUpTryLock) Unlock() {
+	select {
+	case <-l.ch:
+	default:
+	}
+}
+
+func getTopUpLock(userID int) *topUpTryLock {
+	if v, ok := topUpLocks.Load(userID); ok {
+		return v.(*topUpTryLock)
+	}
+	topUpCreateLock.Lock()
+	defer topUpCreateLock.Unlock()
+	if v, ok := topUpLocks.Load(userID); ok {
+		return v.(*topUpTryLock)
+	}
+	l := newTopUpTryLock()
+	topUpLocks.Store(userID, l)
+	return l
+}
 
 func TopUp(c *gin.Context) {
-	topUpLock.Lock()
-	defer topUpLock.Unlock()
+	id := c.GetInt("id")
+	lock := getTopUpLock(id)
+	if !lock.TryLock() {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "充值处理中，请稍后重试",
+		})
+		return
+	}
+	defer lock.Unlock()
 	req := topUpRequest{}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -1257,7 +1328,6 @@ func TopUp(c *gin.Context) {
 		})
 		return
 	}
-	id := c.GetInt("id")
 	quota, err := model.Redeem(req.Key, id)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -1271,7 +1341,6 @@ func TopUp(c *gin.Context) {
 		"message": "",
 		"data":    quota,
 	})
-	return
 }
 
 type UpdateUserSettingRequest struct {

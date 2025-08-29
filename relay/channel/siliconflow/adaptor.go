@@ -43,15 +43,15 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.RelayMode == constant.RelayModeRerank {
-		return fmt.Sprintf("%s/v1/rerank", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/rerank", info.ChannelBaseUrl), nil
 	} else if info.RelayMode == constant.RelayModeEmbeddings {
-		return fmt.Sprintf("%s/v1/embeddings", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/embeddings", info.ChannelBaseUrl), nil
 	} else if info.RelayMode == constant.RelayModeChatCompletions {
-		return fmt.Sprintf("%s/v1/chat/completions", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 	} else if info.RelayMode == constant.RelayModeCompletions {
-		return fmt.Sprintf("%s/v1/completions", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/completions", info.ChannelBaseUrl), nil
 	}
-	return fmt.Sprintf("%s/v1/chat/completions", info.BaseUrl), nil
+	return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {

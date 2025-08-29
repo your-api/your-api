@@ -147,7 +147,7 @@ func CompleteOrder(outTradeNo string) error {
 				
 				RecordLog(user.InviterId, LogTypeSystem,
 					fmt.Sprintf("邀请用户充值返利 %s (补充处理，来自某位邀请用户的第%d次充值)",
-						common.LogQuota(commissionQuota), user.PayCount))
+						logger.LogQuota(commissionQuota), user.PayCount))
 			}
 		}
 		
@@ -161,7 +161,7 @@ func CompleteOrder(outTradeNo string) error {
 		
 		// 记录用户充值日志
 		RecordLog(order.UserId, LogTypeTopup,
-			fmt.Sprintf("使用在线充值成功（补充处理），订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, common.LogQuota(quotaToAdd), order.PayAmount))
+			fmt.Sprintf("使用在线充值成功（补充处理），订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, logger.LogQuota(quotaToAdd), order.PayAmount))
 		
 		return nil
 	}
@@ -230,7 +230,7 @@ func CompleteOrder(outTradeNo string) error {
 			// 记录邀请者的返利日志
 			RecordLog(user.InviterId, LogTypeSystem,
 				fmt.Sprintf("邀请用户充值返利 %s (来自某位邀请用户的第%d次充值)",
-					common.LogQuota(commissionQuota), user.PayCount))
+					logger.LogQuota(commissionQuota), user.PayCount))
 		}
 	}
 
@@ -262,7 +262,7 @@ func CompleteOrder(outTradeNo string) error {
 
 	// 记录用户充值日志
 	RecordLog(order.UserId, LogTypeTopup,
-		fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, common.LogQuota(quotaToAdd), order.PayAmount))
+		fmt.Sprintf("使用在线充值成功，订单号: %s，充值金额: %v，支付金额：%v", order.OutTradeNo, logger.LogQuota(quotaToAdd), order.PayAmount))
 
 	return nil
 }

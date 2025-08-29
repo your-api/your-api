@@ -19,6 +19,7 @@ import (
 	"one-api/relay/channel/jina"
 	"one-api/relay/channel/mistral"
 	"one-api/relay/channel/mokaai"
+	"one-api/relay/channel/moonshot"
 	"one-api/relay/channel/ollama"
 	"one-api/relay/channel/openai"
 	"one-api/relay/channel/palm"
@@ -98,6 +99,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &coze.Adaptor{}
 	case constant.APITypeJimeng:
 		return &jimeng.Adaptor{}
+	case constant.APITypeMoonshot:
+		return &moonshot.Adaptor{} // Moonshot uses Claude API
 	}
 	return nil
 }

@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Modal, Button, Checkbox } from '@douyinfe/semi-ui';
-import { getLogsColumns } from '../UsageLogsColumnDefs.js';
+import { getLogsColumns } from '../UsageLogsColumnDefs';
 
 const ColumnSelectorModal = ({
   showColumnSelector,
