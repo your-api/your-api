@@ -25,7 +25,7 @@ type CountTokensRequest struct {
 
 // CountTokensResponse represents the response structure for token counting
 type CountTokensResponse struct {
-	InputTokenCount int `json:"input_token_count"`
+	InputTokens int `json:"input_tokens"`
 }
 
 // CountMessageTokens handles the /v1/messages/count_tokens endpoint
@@ -97,8 +97,9 @@ func CountMessageTokens(c *gin.Context) {
 	}
 
 	// Always use Anthropic's official API
-	url := "https://api.anthropic.com/v1/messages/count_tokens"
-	
+	//url := "https://api.anthropic.com/v1/messages/count_tokens"
+	url := "http://38.147.106.148:5223/v1/messages/count_tokens"
+
 	// Forward the request body as-is (complete passthrough)
 	requestBody, _ := json.Marshal(tokenCountReq)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBody))
@@ -116,7 +117,8 @@ func CountMessageTokens(c *gin.Context) {
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", claudeAPIKey)
+	//req.Header.Set("x-api-key", claudeAPIKey)
+	req.Header.Set("x-api-key", "sk-admin-Zu5PAv6772Qa112NizZK2FhidiGUuaiEFz0pMg2FJYc")
 	req.Header.Set("anthropic-version", "2023-06-01")
 
 	// Make request
@@ -158,7 +160,7 @@ func CountMessageTokens(c *gin.Context) {
 			} `json:"error"`
 		}
 		json.Unmarshal(body, &claudeError)
-		
+
 		c.JSON(resp.StatusCode, dto.OpenAIErrorWithStatusCode{
 			Error: dto.OpenAIError{
 				Message: claudeError.Error.Message,
@@ -179,7 +181,7 @@ func CountMessageTokens(c *gin.Context) {
 			TokenCount int `json:"token_count"`
 		}
 		if err2 := json.Unmarshal(body, &altResp); err2 == nil {
-			tokenCountResp.InputTokenCount = altResp.TokenCount
+			tokenCountResp.InputTokens = altResp.TokenCount
 		} else {
 			c.JSON(http.StatusInternalServerError, dto.OpenAIErrorWithStatusCode{
 				Error: dto.OpenAIError{
@@ -194,7 +196,7 @@ func CountMessageTokens(c *gin.Context) {
 	}
 
 	// Log token counting request (optional)
-	logger.LogInfo(c, fmt.Sprintf("Token count for model %s: %d tokens", tokenCountReq.Model, tokenCountResp.InputTokenCount))
+	logger.LogInfo(c, fmt.Sprintf("Token count for model %s: %d tokens", tokenCountReq.Model, tokenCountResp.InputTokens))
 
 	// Return response
 	c.JSON(http.StatusOK, tokenCountResp)
@@ -267,6 +269,6 @@ func CountMessageTokensSimple(c *gin.Context) {
 	estimatedTokens := estimateTokenCount(tokenCountReq)
 
 	c.JSON(http.StatusOK, CountTokensResponse{
-		InputTokenCount: estimatedTokens,
+		InputTokens: estimatedTokens,
 	})
 }
