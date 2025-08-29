@@ -3,11 +3,11 @@
 </p>
 <div align="center">
 
-![yourapi](/web/public/logo.png)
+![new-api](/web/public/logo.png)
 
-# Your API
+# New API
 
-🍥新一代大模型网关与AI资产管理系统 全新的高颜值/高性能的AI模型接口管理与分发系统
+🍥新一代大模型网关与AI资产管理系统
 
 <a href="https://trendshift.io/repositories/8227" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8227" alt="Calcium-Ion%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -32,164 +32,51 @@
 
 ## 📝 项目说明
 
-![image-20250516152408326](./imgs/image-20250516152408326.png)
-
 > [!NOTE]  
-> 本项目为开源项目，在[New API](https://github.com/Calcium-Ion/new-api.git)的基础上进行二次开发
+> 本项目为开源项目，在[One API](https://github.com/songquanpeng/one-api)的基础上进行二次开发
 
 > [!IMPORTANT]  
->
 > - 本项目仅供个人学习使用，不保证稳定性，且不提供任何技术支持。
 > - 使用者必须在遵循 OpenAI 的[使用条款](https://openai.com/policies/terms-of-use)以及**法律法规**的情况下使用，不得用于非法用途。
 > - 根据[《生成式人工智能服务管理暂行办法》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm)的要求，请勿对中国地区公众提供一切未经备案的生成式人工智能服务。
 
-## 差异说明
+<h2>🤝 我们信任的合作伙伴</h2>
+<p id="premium-sponsors">&nbsp;</p>
+<p align="center"><strong>排名不分先后</strong></p>
+<p align="center">
+  <a href="https://www.cherry-ai.com/" target=_blank><img
+    src="./docs/images/cherry-studio.png" alt="Cherry Studio" height="120"
+  /></a>
+  <a href="https://bda.pku.edu.cn/" target=_blank><img
+    src="./docs/images/pku.png" alt="北京大学" height="120"
+  /></a>
+  <a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target=_blank><img
+    src="./docs/images/ucloud.png" alt="UCloud 优刻得" height="120"
+  /></a>
+  <a href="https://www.aliyun.com/" target=_blank><img
+    src="./docs/images/aliyun.png" alt="阿里云" height="120"
+  /></a>
+  <a href="https://io.net/" target=_blank><img
+    src="./docs/images/io-net.png" alt="IO.NET" height="120"
+  /></a>
+</p>
+<p>&nbsp;</p>
 
-该项目将持续同步[New API](https://github.com/Calcium-Ion/new-api.git)的最新版本，并致力于对其功能进行不断拓展与优化。通过集成最新技术和最佳实践，确保API的性能、稳定性和可扩展性持续提升，满足不断变化的业务需求和技术挑战。
+## 📚 文档
 
-### 增加及优化
-
-- [x]   镜像支持arm以及amd
-- [x]   支持coze智能体的配置
-- [x]   🎨整体界面风格的差异
-- [x]   防止图片探测请求暴露上游
-- [x]   渠道空回复校验，确保空回复进行重试
-- [x]   模型编辑处支持多key轮询
-- [x]   对单个渠道新增代理ip支持，可以使用固定代理ip对渠道进行请求，提升安全性
-- [x]   支持图片读取的代理ip配置
-- [x]   增加快速接入指南
-- [x]   增加开发文档独立页支持
-- [x]  增加首页模型供应商显示
-- [x] 移动端适配
-- [x] 模型价格显示优化，更现代化的设计，支持配置模型描述
-- [x] 支持AI供应商的配置
-- [x] 支持模型描述的配置
-- [x] 首页优势运营文案可配置
-- [x] 可自定义导航链接
-- [x] 增加Claude原生API格式请求支持
-- [x] 优化部分界面元素的边距避免挤在一起
-- [x] 优化公告显示
-- [x] 预设更多模型
-- [x] 前端新增tailwind css以及redux支持，更便于敏捷开发
-- [x] 新增快速接入的说明
-- [x] 兼容newapi数据库,方便一键迁移
-
-**欢迎提交 Issue、Pull Request（PR）、Merge Request（MR）或提出各类需求与建议。我们非常重视您的反馈，并期待与您共同完善项目。**
-
-coze工作流的配置
-
-![image-20250517003351383](./imgs/image-20250517003351383.png)
-
-## 使用说明
-
-#### 直接使用Docker镜像
-
-```shell
-# 使用SQLite
-# 不使用目录挂载
-docker run --name yourapi -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai yourapi/yourapi:latest
-# 使用挂载目录
-docker run --name yourapi -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data yourapi/yourapi:latest
-
-# 使用MySQL
-docker run --name yourapi -d --restart always -p 3000:3000 -e SQL_DSN="root:123456@tcp(localhost:3306)/yourapi" -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data yourapi/yourapi:latest
-```
-
-#### 使用docker-compose
-
-在您的服务器新建`docker-compose.yml`文件，内容如下：
-
-```yaml
-version: '3.4'
-
-services:
-  yourapi:
-    image: yourapi/yourapi:latest
-    container_name: yourapi
-    restart: always
-    command: --log-dir /app/logs
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/data
-      - ./logs:/app/logs
-    environment:
-      - SQL_DSN=root:123456@tcp(mysql:3306)/yourapi?charset=utf8mb4&parseTime=True&loc=Local  # 修改此行，或注释掉以使用 SQLite 作为数据库
-      - REDIS_CONN_STRING=redis://redis # 也可以自定义，例如 redis://user:password@localhost:6379/0
-      - TZ=Asia/Shanghai
-      - ERROR_LOG_ENABLED=true # 是否启用错误日志记录
-    #      - TIKTOKEN_CACHE_DIR=./tiktoken_cache  # 如果需要使用tiktoken_cache，请取消注释
-    #      - SESSION_SECRET=random_string  # 多机部署时设置，必须修改这个随机字符串！！！！！！！
-    #      - NODE_TYPE=slave  # Uncomment for slave node in multi-node deployment
-    #      - SYNC_FREQUENCY=60  # Uncomment if regular database syncing is needed
-    #      - FRONTEND_BASE_URL=https://openai.justsong.cn  # Uncomment for multi-node deployment with front-end URL
-
-    depends_on:
-      - redis
-      - mysql
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' | awk -F: '{print $$2}'"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  redis:
-    image: redis:latest
-    container_name: redis
-    restart: always
-
-  mysql:
-    image: mysql:8.2
-    container_name: mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: 123456  # Ensure this matches the password in SQL_DSN
-      MYSQL_DATABASE: yourapi
-    volumes:
-      - mysql_data:/var/lib/mysql
-    # ports:
-    #   - "3306:3306"  # If you want to access MySQL from outside Docker, uncomment
-
-volumes:
-  mysql_data:
-```
-
-
-
-启动服务：
-
-```
-docker-compose up -d
-```
-
-
-
-访问`http://ip:3000`即可看到登录界面，输入账号密码即可登录（默认账号：root，默认密码：123456）。
-
-若有版本更新，您可以通过以下命令更新并重启服务：
-
-```
-docker-compose pull && docker-compose up -d
-```
-
-## 加群交流
-
-> 您也可以扫描下方二维码加入QQ交流群以获取最新的开发动态和相关事件
->
-> 点击链接加入群聊：https://qm.qq.com/q/jkdefoHcNG
-
-  <img src="./imgs/image-20250516160329904.png" alt="image-20250516160329904" width="400">
+详细文档请访问我们的官方Wiki：[https://docs.newapi.pro/](https://docs.newapi.pro/)
 
 也可访问AI生成的DeepWiki:
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
 
 ## ✨ 主要特性
 
-Your API提供了丰富的功能，详细特性请参考[特性说明](https://docs.newapi.pro/wiki/features-introduction)：
+New API提供了丰富的功能，详细特性请参考[特性说明](https://docs.newapi.pro/wiki/features-introduction)：
 
 1. 🎨 全新的UI界面
 2. 🌍 多语言支持
 3. 💰 支持在线充值功能（易支付）
+4. 🔍 支持用key查询使用额度（配合[neko-api-key-tool](https://github.com/Calcium-Ion/neko-api-key-tool)）
 5. 🔄 兼容原版One API的数据库
 6. 💵 支持模型按次数收费
 7. ⚖️ 支持渠道加权随机
@@ -232,83 +119,10 @@ Your API提供了丰富的功能，详细特性请参考[特性说明](https://d
 
 ## 环境变量配置
 
-### 基本配置
-
-| 环境变量 | 说明         | 默认值          | 示例                  |
-| :------- | :----------- | :-------------- | :-------------------- |
-| `PORT`   | 服务监听端口 | `3000`          | `PORT=8080`           |
-| `TZ`     | 时区设置     | `Asia/Shanghai` | `TZ=America/New_York` |
-
-### 💾 数据库配置
-
-| 环境变量                | 说明                       | 默认值                   | 示例                                                      |
-| :---------------------- | :------------------------- | :----------------------- | :-------------------------------------------------------- |
-| `SQL_DSN`               | 数据库连接字符串           | SQLite (data/one-api.db) | `SQL_DSN=root:123456@tcp(localhost:3306)/oneapi`          |
-| `SQL_MAX_IDLE_CONNS`    | 空闲连接池最大连接数       | `100`                    | `SQL_MAX_IDLE_CONNS=50`                                   |
-| `SQL_MAX_OPEN_CONNS`    | 连接池最大打开连接数       | `1000`                   | `SQL_MAX_OPEN_CONNS=500`                                  |
-| `SQL_CONN_MAX_LIFETIME` | 连接最大生命周期(分钟)     | `60`                     | `SQL_CONN_MAX_LIFETIME=120`                               |
-| `LOG_SQL_DSN`           | 日志表独立数据库连接字符串 | -                        | `LOG_SQL_DSN=root:123456@tcp(localhost:3306)/oneapi_logs` |
-| `SQLITE_BUSY_TIMEOUT`   | SQLite锁等待超时(毫秒)     | `3000`                   | `SQLITE_BUSY_TIMEOUT=5000`                                |
-
-### 📦 缓存配置
-
-| 环境变量                | 说明                     | 默认值  | 示例                                                       |
-| :---------------------- | :----------------------- | :------ | :--------------------------------------------------------- |
-| `REDIS_CONN_STRING`     | Redis连接字符串          | -       | `REDIS_CONN_STRING=redis://default:redispw@localhost:6379` |
-| `MEMORY_CACHE_ENABLED`  | 是否启用内存缓存         | `false` | `MEMORY_CACHE_ENABLED=true`                                |
-| `REDIS_CONN_POOL_SIZE`  | Redis连接池大小          | -       | `REDIS_CONN_POOL_SIZE=10`                                  |
-| `REDIS_PASSWORD`        | Redis集群或哨兵模式密码  | -       | `REDIS_PASSWORD=your_password`                             |
-| `REDIS_MASTER_NAME`     | Redis哨兵模式主节点名称  | -       | `REDIS_MASTER_NAME=mymaster`                               |
-| `BATCH_UPDATE_ENABLED`  | 启用数据库批量更新聚合   | `false` | `BATCH_UPDATE_ENABLED=true`                                |
-| `BATCH_UPDATE_INTERVAL` | 批量更新聚合时间间隔(秒) | `5`     | `BATCH_UPDATE_INTERVAL=10`                                 |
-
-### 🌐 多节点与安全配置
-
-| 环境变量                    | 说明                         | 默认值   | 示例                                        |
-| :-------------------------- | :--------------------------- | :------- | :------------------------------------------ |
-| `SESSION_SECRET`            | 会话密钥(多机部署必须)       | -        | `SESSION_SECRET=random_string`              |
-| `CRYPTO_SECRET`             | 加密密钥(加密数据库内容)     | -        | `CRYPTO_SECRET=your_crypto_secret`          |
-| `FRONTEND_BASE_URL`         | 前端基础URL                  | -        | `FRONTEND_BASE_URL=https://your-domain.com` |
-| `SYNC_FREQUENCY`            | 缓存与数据库同步频率(秒)     | `600`    | `SYNC_FREQUENCY=60`                         |
-| `NODE_TYPE`                 | 节点类型                     | `master` | `NODE_TYPE=slave`                           |
-| `INITIAL_ROOT_TOKEN`        | 首次启动时创建的root用户令牌 | -        | `INITIAL_ROOT_TOKEN=your_token`             |
-| `INITIAL_ROOT_ACCESS_TOKEN` | 首次启动时创建的系统管理令牌 | -        | `INITIAL_ROOT_ACCESS_TOKEN=your_token`      |
-
-集群部署
-
-关于如何使用这些环境变量构建完整的集群部署，请参考[集群部署指南](https://docs.newapi.pro/installation/cluster-deployment/)。
-
-### 👤 用户及令牌配置
-
-| 环境变量                             | 说明                         | 默认值  | 示例                                    |
-| :----------------------------------- | :--------------------------- | :------ | :-------------------------------------- |
-| `DEFAULT_QUOTA`                      | 新用户默认配额               | `0`     | `DEFAULT_QUOTA=10`                      |
-| `GLOBAL_USER_QUOTA`                  | 全局用户配额限制             | -       | `GLOBAL_USER_QUOTA=100`                 |
-| `GENERATE_DEFAULT_TOKEN`             | 为新注册用户生成初始令牌     | `false` | `GENERATE_DEFAULT_TOKEN=true`           |
-| `NOTIFICATION_LIMIT_DURATION_MINUTE` | 通知限制的持续时间(分钟)     | `10`    | `NOTIFICATION_LIMIT_DURATION_MINUTE=15` |
-| `NOTIFY_LIMIT_COUNT`                 | 指定持续时间内的最大通知数量 | `2`     | `NOTIFY_LIMIT_COUNT=3`                  |
-
-### 🚦 请求限制配置
-
-| 环境变量                       | 说明                        | 默认值 | 示例                              |
-| :----------------------------- | :-------------------------- | :----- | :-------------------------------- |
-| `GLOBAL_API_RATE_LIMIT`        | 全局API速率限制(单IP三分钟) | `180`  | `GLOBAL_API_RATE_LIMIT=100`       |
-| `GLOBAL_WEB_RATE_LIMIT`        | 全局Web速率限制(单IP三分钟) | `60`   | `GLOBAL_WEB_RATE_LIMIT=30`        |
-| `RELAY_TIMEOUT`                | 中继请求超时时间(秒)        | -      | `RELAY_TIMEOUT=60`                |
-| `USER_CONTENT_REQUEST_TIMEOUT` | 用户内容下载超时时间(秒)    | -      | `USER_CONTENT_REQUEST_TIMEOUT=30` |
-| `STREAMING_TIMEOUT`            | 流式一次回复的超时时间(秒)  | `18000`   | `STREAMING_TIMEOUT=21600`           |
-| `MAX_FILE_DOWNLOAD_MB`         | 最大文件下载大小(MB)        | `20`   | `MAX_FILE_DOWNLOAD_MB=50`         |
-
-RELAY_TIMEOUT 设置警告
-
-设置 `RELAY_TIMEOUT` 环境变量时请谨慎，如果设置过短可能导致以下问题：
-
-- 上游API已经完成请求并计费，但本地因超时而未完成计费
-- 造成计费不同步，可能导致系统亏损
-- 建议不设置，除非您知道自己在做什么
+详细配置说明请参考[安装指南-环境变量配置](https://docs.newapi.pro/installation/environment-variables)：
 
 - `GENERATE_DEFAULT_TOKEN`：是否为新注册用户生成初始令牌，默认为 `false`
-- `STREAMING_TIMEOUT`：流式回复超时时间，默认120秒
+- `STREAMING_TIMEOUT`：流式回复超时时间，默认300秒
 - `DIFY_DEBUG`：Dify渠道是否输出工作流和节点信息，默认 `true`
 - `FORCE_STREAM_OPTION`：是否覆盖客户端stream_options参数，默认 `true`
 - `GET_MEDIA_TOKEN`：是否统计图片token，默认 `true`
@@ -323,117 +137,12 @@ RELAY_TIMEOUT 设置警告
 - `NOTIFY_LIMIT_COUNT`：用户通知在指定持续时间内的最大数量，默认 `2`
 - `ERROR_LOG_ENABLED=true`: 是否记录并显示错误日志，默认`false`
 
-### 📡 渠道管理配置
+## 部署
 
-| 环境变量                        | 说明                       | 默认值                             | 示例                                |
-| :------------------------------ | :------------------------- | :--------------------------------- | :---------------------------------- |
-| `CHANNEL_UPDATE_FREQUENCY`      | 定期更新渠道余额(分钟)     | -                                  | `CHANNEL_UPDATE_FREQUENCY=1440`     |
-| `CHANNEL_TEST_FREQUENCY`        | 定期检查渠道(分钟)         | -                                  | `CHANNEL_TEST_FREQUENCY=1440`       |
-| `POLLING_INTERVAL`              | 批量更新渠道时请求间隔(秒) | `0`                                | `POLLING_INTERVAL=5`                |
-| `ENABLE_METRIC`                 | 是否根据请求成功率禁用渠道 | `false`                            | `ENABLE_METRIC=true`                |
-| `METRIC_QUEUE_SIZE`             | 请求成功率统计队列大小     | `10`                               | `METRIC_QUEUE_SIZE=20`              |
-| `METRIC_SUCCESS_RATE_THRESHOLD` | 请求成功率阈值             | `0.8`                              | `METRIC_SUCCESS_RATE_THRESHOLD=0.7` |
-| `TEST_PROMPT`                   | 测试模型时的用户prompt     | `Print your model name exactly...` | `TEST_PROMPT=Hello`                 |
-
-### 🤖 模型和请求处理配置
-
-| 环境变量                     | 说明                                                 | 默认值  | 示例                                 |
-| :--------------------------- | :--------------------------------------------------- | :------ | :----------------------------------- |
-| `FORCE_STREAM_OPTION`        | 覆盖客户端stream_options参数                         | `true`  | `FORCE_STREAM_OPTION=false`          |
-| `GET_MEDIA_TOKEN`            | 是否统计图片token                                    | `true`  | `GET_MEDIA_TOKEN=false`              |
-| `GET_MEDIA_TOKEN_NOT_STREAM` | 非流模式下是否统计图片token                          | `true`  | `GET_MEDIA_TOKEN_NOT_STREAM=false`   |
-| `UPDATE_TASK`                | 是否更新异步任务(MJ、Suno)                           | `true`  | `UPDATE_TASK=false`                  |
-| `ENFORCE_INCLUDE_USAGE`      | 强制stream模式下返回usage                            | `false` | `ENFORCE_INCLUDE_USAGE=true`         |
-| `TIKTOKEN_CACHE_DIR`         | Tiktoken编码器缓存目录，用于存放分词文件避免网络下载 | -       | `TIKTOKEN_CACHE_DIR=/cache/tiktoken` |
-| `DATA_GYM_CACHE_DIR`         | DataGym缓存目录                                      | -       | `DATA_GYM_CACHE_DIR=/cache/data_gym` |
-
-Tiktoken文件配置
-
-下载tiktoken文件后，请按照以下方式重命名：
-
-- `cl100k_base.tiktoken` 重命名为 `9b5ad71b2ce5302211f9c61530b329a4922fc6a4`
-- `o200k_base.tiktoken` 重命名为 `fb374d419588a4632f3f557e76b4b70aebbca790`
-
-这些文件应放置在`TIKTOKEN_CACHE_DIR`指定的目录中，以提高token计算性能并减少网络依赖。
-
-Tiktoken配置示例
-
-```
-# Docker环境示例
-TIKTOKEN_CACHE_DIR=/app/data/tiktoken
-
-# 然后将tiktoken文件下载并重命名后放入该目录：
-/app/data/tiktoken/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
-/app/data/tiktoken/fb374d419588a4632f3f557e76b4b70aebbca790
-```
-
-Tiktoken是OpenAI使用的分词器，用于计算文本的token数量。通过本地缓存这些文件，可以避免系统每次启动时从网络下载，提高稳定性和性能，特别是在网络受限环境中。
-
-### 🔎 特定模型配置
-
-| 环境变量                      | 说明                         | 默认值               | 示例                                   |
-| :---------------------------- | :--------------------------- | :------------------- | :------------------------------------- |
-| `AZURE_DEFAULT_API_VERSION`   | Azure渠道默认API版本         | `2024-12-01-preview` | `AZURE_DEFAULT_API_VERSION=2023-05-15` |
-| `COHERE_SAFETY_SETTING`       | Cohere模型安全设置           | `NONE`               | `COHERE_SAFETY_SETTING=CONTEXTUAL`     |
-| `GEMINI_VISION_MAX_IMAGE_NUM` | Gemini模型最大图片数量       | `16`                 | `GEMINI_VISION_MAX_IMAGE_NUM=8`        |
-| `GEMINI_VERSION`              | Gemini版本                   | `v1`                 | `GEMINI_VERSION=v1beta`                |
-| `DIFY_DEBUG`                  | Dify渠道输出工作流和节点信息 | `true`               | `DIFY_DEBUG=false`                     |
-
-### 📨 其他配置
-
-| 环境变量         | 说明           | 默认值 | 示例                               |
-| :--------------- | :------------- | :----- | :--------------------------------- |
-| `EMAIL_SERVER`   | 邮件服务器配置 | -      | `EMAIL_SERVER=smtp.example.com:25` |
-| `EMAIL_FROM`     | 邮件发送者地址 | -      | `EMAIL_FROM=noreply@example.com`   |
-| `EMAIL_PASSWORD` | 邮件服务器密码 | -      | `EMAIL_PASSWORD=yourpassword`      |
-
-# 🌍 多机部署示例
-
-在多机部署场景中，必须设置以下环境变量：
-
-## 👑 主节点配置
-
-```
-# 数据库配置 - 使用远程数据库
-SQL_DSN=root:password@tcp(db-server:3306)/oneapi
-
-# 安全配置
-SESSION_SECRET=your_unique_session_secret
-CRYPTO_SECRET=your_unique_crypto_secret
-
-# Redis缓存配置
-REDIS_CONN_STRING=redis://default:password@redis-server:6379
-```
-
-## 👥 从节点配置
-
-```
-# 数据库配置 - 使用相同的远程数据库
-SQL_DSN=root:password@tcp(db-server:3306)/oneapi
-
-# 安全配置 - 与主节点使用相同的密钥
-SESSION_SECRET=your_unique_session_secret
-CRYPTO_SECRET=your_unique_crypto_secret
-
-# Redis缓存配置 - 与主节点使用相同的Redis
-REDIS_CONN_STRING=redis://default:password@redis-server:6379
-
-# 节点类型设置
-NODE_TYPE=slave
-
-# 可选：前端基础URL
-FRONTEND_BASE_URL=https://your-domain.com
-
-# 可选：同步频率
-SYNC_FREQUENCY=60
-```
-
-# 部署
-
-详细部署指南请参考：
+详细部署指南请参考[安装指南-部署方式](https://docs.newapi.pro/installation)：
 
 > [!TIP]
-> 最新版Docker镜像：`yourapi/yourapi:latest`  
+> 最新版Docker镜像：`calciumion/new-api:latest`  
 
 ### 多机部署注意事项
 - 必须设置环境变量 `SESSION_SECRET`，否则会导致多机部署时登录状态不一致
@@ -445,11 +154,15 @@ SYNC_FREQUENCY=60
 
 ### 部署方式
 
-#### 使用Docker Compose部署
+#### 使用宝塔面板Docker功能部署
+安装宝塔面板（**9.2.0版本**及以上），在应用商店中找到**New-API**安装即可。
+[图文教程](./docs/BT.md)
+
+#### 使用Docker Compose部署（推荐）
 ```shell
 # 下载项目
-git clone https://github.com/your-api/your-api.git
-cd your-api
+git clone https://github.com/Calcium-Ion/new-api.git
+cd new-api
 # 按需编辑docker-compose.yml
 # 启动
 docker-compose up -d
@@ -458,10 +171,10 @@ docker-compose up -d
 #### 直接使用Docker镜像
 ```shell
 # 使用SQLite
-docker run --name yourapi -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/yourapi:/data yourapi/yourapi:latest
+docker run --name new-api -d --restart always -p 3000:3000 -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data calciumion/new-api:latest
 
 # 使用MySQL
-docker run --name yourapi -d --restart always -p 3000:3000 -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" -e TZ=Asia/Shanghai -v /home/ubuntu/data/yourapi:/data yourapi/you-api:latest
+docker run --name new-api -d --restart always -p 3000:3000 -e SQL_DSN="root:123456@tcp(localhost:3306)/oneapi" -e TZ=Asia/Shanghai -v /home/ubuntu/data/new-api:/data calciumion/new-api:latest
 ```
 
 ## 渠道重试与缓存
@@ -481,61 +194,22 @@ docker run --name yourapi -d --restart always -p 3000:3000 -e SQL_DSN="root:1234
 - [实时对话接口（Realtime）](https://docs.newapi.pro/api/openai-realtime)
 - [Claude聊天接口（messages）](https://docs.newapi.pro/api/anthropic-chat)
 
-# 解决 exec format error 问题
+## 相关项目
+- [One API](https://github.com/songquanpeng/one-api)：原版项目
+- [Midjourney-Proxy](https://github.com/novicezk/midjourney-proxy)：Midjourney接口支持
+- [chatnio](https://github.com/Deeptrain-Community/chatnio)：下一代AI一站式B/C端解决方案
+- [neko-api-key-tool](https://github.com/Calcium-Ion/neko-api-key-tool)：用key查询使用额度
 
 其他基于New API的项目：
 - [new-api-horizon](https://github.com/Calcium-Ion/new-api-horizon)：New API高性能优化版
 
-如果您在运行 Docker 容器时遇到 `exec /one-api: exec format error` 错误，这通常是由于您的系统架构（如 ARM64）与镜像构建架构（如 AMD64）不匹配导致的。
+## 帮助支持
 
-## 解决方法
-
-### 方法一：使用多架构构建Docker镜像
-
-```bash
-# 创建并使用多架构构建器
-docker buildx create --name mybuilder --use
-
-# 构建并推送多架构镜像
-docker buildx build --platform linux/amd64,linux/arm64 -t your-username/one-api:latest --push .
-```
-
-### 方法二：在本地为您的架构构建镜像
-
-```bash
-# 查看您的系统架构
-uname -m
-
-# 为特定架构构建镜像
-docker build --build-arg TARGETARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') -t one-api:local .
-```
-
-### 方法三：使用预构建的多架构镜像
-
-如果可用，尝试使用支持多架构的预构建镜像：
-
-```bash
-# 在docker-compose.yml中将image改为
-# image: calciumion/new-api:multiarch
-```
-
-## 🤝 我们信任的合作伙伴
-
-<p align="center">
-  <a href="https://www.cherry-ai.com/" target="_blank"><img
-    src="./docs/images/cherry-studio.svg" alt="Cherry Studio" height="58"
-  /></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://bda.pku.edu.cn/" target="_blank"><img
-    src="./docs/images/pku.png" alt="北京大学" height="58"
-  /></a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.compshare.cn/?ytag=GPU_yy_gh_newapi" target="_blank"><img
-    src="./docs/images/ucloud.svg" alt="UCloud 优刻得" height="58"
-  /></a>
-</p>
-
-<p align="center"><em>排名不分先后</em></p>
+如有问题，请参考[帮助支持](https://docs.newapi.pro/support)：
+- [社区交流](https://docs.newapi.pro/support/community-interaction)
+- [反馈问题](https://docs.newapi.pro/support/feedback-issues)
+- [常见问题](https://docs.newapi.pro/support/faq)
 
 ## 🌟 Star History
 
+[![Star History Chart](https://api.star-history.com/svg?repos=Calcium-Ion/new-api&type=Date)](https://star-history.com/#Calcium-Ion/new-api&Date)
