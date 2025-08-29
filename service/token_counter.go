@@ -159,7 +159,7 @@ func getImageToken(fileMeta *types.FileMeta, model string, stream bool) (int, er
 		config, format, b64str, err = DecodeBase64ImageData(fileMeta.ParsedData.Base64Data)
 	} else {
 		if strings.HasPrefix(fileMeta.OriginData, "http") {
-			config, format, err = DecodeUrlImageData(fileMeta.OriginData)
+			config, format, b64str, err = DecodeUrlImageData(fileMeta.OriginData)
 		} else {
 			common.SysLog(fmt.Sprintf("decoding image"))
 			config, format, b64str, err = DecodeBase64ImageData(fileMeta.OriginData)

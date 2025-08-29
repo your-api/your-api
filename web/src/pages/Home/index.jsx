@@ -1,10 +1,3 @@
-<<<<<<< HEAD:web/src/pages/Home/index.js
-import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
-import { Card, Col, Row, Button, Space, Divider, Avatar, Timeline, Input, Table, Tag, Tooltip, Popover, ImagePreview, Banner, Layout, Select, Modal } from '@douyinfe/semi-ui';
-import { Typography } from '@douyinfe/semi-ui';
-import { Tabs } from '@douyinfe/semi-ui';
-import { API, showError, showNotice, showInfo, showSuccess, timestamp2string, copy } from '../../helpers';
-=======
 /*
 Copyright (C) 2025 QuantumNous
 
@@ -24,14 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect, useState } from 'react';
-import { Button, Typography, Input, ScrollList, ScrollItem } from '@douyinfe/semi-ui';
-import { API, showError, copy, showSuccess } from '../../helpers';
-import { useIsMobile } from '../../hooks/common/useIsMobile';
-import { API_ENDPOINTS } from '../../constants/common.constant';
->>>>>>> alpha:web/src/pages/Home/index.jsx
+import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
+import { Card, Col, Row, Button, Space, Divider, Avatar, Timeline, Input, Table, Tag, Tooltip, Popover, ImagePreview, Banner, Layout, Select, Modal } from '@douyinfe/semi-ui';
+import { Typography } from '@douyinfe/semi-ui';
+import { Tabs } from '@douyinfe/semi-ui';
+import { API, showError, showNotice, showInfo, showSuccess, timestamp2string, copy } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 import { useActualTheme } from '../../context/Theme';
+import { useIsMobile } from '../../hooks/common/useIsMobile';
+import { API_ENDPOINTS } from '../../constants/common.constant';
 import { marked } from 'marked';
 import { StyleContext } from '../../context/Style/index.js';
 import { useTranslation } from 'react-i18next';
@@ -57,11 +51,8 @@ import ApiGuideDrawer from '../../components/ApiGuideDrawer';
 
 const Home = () => {
   const { t, i18n } = useTranslation();
-<<<<<<< HEAD:web/src/pages/Home/index.js
-=======
   const [statusState] = useContext(StatusContext);
   const actualTheme = useActualTheme();
->>>>>>> alpha:web/src/pages/Home/index.jsx
   const [homePageContentLoaded, setHomePageContentLoaded] = useState(false);
   const [homePageContent, setHomePageContent] = useState('');
   const [typedText, setTypedText] = useState('');
@@ -84,9 +75,15 @@ const Home = () => {
   const { providers = [], advantages = [], systemName = 'Your API',typingList } = useSelector((state) => state.providers);
 
   const [noticeVisible, setNoticeVisible] = useState(false);
-<<<<<<< HEAD:web/src/pages/Home/index.js
   const [noticeContent, setNoticeContent] = useState('');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
+  const docsLink = statusState?.status?.docs_link || '';
+  const serverAddress = statusState?.status?.server_address || `${window.location.origin}`;
+  const endpointItems = API_ENDPOINTS.map((e) => ({ value: e }));
+  const [endpointIndex, setEndpointIndex] = useState(0);
+  const isChinese = i18n.language.startsWith('zh');
 
   const [apiDrawerVisible, setApiDrawerVisible] = useState(false);
   const { Text, Title, Paragraph } = Typography;
@@ -156,15 +153,6 @@ const Home = () => {
   const handleUnderstand = () => {
     setNoticeVisible(false);
   };
-=======
-  const isMobile = useIsMobile();
-  const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
-  const docsLink = statusState?.status?.docs_link || '';
-  const serverAddress = statusState?.status?.server_address || `${window.location.origin}`;
-  const endpointItems = API_ENDPOINTS.map((e) => ({ value: e }));
-  const [endpointIndex, setEndpointIndex] = useState(0);
-  const isChinese = i18n.language.startsWith('zh');
->>>>>>> alpha:web/src/pages/Home/index.jsx
 
   const displayHomePageContent = async () => {
     setHomePageContent(localStorage.getItem('home_page_content') || '');
@@ -178,20 +166,6 @@ const Home = () => {
       setHomePageContent(content);
       localStorage.setItem('home_page_content', content);
 
-<<<<<<< HEAD:web/src/pages/Home/index.js
-        // 如果内容是 URL，则发送主题模式
-        if (data.startsWith('https://')) {
-            const iframe = document.querySelector('iframe');
-            if (iframe) {
-                const theme = localStorage.getItem('theme-mode') || 'light';
-                // 测试是否正确传递theme-mode给iframe
-                // console.log('Sending theme-mode to iframe:', theme);
-                iframe.onload = () => {
-                    iframe.contentWindow.postMessage({ themeMode: theme }, '*');
-                    iframe.contentWindow.postMessage({ lang: i18n.language }, '*');
-                };
-            }
-=======
       // 如果内容是 URL，则发送主题模式
       if (data.startsWith('https://')) {
         const iframe = document.querySelector('iframe');
@@ -200,8 +174,8 @@ const Home = () => {
             iframe.contentWindow.postMessage({ themeMode: actualTheme }, '*');
             iframe.contentWindow.postMessage({ lang: i18n.language }, '*');
           };
->>>>>>> alpha:web/src/pages/Home/index.jsx
         }
+      }
     } else {
       showError(message);
       setHomePageContent('加载首页内容失败...');

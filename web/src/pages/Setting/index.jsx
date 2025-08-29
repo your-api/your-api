@@ -6,17 +6,7 @@ import { useTranslation } from 'react-i18next';
 import SystemSetting from '../../components/settings/SystemSetting';
 import { isRoot } from '../../helpers';
 import OtherSetting from '../../components/settings/OtherSetting';
-<<<<<<< HEAD:web/src/pages/Setting/index.js
 import PersonalSetting from '../../components/settings/PersonalSetting';
-import OperationSetting from '../../components/settings/OperationSetting';
-import RateLimitSetting from '../../components/settings/RateLimitSetting.js';
-import ModelSetting from '../../components/settings/ModelSetting.js';
-import DashboardSetting from '../../components/settings/DashboardSetting.js';
-import RatioSetting from '../../components/settings/RatioSetting.js';
-import ChatsSetting from '../../components/settings/ChatsSetting.js';
-import DrawingSetting from '../../components/settings/DrawingSetting.js';
-import PaymentSetting from '../../components/settings/PaymentSetting.js';
-=======
 import OperationSetting from '../../components/settings/OperationSetting';
 import RateLimitSetting from '../../components/settings/RateLimitSetting';
 import ModelSetting from '../../components/settings/ModelSetting';
@@ -25,7 +15,7 @@ import RatioSetting from '../../components/settings/RatioSetting';
 import ChatsSetting from '../../components/settings/ChatsSetting';
 import DrawingSetting from '../../components/settings/DrawingSetting';
 import PaymentSetting from '../../components/settings/PaymentSetting';
->>>>>>> alpha:web/src/pages/Setting/index.jsx
+import HomePageSetting from '../../components/settings/HomePageSetting';
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -79,6 +69,11 @@ const Setting = () => {
       tab: t('系统设置'),
       content: <SystemSetting />,
       itemKey: 'system',
+    });
+    panes.push({
+      tab: t('首页设置'),
+      content: <HomePageSetting />,
+      itemKey: 'homepage',
     });
     panes.push({
       tab: t('其他设置'),

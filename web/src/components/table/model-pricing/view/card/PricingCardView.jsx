@@ -128,7 +128,6 @@ const PricingCardView = ({
     return record.description || '';
   };
 
-<<<<<<< HEAD
   // 渲染价格信息
   const renderPriceInfo = (record) => {
     const priceData = calculateModelPrice({
@@ -174,9 +173,6 @@ const PricingCardView = ({
     
     return null;
   };
-
-=======
->>>>>>> alpha
   // 渲染标签
   const renderTags = (record) => {
     // 计费类型标签（左边）

@@ -19,20 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
-<<<<<<< HEAD:web/src/components/settings/OperationSetting.js
-import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral.js';
-import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensitiveWords.js';
-import SettingsLog from '../../pages/Setting/Operation/SettingsLog.js';
-import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring.js';
-import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit.js';
-import HomePageSetting from './HomePageSetting.js';
-=======
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
 import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensitiveWords';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
->>>>>>> alpha:web/src/components/settings/OperationSetting.jsx
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -132,10 +123,6 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
-        </Card>
-        {/* 主页配置设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <HomePageSetting />
         </Card>
       </Spin>
     </>

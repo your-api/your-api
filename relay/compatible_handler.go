@@ -177,7 +177,6 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 	} else {
 		postConsumeQuota(c, info, usage.(*dto.Usage), "")
 	}
-	}
 	return nil
 }
 
@@ -410,18 +409,7 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage 
 		other["audio_input_token_count"] = audioTokens
 		other["audio_input_price"] = audioInputPrice
 	}
-	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:        relayInfo.ChannelId,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		ModelName:        logModel,
-		TokenName:        tokenName,
-		Quota:            quota,
-		Content:          logContent,
-		TokenId:          relayInfo.TokenId,
-		UseTimeSeconds:   int(useTimeSeconds),
-		IsStream:         relayInfo.IsStream,
-		Group:            relayInfo.UsingGroup,
-		Other:            other,
-	})
+	model.RecordConsumeLog(ctx, relayInfo.UserId, relayInfo.ChannelId, promptTokens, completionTokens,
+		logModel, tokenName, quota, logContent, relayInfo.TokenId, relayInfo.UserQuota, int(useTimeSeconds),
+		relayInfo.IsStream, relayInfo.UsingGroup, other)
 }

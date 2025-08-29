@@ -12,16 +12,11 @@ import { StatusProvider } from './context/Status';
 import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './components/layout/SiderBar';
 import { ThemeProvider } from './context/Theme';
-<<<<<<< HEAD:web/src/index.js
 import FooterBar from './components/layout/Footer';
 import { StyleContextProvider as StyleProvider } from './context/Style/index.js';
-import PageLayout from './components/layout/PageLayout.js';
-import './i18n/i18n.js';
-import {Provider} from 'react-redux'
-=======
 import PageLayout from './components/layout/PageLayout';
 import './i18n/i18n';
-import './index.css';
+import { Provider } from 'react-redux';
 import { LocaleProvider } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
@@ -44,7 +39,6 @@ function SemiLocaleWrapper({ children }) {
   return <LocaleProvider locale={semiLocale}>{children}</LocaleProvider>;
 }
 
->>>>>>> alpha:web/src/index.jsx
 // initialization
 import store from './store';
 

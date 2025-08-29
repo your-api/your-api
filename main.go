@@ -71,7 +71,7 @@ func main() {
 	if common.MemoryCacheEnabled {
 		common.SysLog("memory cache enabled")
 		if common.DebugEnabled {
-			common.SysDebug(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
+			common.SysLog(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
 		} else {
 			common.SysLog(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
 		}
@@ -88,7 +88,7 @@ func main() {
 					if fixErr != nil {
 						common.SysError(fmt.Sprintf("FixAbility failed during recovery: %s", fixErr.Error()))
 					} else if common.DebugEnabled {
-						common.SysDebug("FixAbility completed successfully during recovery")
+						common.SysLog("FixAbility completed successfully during recovery")
 					}
 				}
 			}()
@@ -136,7 +136,7 @@ func main() {
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
 		if common.DebugEnabled {
-			common.SysDebug("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
+			common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
 		}
 		model.InitBatchUpdater()
 	}

@@ -223,7 +223,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 					// 判断是否是url
 					if strings.HasPrefix(imageUrl.Url, "http") {
 						// 是url，获取图片的类型和base64编码的数据
-						fileData, err := service.GetFileBase64FromUrl(imageUrl.Url)
+						fileData, err := service.GetFileBase64FromUrl(c, imageUrl.Url)
 						if err != nil {
 							return nil, fmt.Errorf("get file base64 from url failed: %s", err.Error())
 						}

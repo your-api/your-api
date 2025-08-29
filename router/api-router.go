@@ -32,7 +32,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		
 		// Vendors endpoint
-		apiRouter.GET("/vendors/", controller.GetAllVendors)
+		// apiRouter.GET("/vendors/", controller.GetAllVendors) // 移到下面的vendorRoute组中
 
 		// 图片验证码相关路由
 		apiRouter.GET("/captcha/image", middleware.CriticalRateLimit(), controller.GenerateImageCaptcha)

@@ -10,6 +10,7 @@ import (
 	"one-api/constant"
 	"one-api/model"
 	"one-api/setting"
+	"one-api/setting/console_setting"
 	"one-api/setting/operation_setting"
 	"one-api/setting/system_setting"
 	"strings"

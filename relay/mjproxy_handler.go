@@ -218,16 +218,9 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 			tokenName := c.GetString("token_name")
 			logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, constant.MjActionSwapFace)
 			other := service.GenerateMjOtherInfo(priceData)
-			model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-				ChannelId: info.ChannelId,
-				ModelName: modelName,
-				TokenName: tokenName,
-				Quota:     priceData.Quota,
-				Content:   logContent,
-				TokenId:   info.TokenId,
-				Group:     info.UsingGroup,
-				Other:     other,
-			})
+			model.RecordConsumeLog(c, info.UserId, info.ChannelId, 0, 0,
+				modelName, tokenName, priceData.Quota, logContent, info.TokenId, userQuota, 0,
+				false, info.UsingGroup, other)
 			model.UpdateUserUsedQuotaAndRequestCount(info.UserId, priceData.Quota)
 			model.UpdateChannelUsedQuota(info.ChannelId, priceData.Quota)
 		}
@@ -460,7 +453,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			c.Set("channel_id", originTask.ChannelId)
 			c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
 			if common.DebugEnabled {
-				common.SysDebug(fmt.Sprintf("检测到此操作为放大、变换、重绘，获取原channel信息: %s,%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL()))
+				common.SysLog(fmt.Sprintf("检测到此操作为放大、变换、重绘，获取原channel信息: %s,%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL()))
 			}
 		}
 		midjRequest.Prompt = originTask.Prompt
@@ -520,16 +513,9 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			tokenName := c.GetString("token_name")
 			logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s，ID %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, midjRequest.Action, midjResponse.Result)
 			other := service.GenerateMjOtherInfo(priceData)
-			model.RecordConsumeLog(c, relayInfo.UserId, model.RecordConsumeLogParams{
-				ChannelId: relayInfo.ChannelId,
-				ModelName: modelName,
-				TokenName: tokenName,
-				Quota:     priceData.Quota,
-				Content:   logContent,
-				TokenId:   relayInfo.TokenId,
-				Group:     relayInfo.UsingGroup,
-				Other:     other,
-			})
+			model.RecordConsumeLog(c, relayInfo.UserId, relayInfo.ChannelId, 0, 0,
+				modelName, tokenName, priceData.Quota, logContent, relayInfo.TokenId, userQuota, 0,
+				false, relayInfo.UsingGroup, other)
 			model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, priceData.Quota)
 			model.UpdateChannelUsedQuota(relayInfo.ChannelId, priceData.Quota)
 		}

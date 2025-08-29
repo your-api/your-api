@@ -116,7 +116,7 @@ func GetImageFromUrl(url string) (mimeType string, data string, err error) {
 
 func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("开始下载图片: %s", imageUrl))
+		common.SysLog(fmt.Sprintf("开始下载图片: %s", imageUrl))
 	}
 	
 	response, err := DoDownloadRequest(imageUrl)
@@ -134,7 +134,7 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 
 	mimeType := response.Header.Get("Content-Type")
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("图片下载成功，Content-Type: %s", mimeType))
+		common.SysLog(fmt.Sprintf("图片下载成功，Content-Type: %s", mimeType))
 	}
 
 	if mimeType != "application/octet-stream" && !strings.HasPrefix(mimeType, "image/") {
@@ -150,7 +150,7 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 	}
 
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("图片数据读取完成，大小: %d bytes", len(imageData)))
+		common.SysLog(fmt.Sprintf("图片数据读取完成，大小: %d bytes", len(imageData)))
 	}
 
 	// 标准化MIME类型，如果是octet-stream，根据图片格式推断
@@ -159,7 +159,7 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 	config, detectedFormat, err := getImageConfig(configReader)
 	if err != nil {
 		if common.DebugEnabled {
-			common.SysDebug(fmt.Sprintf("图片配置解析失败: %v", err))
+			common.SysLog(fmt.Sprintf("图片配置解析失败: %v", err))
 		}
 		return image.Config{}, "", "", err
 	}
@@ -177,7 +177,7 @@ func DecodeUrlImageData(imageUrl string) (image.Config, string, string, error) {
 	base64WithPrefix := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
 
 	if common.DebugEnabled {
-		common.SysDebug(fmt.Sprintf("图片base64转换完成，格式: %s，base64长度: %d", format, len(base64WithPrefix)))
+		common.SysLog(fmt.Sprintf("图片base64转换完成，格式: %s，base64长度: %d", format, len(base64WithPrefix)))
 	}
 
 	return config, format, base64WithPrefix, nil

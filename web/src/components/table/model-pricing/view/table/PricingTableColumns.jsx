@@ -193,20 +193,12 @@ export const getPricingTableColumns = ({
           <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('模型倍率')}：{record.quota_type === 0 ? text : t('无')}
           </div>
-<<<<<<< HEAD:web/src/components/table/model-pricing/view/table/PricingTableColumns.js
           <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('补全倍率')}：
             {record.quota_type === 0 ? completionRatio : t('无')}
           </div>
           <div className="text-gray-700" style={{ fontSize: '12px' }}>
             {t('分组倍率')}：{groupRatio[selectedGroup]}
-=======
-          <div className="text-gray-700">
-            {t('补全倍率')}：{record.quota_type === 0 ? completionRatio : t('无')}
-          </div>
-          <div className="text-gray-700">
-            {t('分组倍率')}：{priceData?.usedGroupRatio ?? '-'}
->>>>>>> alpha:web/src/components/table/model-pricing/view/table/PricingTableColumns.jsx
           </div>
         </div>
       );
@@ -218,7 +210,6 @@ export const getPricingTableColumns = ({
     dataIndex: 'model_price',
     fixed: 'right',
     render: (text, record, index) => {
-<<<<<<< HEAD:web/src/components/table/model-pricing/view/table/PricingTableColumns.js
       const priceData = calculateModelPrice({
         record,
         selectedGroup,
@@ -246,15 +237,6 @@ export const getPricingTableColumns = ({
               <div className="text-gray-700" style={{ fontSize: '12px' }}>
                 {formattedPrice.outputLabel} {formattedPrice.output}
               </div>
-=======
-      const priceData = getPriceData(record);
-
-      if (priceData.isPerToken) {
-        return (
-          <div className="space-y-1">
-            <div className="text-gray-700">
-              {t('提示')} {priceData.inputPrice} / 1{priceData.unitLabel} tokens
->>>>>>> alpha:web/src/components/table/model-pricing/view/table/PricingTableColumns.jsx
             </div>
           );
         }

@@ -66,17 +66,10 @@ const ModelPricingTable = ({
         key: group,
         group: group,
         ratio: groupRatioValue,
-<<<<<<< HEAD
-        billingType: modelData?.quota_type === 0 ? t('按量计费') : t('按次计费'),
-        inputPrice: modelData?.quota_type === 0 ? `${currencySymbol}${(priceData.inputPrice || 0).toFixed(5)}` : '-',
-        outputPrice: modelData?.quota_type === 0 ? `${currencySymbol}${(priceData.outputPrice || 0).toFixed(5)}` : '-',
-        fixedPrice: modelData?.quota_type === 1 ? `${currencySymbol}${(priceData.price || 0).toFixed(4)}` : '-',
-=======
         billingType: modelData?.quota_type === 0 ? t('按量计费') : (modelData?.quota_type === 1 ? t('按次计费') : '-'),
         inputPrice: modelData?.quota_type === 0 ? priceData.inputPrice : '-',
         outputPrice: modelData?.quota_type === 0 ? (priceData.completionPrice || priceData.outputPrice) : '-',
         fixedPrice: modelData?.quota_type === 1 ? priceData.price : '-',
->>>>>>> alpha
       };
     });
 
@@ -110,24 +103,16 @@ const ModelPricingTable = ({
     columns.push({
       title: t('计费类型'),
       dataIndex: 'billingType',
-<<<<<<< HEAD
-      render: (text) => (
-        <Tag color={text === t('按量计费') ? 'violet' : 'teal'} size="small" shape="circle" style={{ fontSize: '12px' }}>
-          {text}
-        </Tag>
-      ),
-=======
       render: (text) => {
         let color = 'white';
         if (text === t('按量计费')) color = 'violet';
         else if (text === t('按次计费')) color = 'teal';
         return (
-          <Tag color={color} size="small" shape="circle">
+          <Tag color={color} size="small" shape="circle" style={{ fontSize: '12px' }}>
             {text || '-'}
           </Tag>
         );
       },
->>>>>>> alpha
     });
 
     // 根据计费类型添加价格列

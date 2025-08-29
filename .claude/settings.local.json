@@ -58,7 +58,8 @@
       "Bash(node:*)",
       "Bash(git rev-parse:*)",
       "Bash(git diff:*)",
-      "Bash(do)"
+      "Bash(do)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

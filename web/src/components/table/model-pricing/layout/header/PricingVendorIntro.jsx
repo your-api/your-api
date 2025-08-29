@@ -243,14 +243,6 @@ const PricingVendorIntro = memo(({
     />
   ), [selectedRowKeys, copyText, handleChange, handleCompositionStart, handleCompositionEnd, isMobile, searchValue, setShowFilterModal, t]);
 
-<<<<<<< HEAD
-            {/* 供应商信息 */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">{t('全部供应商')}</h2>
-                <Tag color="white" shape="circle" size="small" className="self-start sm:self-center" style={{ fontSize: '12px' }}>
-                  {t('共 {{count}} 个模型', { count: currentModelCount })}
-=======
   const renderHeaderCard = useCallback(({ title, count, description, rightContent, primaryDarkerChannel }) => (
     <Card className="!rounded-2xl shadow-sm border-0"
       cover={
@@ -266,7 +258,6 @@ const PricingVendorIntro = memo(({
                 </h2>
                 <Tag style={COMPONENT_STYLES.tag} shape="circle" size="small" className="self-center">
                   {t('共 {{count}} 个模型', { count })}
->>>>>>> alpha
                 </Tag>
               </div>
               <Paragraph
@@ -326,38 +317,11 @@ const PricingVendorIntro = memo(({
     primaryDarkerChannel: THEME_COLORS.specific.primary
   });
 
-<<<<<<< HEAD
-          {/* 供应商信息 */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">{vendorDisplayName}</h2>
-              <Tag color="white" shape="circle" size="small" className="self-start sm:self-center" style={{ fontSize: '12px' }}>
-                {t('共 {{count}} 个模型', { count: currentModelCount })}
-              </Tag>
-            </div>
-            <Paragraph
-              className="text-xs sm:text-sm text-gray-600 leading-relaxed !mb-0"
-              ellipsis={{
-                rows: 2,
-                expandable: true,
-                collapsible: true,
-                collapseText: t('收起'),
-                expandText: t('展开')
-              }}
-            >
-              {currentVendor.description || getVendorDescription(currentVendor.name)}
-            </Paragraph>
-          </div>
-        </div>
-      </Card>
-    </div>
-=======
   return (
     <>
       {headerCard}
       {renderDescriptionModal()}
     </>
->>>>>>> alpha
   );
 });
 

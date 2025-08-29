@@ -392,7 +392,6 @@ code {
 }
 
 /* ==================== 组件特定样式 ==================== */
-<<<<<<< HEAD
 /* 模型定价侧边栏按钮样式修复 */
 .pricing-sidebar .semi-button {
   display: flex !important;
@@ -761,7 +760,8 @@ button[type="danger"]:hover,
 
 .semi-typography-paragraph {
   margin-bottom: 12px !important;
-=======
+}
+
 /* SelectableButtonGroup */
 .sbg-button .semi-button-content {
   min-width: 0 !important;
@@ -781,7 +781,6 @@ button[type="danger"]:hover,
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
->>>>>>> alpha
 }
 
 /* Tabs组件样式 */

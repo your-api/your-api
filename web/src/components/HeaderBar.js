@@ -42,7 +42,7 @@ import {
 import { stringToColor } from '../helpers/render';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import { StyleContext } from '../context/Style/index.js';
-import { StatusContext } from '../context/Status/index.js';
+import { StatusContext } from '../context/Status/index.jsx';
 import {useDispatch, useSelector} from "react-redux";
 import {fetchCustemNavLinks, fetchTypingList} from "../store/setting/providers.js";
 

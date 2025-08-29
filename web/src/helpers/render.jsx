@@ -1367,55 +1367,6 @@ export function renderModelPriceSimple(
   isSystemPromptOverride = false,
   provider = 'openai',
 ) {
-<<<<<<< HEAD:web/src/helpers/render.js
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
-  groupRatio = effectiveGroupRatio;
-  if (modelPrice !== -1) {
-    return i18next.t('价格：￥{{price}} * {{ratioType}}：{{ratio}}', {
-      price: modelPrice,
-      ratioType: ratioLabel,
-      ratio: groupRatio,
-    });
-  } else {
-    if (image && cacheTokens !== 0) {
-      return i18next.t(
-        '模型: {{ratio}} * {{ratioType}}: {{groupRatio}} * 缓存倍率: {{cacheRatio}} * 图片输入倍率: {{imageRatio}}',
-        {
-          ratio: modelRatio,
-          ratioType: ratioLabel,
-          groupRatio: groupRatio,
-          cacheRatio: cacheRatio,
-          imageRatio: imageRatio,
-        },
-      );
-    } else if (image) {
-      return i18next.t(
-        '模型: {{ratio}} * {{ratioType}}: {{groupRatio}} * 图片输入倍率: {{imageRatio}}',
-        {
-          ratio: modelRatio,
-          ratioType: ratioLabel,
-          groupRatio: groupRatio,
-          imageRatio: imageRatio,
-        },
-      );
-    } else if (cacheTokens !== 0) {
-      return i18next.t(
-        '模型: {{ratio}} * 分组: {{groupRatio}} * 缓存: {{cacheRatio}}',
-        {
-          ratio: modelRatio,
-          groupRatio: groupRatio,
-          cacheRatio: cacheRatio,
-        },
-      );
-    } else {
-      return i18next.t('模型: {{ratio}} * {{ratioType}}：{{groupRatio}}', {
-        ratio: modelRatio,
-        ratioType: ratioLabel,
-        groupRatio: groupRatio,
-      });
-    }
-  }
-=======
   return renderPriceSimpleCore({
     modelRatio,
     modelPrice,
@@ -1429,7 +1380,6 @@ export function renderModelPriceSimple(
     imageRatio,
     isSystemPromptOverride
   });
->>>>>>> alpha:web/src/helpers/render.jsx
 }
 
 export function renderAudioModelPrice(
@@ -1770,50 +1720,7 @@ export function renderClaudeLogContent(
   }
 }
 
-<<<<<<< HEAD:web/src/helpers/render.js
-export function renderClaudeModelPriceSimple(
-  modelRatio,
-  modelPrice = -1,
-  groupRatio,
-  user_group_ratio,
-  cacheTokens = 0,
-  cacheRatio = 1.0,
-  cacheCreationTokens = 0,
-  cacheCreationRatio = 1.0,
-) {
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
-  groupRatio = effectiveGroupRatio;
-
-  if (modelPrice !== -1) {
-    return i18next.t('价格：￥{{price}} * {{ratioType}}：{{ratio}}', {
-      price: modelPrice,
-      ratioType: ratioLabel,
-      ratio: groupRatio,
-    });
-  } else {
-    if (cacheTokens !== 0 || cacheCreationTokens !== 0) {
-      return i18next.t(
-        '模型: {{ratio}} * {{ratioType}}: {{groupRatio}} * 缓存: {{cacheRatio}}',
-        {
-          ratio: modelRatio,
-          ratioType: ratioLabel,
-          groupRatio: groupRatio,
-          cacheRatio: cacheRatio,
-          cacheCreationRatio: cacheCreationRatio,
-        },
-      );
-    } else {
-      return i18next.t('模型: {{ratio}} * {{ratioType}}: {{groupRatio}}', {
-        ratio: modelRatio,
-        ratioType: ratioLabel,
-        groupRatio: groupRatio,
-      });
-    }
-  }
-}
-=======
 // 已统一至 renderModelPriceSimple，若仍有遗留引用，请改为传入 provider='claude'
->>>>>>> alpha:web/src/helpers/render.jsx
 
 /**
  * rehype 插件：将段落等文本节点拆分为逐词 <span>，并添加淡入动画 class。

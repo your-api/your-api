@@ -31,7 +31,7 @@ import {
 import { API, showError, showSuccess, timestamp2string } from '../../helpers';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
-import { StatusContext } from '../../context/Status';
+import { StatusContext } from '../../context/Status/index.jsx';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 
 const OtherSetting = () => {
@@ -428,3 +428,4 @@ const OtherSetting = () => {
 };
 
 export default OtherSetting;
+

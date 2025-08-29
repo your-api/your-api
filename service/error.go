@@ -207,7 +207,6 @@ func RelayErrorHandler(c *gin.Context, resp *http.Response, showBodyWhenFail boo
 	}
 
 	// 尝试解析为通用错误格式
-	var errResponse dto.GeneralErrorResponse
 	err = common.Unmarshal(responseBody, &errResponse)
 	if err != nil {
 		common.SysError(fmt.Sprintf("[RelayErrorHandler] Failed to parse as GeneralError: %v", err))

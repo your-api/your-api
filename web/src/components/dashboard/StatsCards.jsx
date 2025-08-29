@@ -18,14 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-<<<<<<< HEAD
-import { Card, Avatar, Skeleton } from '@douyinfe/semi-ui';
-=======
 import { Card, Avatar, Skeleton, Tag } from '@douyinfe/semi-ui';
 import { VChart } from '@visactor/react-vchart';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
->>>>>>> alpha
 
 const StatsCards = ({
   groupedStatsData,
@@ -76,8 +72,6 @@ const StatsCards = ({
                       </div>
                     </div>
                   </div>
-<<<<<<< HEAD
-=======
                   {item.title === t('当前余额') ? (
                     <Tag
                       color="white"
@@ -98,7 +92,6 @@ const StatsCards = ({
                       />
                     </div>
                   )}
->>>>>>> alpha
                 </div>
               ))}
             </div>
@@ -107,6 +100,51 @@ const StatsCards = ({
       </div>
     </div>
   );
+};
+
+// Chart configuration for mini trend charts
+const CHART_CONFIG = {
+  animation: false,
+  padding: { top: 2, right: 2, bottom: 2, left: 2 },
+};
+
+// Generate mini trend chart specification
+const getTrendSpec = (data, color) => {
+  if (!data || data.length === 0) {
+    return {
+      type: 'line',
+      data: {
+        values: []
+      },
+      width: 96,
+      height: 40,
+    };
+  }
+  
+  return {
+    type: 'line',
+    data: {
+      values: data.map((value, index) => ({
+        x: index,
+        y: value || 0,
+      }))
+    },
+    width: 96,
+    height: 40,
+    xField: 'x',
+    yField: 'y',
+    line: {
+      style: {
+        stroke: color || '#6366f1',
+        lineWidth: 2,
+      }
+    },
+    point: false,
+    axes: false,
+    legends: false,
+    tooltip: false,
+    crosshair: false,
+  };
 };
 
 export default StatsCards; 

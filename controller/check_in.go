@@ -2,7 +2,7 @@ package controller
 
 import (
 	"net/http"
-	"one-api/common"
+	"one-api/logger"
 	"one-api/model"
 	"strconv"
 

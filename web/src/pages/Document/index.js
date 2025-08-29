@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { API, showError } from '../../helpers';
 import { marked } from 'marked';
 import { Layout } from '@douyinfe/semi-ui';
-import { StatusContext } from "../../context/Status/index.js";
+import { StatusContext } from "../../context/Status/index.jsx";
 
 const Document = () => {
     const [statusState, statusDispatch] = useContext(StatusContext);

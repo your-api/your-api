@@ -85,7 +85,6 @@ const SystemSetting = () => {
     LinuxDOOAuthEnabled: '',
     LinuxDOClientId: '',
     LinuxDOClientSecret: '',
-    LinuxDOMinimumTrustLevel: '',
     ServerAddress: '',
   });
 
@@ -471,12 +470,6 @@ const SystemSetting = () => {
       options.push({
         key: 'LinuxDOClientSecret',
         value: inputs.LinuxDOClientSecret,
-      });
-    }
-    if (originInputs['LinuxDOMinimumTrustLevel'] !== inputs.LinuxDOMinimumTrustLevel) {
-      options.push({
-        key: 'LinuxDOMinimumTrustLevel',
-        value: inputs.LinuxDOMinimumTrustLevel,
       });
     }
 
@@ -923,26 +916,19 @@ const SystemSetting = () => {
                   <Row
                     gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
                   >
-                    <Col xs={24} sm={24} md={10} lg={10} xl={10}>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
                       <Form.Input
                         field='LinuxDOClientId'
                         label={t('Linux DO Client ID')}
                         placeholder={t('输入你注册的 LinuxDO OAuth APP 的 ID')}
                       />
                     </Col>
-                    <Col xs={24} sm={24} md={10} lg={10} xl={10}>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
                       <Form.Input
                         field='LinuxDOClientSecret'
                         label={t('Linux DO Client Secret')}
                         type='password'
                         placeholder={t('敏感信息不会发送到前端显示')}
-                      />
-                    </Col>
-                    <Col xs={24} sm={24} md={4} lg={4} xl={4}>
-                      <Form.Input
-                        field='LinuxDOMinimumTrustLevel'
-                        label='LinuxDO Minimum Trust Level'
-                        placeholder='允许注册的最低信任等级'
                       />
                     </Col>
                   </Row>

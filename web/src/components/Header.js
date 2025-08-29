@@ -1,8 +1,8 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserContext } from '../context/User/index.js';
-import { StatusContext } from '../context/Status/index.js';
-import { useSetTheme, useTheme } from '../context/Theme/index.js';
+import { UserContext } from '../context/User/index.jsx';
+import { StatusContext } from '../context/Status/index.jsx';
+import { useSetTheme, useTheme } from '../context/Theme/index.jsx';
 import { API, getLogo, getSystemName, showSuccess } from '../helpers/index.js';
 import {
   Avatar,

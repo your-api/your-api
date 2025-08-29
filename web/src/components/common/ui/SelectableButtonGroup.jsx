@@ -171,49 +171,13 @@ const SelectableButtonGroup = ({
                   overflow: 'hidden'
                 }}
               >
-<<<<<<< HEAD
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  minWidth: 0
-                }}>
-                  {item.icon && (
-                    <span style={{ marginRight: 3, flexShrink: 0, display: 'flex' }}>{item.icon}</span>
-                  )}
-                  <span style={{ 
-                    marginRight: item.tagCount !== undefined ? 4 : 0,
-                    wordBreak: 'break-word',
-                    lineHeight: '1.3',
-                    flex: 1,
-                    fontSize: '11px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
-                  }}>{item.label}</span>
-                  {item.tagCount !== undefined && (
-                    <Tag
-                      color={isActive ? 'blue' : 'white'}
-                      shape="circle"
-                      size="small"
-                      style={{ 
-                        marginLeft: '4px', 
-                        flexShrink: 0
-                      }}
-                    >
-                      {item.tagCount}
-                    </Tag>
-=======
                 <div className="sbg-content">
                   {item.icon && (<span className="sbg-icon">{item.icon}</span>)}
                   <Tooltip content={item.label}>
                     <span className="sbg-ellipsis">{item.label}</span>
                   </Tooltip>
                   {item.tagCount !== undefined && (
-                    <Tag className="sbg-tag" color='white' shape="circle" size="small">{item.tagCount}</Tag>
->>>>>>> alpha
+                    <Tag className="sbg-tag" color={isActive ? 'blue' : 'white'} shape="circle" size="small">{item.tagCount}</Tag>
                   )}
                 </div>
               </Button>
@@ -233,50 +197,6 @@ const SelectableButtonGroup = ({
               onClick={() => onChange(item.value)}
               theme={isActive ? 'light' : 'outline'}
               type={isActive ? 'primary' : 'tertiary'}
-              disabled={isDisabled}
-<<<<<<< HEAD
-              style={{ 
-                width: '100%',
-                height: '40px',
-                whiteSpace: 'normal',
-                textAlign: 'left',
-                justifyContent: 'flex-start',
-                padding: '4px 6px',
-                fontSize: '11px',
-                overflow: 'hidden'
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                width: '100%',
-                minWidth: 0
-              }}>
-                <span style={{ 
-                  marginRight: item.tagCount !== undefined ? 4 : 0,
-                  wordBreak: 'break-word',
-                  lineHeight: '1.3',
-                  fontSize: '11px',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical'
-                }}>{item.label}</span>
-                {item.tagCount !== undefined && (
-                  <Tag
-                    color={isActive ? 'blue' : 'white'}
-                    shape="circle"
-                    size="small"
-                    style={{ 
-                      marginLeft: '4px', 
-                      flexShrink: 0
-                    }}
-                  >
-                    {item.tagCount}
-                  </Tag>
-=======
               className="sbg-button"
               style={{ width: '100%' }}
             >
@@ -286,8 +206,7 @@ const SelectableButtonGroup = ({
                   <span className="sbg-ellipsis">{item.label}</span>
                 </Tooltip>
                 {item.tagCount !== undefined && (
-                  <Tag className="sbg-tag" color='white' shape="circle" size="small">{item.tagCount}</Tag>
->>>>>>> alpha
+                  <Tag className="sbg-tag" color={isActive ? 'blue' : 'white'} shape="circle" size="small">{item.tagCount}</Tag>
                 )}
               </div>
             </Button>

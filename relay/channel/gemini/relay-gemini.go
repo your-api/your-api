@@ -1091,10 +1091,6 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	}
 
 	// convert to openai format response
-	var embedding dto.FlexibleEmbedding
-	embeddingJSON, _ := json.Marshal(geminiResponse.Embedding.Values)
-	embedding.UnmarshalJSON(embeddingJSON)
-	
 	openAIResponse := dto.OpenAIEmbeddingResponse{
 		Object: "list",
 		Data:   make([]dto.OpenAIEmbeddingResponseItem, 0, len(geminiResponse.Embeddings)),
@@ -1102,9 +1098,13 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	}
 
 	for i, embedding := range geminiResponse.Embeddings {
+		var flexEmbedding dto.FlexibleEmbedding
+		embeddingJSON, _ := json.Marshal(embedding.Values)
+		flexEmbedding.UnmarshalJSON(embeddingJSON)
+		
 		openAIResponse.Data = append(openAIResponse.Data, dto.OpenAIEmbeddingResponseItem{
 			Object:    "embedding",
-			Embedding: embedding.Values,
+			Embedding: flexEmbedding,
 			Index:     i,
 		})
 	}

@@ -2,23 +2,13 @@ import React, { lazy, Suspense, useContext, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
-<<<<<<< HEAD:web/src/App.js
-import { PrivateRoute } from './helpers';
-import RegisterForm from './components/auth/RegisterForm';
-import LoginForm from './components/LoginForm';
-=======
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
->>>>>>> alpha:web/src/App.jsx
 import NotFound from './pages/NotFound';
 import Forbidden from './pages/Forbidden';
 import Setting from './pages/Setting';
-<<<<<<< HEAD:web/src/App.js
 import EditUser from './pages/User/EditUser';
-=======
-
->>>>>>> alpha:web/src/App.jsx
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import Channel from './pages/Channel';
@@ -31,18 +21,8 @@ import Chat from './pages/Chat';
 import Chat2Link from './pages/Chat2Link';
 import { Layout } from '@douyinfe/semi-ui';
 import Midjourney from './pages/Midjourney';
-<<<<<<< HEAD:web/src/App.js
-import Pricing from './pages/Pricing/index.js';
-import Prices from './pages/Prices/index.js';
-import Task from './pages/Task/index.js';
-import ModelPage from './pages/Model/index.js';
-import Playground from './pages/Playground/index.js';
-import OAuth2Callback from './components/auth/OAuth2Callback.js';
-import PersonalSetting from './components/settings/PersonalSetting.js';
-import Setup from './pages/Setup/index.js';
-import SetupCheck from './components/layout/SetupCheck.js';
-=======
 import Pricing from './pages/Pricing';
+import Prices from './pages/Prices';
 import Task from './pages/Task';
 import ModelPage from './pages/Model';
 import Playground from './pages/Playground';
@@ -50,7 +30,6 @@ import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
 import SetupCheck from './components/layout/SetupCheck';
->>>>>>> alpha:web/src/App.jsx
 
 const Home = lazy(() => import('./pages/Home'));
 const Detail = lazy(() => import('./pages/Detail'));
@@ -80,7 +59,6 @@ function App() {
           }
         />
         <Route
-<<<<<<< HEAD:web/src/App.js
           path='/console'
           element={
             <PrivateRoute>
@@ -89,10 +67,10 @@ function App() {
               </Suspense>
             </PrivateRoute>
           }
-=======
+        />
+        <Route
           path='/forbidden'
           element={<Forbidden />}
->>>>>>> alpha:web/src/App.jsx
         />
         <Route
           path='/console/models'

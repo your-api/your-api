@@ -119,7 +119,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 
 			// 记录失败的日志但不扣费
 			errorMsg := fmt.Sprintf("错误: %d - %s", newAPIError.StatusCode, newAPIError.Error())
-			service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, errorMsg)
+			service.RecordClaudeErrorLog(c, info, 0, errorMsg)
 			return newAPIError
 		}
 	}
@@ -134,7 +134,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 
 		// 记录失败的日志但不扣费
 		errorMsg := fmt.Sprintf("（响应处理失败: %d - %s）", newAPIError.StatusCode, newAPIError.Error())
-		service.RecordClaudeErrorLog(c, relayInfo, promptTokens, userQuota, priceData, errorMsg)
+		service.RecordClaudeErrorLog(c, info, 0, errorMsg)
 		return newAPIError
 	}
 

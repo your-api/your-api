@@ -79,14 +79,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.
 	}
 	
 	// 预扣费，避免并发超支
+	var preConsumedQuota int
 	if quota > 0 {
 		preConsumedQuota = quota
-		err = service.PreConsumeTokenQuota(relayInfo.RelayInfo, preConsumedQuota)
+		err = service.PreConsumeTokenQuota(info, preConsumedQuota)
 		if err != nil {
 			taskErr = service.TaskErrorWrapper(err, "pre_consume_quota_failed", http.StatusForbidden)
 			return
 		}
-		err = model.DecreaseUserQuota(relayInfo.UserId, preConsumedQuota)
+		err = model.DecreaseUserQuota(info.UserId, preConsumedQuota)
 		if err != nil {
 			taskErr = service.TaskErrorWrapper(err, "decrease_user_quota_failed", http.StatusInternalServerError)
 			return
@@ -161,16 +162,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.
 				if hasUserGroupRatio {
 					other["user_group_ratio"] = userGroupRatio
 				}
-				model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-					ChannelId: info.ChannelId,
-					ModelName: modelName,
-					TokenName: tokenName,
-					Quota:     quota,
-					Content:   logContent,
-					TokenId:   info.TokenId,
-					Group:     info.UsingGroup,
-					Other:     other,
-				})
+				model.RecordConsumeLog(c, info.UserId, info.ChannelId, 0, 0,
+					modelName, tokenName, quota, logContent, info.TokenId, userQuota, 0,
+					false, info.UsingGroup, other)
 				model.UpdateUserUsedQuotaAndRequestCount(info.UserId, quota)
 				model.UpdateChannelUsedQuota(info.ChannelId, quota)
 			}

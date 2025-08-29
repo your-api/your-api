@@ -200,7 +200,6 @@ const PasswordResetForm = () => {
       return;
     }
 
-<<<<<<< HEAD:web/src/components/auth/PasswordResetForm.js
     if (new_password !== confirm_password) {
       showError(t('两次输入的密码不一致'));
       return;
@@ -488,41 +487,6 @@ const PasswordResetForm = () => {
                   <Text type="secondary" style={{ fontSize: '0.9rem' }}>
                     {t('选择重置方式找回您的密码')}
                   </Text>
-=======
-            <Card className="border-0 !rounded-2xl overflow-hidden">
-              <div className="flex justify-center pt-6 pb-2">
-                <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('密码重置')}</Title>
-              </div>
-              <div className="px-2 py-8">
-                <Form className="space-y-3">
-                  <Form.Input
-                    field="email"
-                    label={t('邮箱')}
-                    placeholder={t('请输入您的邮箱地址')}
-                    name="email"
-                    value={email}
-                    onChange={handleChange}
-                    prefix={<IconMail />}
-                  />
-
-                  <div className="space-y-2 pt-2">
-                    <Button
-                      theme="solid"
-                      className="w-full !rounded-full"
-                      type="primary"
-                      htmlType="submit"
-                      onClick={handleSubmit}
-                      loading={loading}
-                      disabled={disableButton}
-                    >
-                      {disableButton ? `${t('重试')} (${countdown})` : t('提交')}
-                    </Button>
-                  </div>
-                </Form>
-
-                <div className="mt-6 text-center text-sm">
-                  <Text>{t('想起来了？')} <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">{t('登录')}</Link></Text>
->>>>>>> alpha:web/src/components/auth/PasswordResetForm.jsx
                 </div>
                 
                 <Tabs 

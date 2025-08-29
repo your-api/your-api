@@ -186,7 +186,7 @@ import {
   IconPlay,
   IconCopy,
 } from '@douyinfe/semi-icons';
-import { UserContext } from '../context/User/index.js';
+import { UserContext } from '../context/User/index.jsx';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import '../pages/Home/HomeStyles.css';
 import {useDispatch, useSelector} from "react-redux";

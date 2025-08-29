@@ -122,25 +122,6 @@ const renderEndpoints = (value) => {
   }
 };
 
-<<<<<<< HEAD:web/src/components/table/models/ModelsColumnDefs.js
-// Render quota type
-const renderQuotaType = (qt, t) => {
-  if (qt === 1) {
-    return (
-      <Tag color='teal' size='small' shape='circle' style={{ fontSize: '12px' }}>
-        {t('按次计费')}
-      </Tag>
-    );
-  }
-  if (qt === 0) {
-    return (
-      <Tag color='violet' size='small' shape='circle' style={{ fontSize: '12px' }}>
-        {t('按量计费')}
-      </Tag>
-    );
-  }
-  return qt ?? '-';
-=======
 // Render quota types (array) using common limited items renderer
 const renderQuotaTypes = (arr, t) => {
   if (!Array.isArray(arr) || arr.length === 0) return '-';
@@ -167,9 +148,7 @@ const renderQuotaTypes = (arr, t) => {
         </Tag>
       );
     },
-    maxDisplay: 3,
   });
->>>>>>> alpha:web/src/components/table/models/ModelsColumnDefs.jsx
 };
 
 // Render bound channels
@@ -249,12 +228,7 @@ const renderNameRule = (rule, record, t) => {
   };
   const cfg = map[rule];
   if (!cfg) return '-';
-<<<<<<< HEAD:web/src/components/table/models/ModelsColumnDefs.js
-  return (
-    <Tag color={cfg.color} size="small" shape='circle' style={{ fontSize: '12px' }}>
-      {cfg.label}
-=======
-
+  
   let label = cfg.label;
   if (rule !== 0 && record.matched_count) {
     label = `${cfg.label} ${record.matched_count}${t('个模型')}`;
@@ -263,7 +237,6 @@ const renderNameRule = (rule, record, t) => {
   const tagElement = (
     <Tag color={cfg.color} size="small" shape='circle'>
       {label}
->>>>>>> alpha:web/src/components/table/models/ModelsColumnDefs.jsx
     </Tag>
   );
 

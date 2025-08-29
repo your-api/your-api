@@ -2,7 +2,7 @@ package model
 
 import (
 	"fmt"
-	"one-api/common"
+	"one-api/logger"
 	"sync"
 	"time"
 	"gorm.io/gorm"

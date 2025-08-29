@@ -1,8 +1,26 @@
-<<<<<<< HEAD
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { UserContext } from '../../context/User/index.js';
-import { useSetTheme, useTheme } from '../../context/Theme/index.js';
+import { UserContext } from '../../context/User/index.jsx';
+import { useSetTheme, useTheme } from '../../context/Theme/index.jsx';
 import { useTranslation } from 'react-i18next';
 
 import { API, getLogo, getSystemName, isMobile, showSuccess } from '../../helpers/index.js';
@@ -41,10 +59,10 @@ import {
   List,
   Space,
 } from '@douyinfe/semi-ui';
-import { stringToColor } from '../../helpers/render.js';
+import { stringToColor } from '../../helpers/render.jsx';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import { StyleContext } from '../../context/Style/index.js';
-import { StatusContext } from '../../context/Status/index.js';
+import { StatusContext } from '../../context/Status/index.jsx';
 import {useDispatch, useSelector} from "react-redux";
 import {fetchCustemNavLinks, fetchTypingList} from "../../store/setting/providers.js";
 
@@ -786,25 +804,3 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 };
 
 export default HeaderBar;
-=======
-/*
-Copyright (C) 2025 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
-
-export { default } from './HeaderBar/index';
->>>>>>> alpha

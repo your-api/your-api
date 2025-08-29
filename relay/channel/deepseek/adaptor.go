@@ -80,7 +80,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 					imageUrl := content.GetImageMedia()
 					if imageUrl != nil && strings.HasPrefix(imageUrl.Url, "http") {
 						if common.DebugEnabled {
-							common.SysDebug(fmt.Sprintf("⚠️ DeepSeek适配器发现HTTP图片链接未转换，为防止暴露源站IP，删除该图片: %s", imageUrl.Url))
+							common.SysLog(fmt.Sprintf("⚠️ DeepSeek适配器发现HTTP图片链接未转换，为防止暴露源站IP，删除该图片: %s", imageUrl.Url))
 						}
 						hasModification = true
 						// 跳过HTTP图片链接，不添加到新内容中
@@ -94,7 +94,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			if hasModification {
 				message.SetMediaContent(newContent)
 				if common.DebugEnabled {
-					common.SysDebug(fmt.Sprintf("DeepSeek适配器已更新消息内容，原始内容数: %d，最终内容数: %d", len(arrayContent), len(newContent)))
+					common.SysLog(fmt.Sprintf("DeepSeek适配器已更新消息内容，原始内容数: %d，最终内容数: %d", len(arrayContent), len(newContent)))
 				}
 			}
 		}

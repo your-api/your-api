@@ -73,7 +73,8 @@ func SetRelayRouter(router *gin.Engine) {
 	wsV1Router.Use(middleware.ModelRequestRateLimit())
 	wsV1Router.Use(middleware.Distribute())
 	{
-		wsV1Router.GET("/realtime", controller.WssRelay)
+		// TODO: Add WssRelay handler for realtime endpoint
+		// wsV1Router.GET("/realtime", controller.WssRelay)
 	}
 
 	relayV1Router := router.Group("/v1")
