@@ -70,6 +70,15 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.Messages[i] = message
 		}
 	}
+
+	// 获取AWS模型ID用于验证beta功能
+	awsModelID := getAwsModelID(request.Model)
+
+	// 验证beta功能兼容性
+	if err := validateBetaFeatures(request.AnthropicBeta, awsModelID); err != nil {
+		return nil, errors.Wrap(err, "beta feature validation failed")
+	}
+
 	return request, nil
 }
 
@@ -125,6 +134,15 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert openai request to claude request")
 	}
+
+	// 获取AWS模型ID用于验证beta功能
+	awsModelID := getAwsModelID(claudeReq.Model)
+
+	// 验证beta功能兼容性
+	if err := validateBetaFeatures(claudeReq.AnthropicBeta, awsModelID); err != nil {
+		return nil, errors.Wrap(err, "beta feature validation failed")
+	}
+
 	info.UpstreamModelName = claudeReq.Model
 	return claudeReq, err
 }

@@ -192,6 +192,7 @@ type ClaudeToolChoice struct {
 type ClaudeRequest struct {
 	Model             string          `json:"model"`
 	Prompt            string          `json:"prompt,omitempty"`
+	AnthropicBeta     []string        `json:"anthropic_beta,omitempty"`
 	System            any             `json:"system,omitempty"`
 	Messages          []ClaudeMessage `json:"messages,omitempty"`
 	MaxTokens         uint            `json:"max_tokens,omitempty"`
