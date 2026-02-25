@@ -330,6 +330,32 @@ const Home = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* 联系方式 */}
+                <div className='mt-12 md:mt-16 w-full'>
+                  <div className='flex items-center mb-4 md:mb-6 justify-center'>
+                    <Text
+                      type='tertiary'
+                      className='text-base md:text-lg lg:text-xl font-light'
+                    >
+                      {t('联系我们')}
+                    </Text>
+                  </div>
+                  <div className='flex flex-col items-center justify-center gap-2 text-sm md:text-base'>
+                    <div className='flex items-center gap-2'>
+                      <Text type='secondary'>QQ:</Text>
+                      <Text>2469472361</Text>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <Text type='secondary'>{t('微信')}:</Text>
+                      <Text>xzj_powerful</Text>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <Text type='secondary'>Telegram:</Text>
+                      <Text>Hash77zz</Text>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
