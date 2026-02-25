@@ -35,7 +35,7 @@ import {
   Tabs,
   TabPane,
 } from '@douyinfe/semi-ui';
-import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si';
+import { SiAlipay } from 'react-icons/si';
 import {
   CreditCard,
   Coins,
@@ -292,7 +292,7 @@ const RechargeCard = ({
                     <Form.Slot label={t('选择支付方式')}>
                       {payMethods && payMethods.length > 0 ? (
                         <Space wrap>
-                          {payMethods.map((payMethod) => {
+                          {payMethods.filter(pm => pm.type === 'alipay').map((payMethod) => {
                             const minTopupVal = Number(payMethod.min_topup) || 0;
                             const isStripe = payMethod.type === 'stripe';
                             const disabled =
@@ -310,23 +310,7 @@ const RechargeCard = ({
                                 loading={
                                   paymentLoading && payWay === payMethod.type
                                 }
-                                icon={
-                                  payMethod.type === 'alipay' ? (
-                                    <SiAlipay size={18} color='#1677FF' />
-                                  ) : payMethod.type === 'wxpay' ? (
-                                    <SiWechat size={18} color='#07C160' />
-                                  ) : payMethod.type === 'stripe' ? (
-                                    <SiStripe size={18} color='#635BFF' />
-                                  ) : (
-                                    <CreditCard
-                                      size={18}
-                                      color={
-                                        payMethod.color ||
-                                        'var(--semi-color-text-2)'
-                                      }
-                                    />
-                                  )
-                                }
+                                icon={<SiAlipay size={18} color='#1677FF' />}
                                 className='!rounded-lg !px-4 !py-2'
                               >
                                 {payMethod.name}
