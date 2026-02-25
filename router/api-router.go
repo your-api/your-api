@@ -90,6 +90,14 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
+			}
+
+			// Order routes for QR code payment
+			orderRoute := userRoute.Group("/order")
+			orderRoute.Use(middleware.UserAuth())
+			{
+				orderRoute.POST("/getTradeInfo", middleware.CriticalRateLimit(), controller.GetOrderInfo)
+				orderRoute.GET("/queryTradeStatus", controller.QueryTradeStatus)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
 				// 2FA routes

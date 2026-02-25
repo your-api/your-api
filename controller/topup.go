@@ -48,8 +48,11 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	// 判断是否启用在线充值：只要有任何支付方式配置就启用
+	enableOnlineTopup := len(payMethods) > 0 || (operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "")
+
 	data := gin.H{
-		"enable_online_topup": operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "",
+		"enable_online_topup": enableOnlineTopup,
 		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"creem_products":      setting.CreemProducts,

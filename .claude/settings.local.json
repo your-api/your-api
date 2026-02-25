@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(bash)",
+      "Bash(go build:*)",
+      "Bash(~/.bun/bin/bun install)",
+      "Bash(bun install:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}

@@ -32,6 +32,7 @@ import { Modal, Toast } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
+import { QRCodeSVG } from 'qrcode.react';
 
 import RechargeCard from './RechargeCard';
 import InvitationCard from './InvitationCard';
@@ -104,6 +105,15 @@ const TopUp = () => {
     amount_options: [],
     discount: {},
   });
+
+  // 二维码支付相关状态
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [outTradeNo, setOutTradeNo] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [countdown, setCountdown] = useState(300);
+  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const timerRef = useRef(null);
+  const statusCheckRef = useRef(null);
 
   const topUp = async () => {
     if (redemptionCode === '') {
@@ -184,6 +194,147 @@ const TopUp = () => {
   };
 
   const onlineTopUp = async () => {
+    if (payWay === 'stripe') {
+      // Stripe 支付处理
+      if (amount === 0) {
+        await getStripeAmount();
+      }
+    } else {
+      // 普通支付处理
+      if (amount === 0) {
+        await getAmount();
+      }
+    }
+
+    if (topUpCount < minTopUp) {
+      showError(t('充值数量不能小于') + minTopUp);
+      return;
+    }
+
+    setOpen(false);
+    setConfirmLoading(true);
+
+    try {
+      if (payWay === 'stripe') {
+        // Stripe 支付请求
+        const res = await API.post('/api/user/stripe/pay', {
+          amount: parseInt(topUpCount),
+          payment_method: 'stripe',
+        });
+
+        if (res !== undefined) {
+          const { message, data } = res.data;
+          if (message === 'success') {
+            window.open(data.pay_link, '_blank');
+          } else {
+            showError(message || t('支付请求失败'));
+          }
+        }
+      } else {
+        // 二维码支付处理（支付宝/微信）
+        let pay_way = 0;
+        if (payWay === 'alipay') {
+          pay_way = 0;
+        } else if (payWay === 'wxpay') {
+          pay_way = 1;
+        }
+
+        const res = await API.post('/api/user/order/getTradeInfo', {
+          amount: parseFloat(amount),
+          payWay: pay_way
+        });
+
+        if (res !== undefined) {
+          const { success, message, data } = res.data;
+
+          if (success) {
+            const { outTradeNo, qrCode } = data;
+
+            setOutTradeNo(outTradeNo);
+            setQrCodeUrl(qrCode);
+            setShowPaymentModal(true);
+            setPaymentStatus('pending');
+
+            // 启动倒计时
+            setCountdown(300);
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = setInterval(() => {
+              setCountdown(prev => {
+                if (prev <= 1) {
+                  clearInterval(timerRef.current);
+                  if (statusCheckRef.current) {
+                    clearInterval(statusCheckRef.current);
+                    statusCheckRef.current = null;
+                  }
+                  return 0;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+
+            // 启动支付状态检查
+            startPaymentStatusCheck(outTradeNo, pay_way);
+
+          } else {
+            showError(message || t('获取支付信息失败'));
+          }
+        } else {
+          showError(t('请求失败'));
+        }
+      }
+    } catch (err) {
+      console.log(err);
+      showError(t('支付请求失败，请稍后重试'));
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  // 启动支付状态检查
+  const startPaymentStatusCheck = (orderNo, payWay) => {
+    if (statusCheckRef.current) {
+      clearInterval(statusCheckRef.current);
+    }
+
+    statusCheckRef.current = setInterval(async () => {
+      try {
+        const res = await API.get(`/api/user/order/queryTradeStatus?outTradeNo=${orderNo}&payWay=${payWay}`);
+        if (res && res.data && res.data.success) {
+          if (res.data.data === 'OK') {
+            // 支付成功
+            clearInterval(statusCheckRef.current);
+            clearInterval(timerRef.current);
+            setPaymentStatus('success');
+            showSuccess(t('支付成功！'));
+
+            // 刷新用户信息
+            setTimeout(() => {
+              setShowPaymentModal(false);
+              window.location.reload();
+            }, 2000);
+          }
+        }
+      } catch (err) {
+        console.error('查询支付状态失败:', err);
+      }
+    }, 3000); // 每3秒查询一次
+  };
+
+  // 格式化倒计时
+  const formatCountdown = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 关闭支付弹窗
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (statusCheckRef.current) clearInterval(statusCheckRef.current);
+  };
+
+  const onlineTopUpOld = async () => {
     if (payWay === 'stripe') {
       // Stripe 支付处理
       if (amount === 0) {
@@ -729,6 +880,80 @@ const TopUp = () => {
             <p>{t('是否确认充值？')}</p>
           </>
         )}
+      </Modal>
+
+      {/* 二维码支付弹窗 */}
+      <Modal
+        title={payWay === 'alipay' ? t('支付宝扫码支付') : t('微信扫码支付')}
+        visible={showPaymentModal}
+        onCancel={closePaymentModal}
+        footer={null}
+        maskClosable={false}
+        centered
+        width={400}
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          {paymentStatus === 'pending' && (
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <p style={{ fontSize: '14px', color: '#1677FF', marginBottom: '10px' }}>
+                  {payWay === 'alipay' ? t('请使用支付宝扫码支付') : t('请使用微信扫码支付')}
+                </p>
+                {qrCodeUrl ? (
+                  <div style={{
+                    display: 'inline-block',
+                    padding: '10px',
+                    border: '2px solid #1677FF',
+                    borderRadius: '8px'
+                  }}>
+                    <QRCodeSVG
+                      value={qrCodeUrl}
+                      size={200}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    width: '200px',
+                    height: '200px',
+                    backgroundColor: '#f0f0f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto'
+                  }}>
+                    <p style={{ color: '#999' }}>{t('二维码加载失败')}</p>
+                  </div>
+                )}
+              </div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#1677FF',
+                fontSize: '14px'
+              }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px', marginRight: '5px' }}>
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                </svg>
+                <span>{formatCountdown(countdown)}</span>
+              </div>
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+                {t('支付完成后将自动充值到账')}
+              </p>
+            </>
+          )}
+          {paymentStatus === 'success' && (
+            <div>
+              <div style={{ fontSize: '48px', color: '#52c41a', marginBottom: '10px' }}>✓</div>
+              <p style={{ fontSize: '16px', color: '#52c41a' }}>{t('支付成功！')}</p>
+              <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+                {t('页面即将刷新...')}
+              </p>
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* 主布局区域 */}
