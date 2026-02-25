@@ -39,9 +39,23 @@ const About = () => {
     const { success, message, data } = res.data;
     if (success) {
       let aboutContent = data;
-      if (!data.startsWith('https://')) {
+
+      // 检测是否是完整的 HTML 文档
+      const isFullHtmlDoc = data.trim().startsWith('<!DOCTYPE') ||
+                           data.trim().startsWith('<html');
+
+      if (data.startsWith('https://')) {
+        // 外部 URL，保持原样
+        aboutContent = data;
+      } else if (isFullHtmlDoc) {
+        // 完整的 HTML 文档，转换为 blob URL 用于 iframe
+        const blob = new Blob([data], { type: 'text/html' });
+        aboutContent = URL.createObjectURL(blob);
+      } else {
+        // Markdown 或 HTML 片段，使用 marked 解析
         aboutContent = marked.parse(data);
       }
+
       setAbout(aboutContent);
       localStorage.setItem('about', aboutContent);
     } else {
@@ -153,7 +167,7 @@ const About = () => {
         </div>
       ) : (
         <>
-          {about.startsWith('https://') ? (
+          {about.startsWith('https://') || about.startsWith('blob:') ? (
             <iframe
               src={about}
               style={{ width: '100%', height: '100vh', border: 'none' }}
