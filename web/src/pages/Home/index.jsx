@@ -87,14 +87,28 @@ const Home = () => {
     const { success, message, data } = res.data;
     if (success) {
       let content = data;
-      if (!data.startsWith('https://')) {
+
+      // 检测是否是完整的 HTML 文档
+      const isFullHtmlDoc = data.trim().startsWith('<!DOCTYPE') ||
+                           data.trim().startsWith('<html');
+
+      if (data.startsWith('https://')) {
+        // 外部 URL，保持原样
+        content = data;
+      } else if (isFullHtmlDoc) {
+        // 完整的 HTML 文档，转换为 blob URL 用于 iframe
+        const blob = new Blob([data], { type: 'text/html' });
+        content = URL.createObjectURL(blob);
+      } else {
+        // Markdown 或 HTML 片段，使用 marked 解析
         content = marked.parse(data);
       }
+
       setHomePageContent(content);
       localStorage.setItem('home_page_content', content);
 
-      // 如果内容是 URL，则发送主题模式
-      if (data.startsWith('https://')) {
+      // 如果内容是 URL 或 blob URL，则发送主题模式
+      if (data.startsWith('https://') || content.startsWith('blob:')) {
         const iframe = document.querySelector('iframe');
         if (iframe) {
           iframe.onload = () => {
@@ -362,7 +376,7 @@ const Home = () => {
         </div>
       ) : (
         <div className='overflow-x-hidden w-full'>
-          {homePageContent.startsWith('https://') ? (
+          {homePageContent.startsWith('https://') || homePageContent.startsWith('blob:') ? (
             <iframe
               src={homePageContent}
               className='w-full h-screen border-none'
