@@ -88,32 +88,28 @@ func rateLimitFactory(maxRequestNum int, duration int64, mark string) func(c *gi
 }
 
 func GlobalWebRateLimit() func(c *gin.Context) {
-	if common.GlobalWebRateLimitEnable {
-		return rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
-	}
+	// 已禁用速率限制 - 直接通过
 	return defNext
 }
 
 func GlobalAPIRateLimit() func(c *gin.Context) {
-	if common.GlobalApiRateLimitEnable {
-		return rateLimitFactory(common.GlobalApiRateLimitNum, common.GlobalApiRateLimitDuration, "GA")
-	}
+	// 已禁用速率限制 - 直接通过
 	return defNext
 }
 
 func CriticalRateLimit() func(c *gin.Context) {
-	if common.CriticalRateLimitEnable {
-		return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "CT")
-	}
+	// 已禁用速率限制 - 直接通过
 	return defNext
 }
 
 func DownloadRateLimit() func(c *gin.Context) {
-	return rateLimitFactory(common.DownloadRateLimitNum, common.DownloadRateLimitDuration, "DW")
+	// 已禁用速率限制 - 直接通过
+	return defNext
 }
 
 func UploadRateLimit() func(c *gin.Context) {
-	return rateLimitFactory(common.UploadRateLimitNum, common.UploadRateLimitDuration, "UP")
+	// 已禁用速率限制 - 直接通过
+	return defNext
 }
 
 // userRateLimitFactory creates a rate limiter keyed by authenticated user ID
@@ -198,5 +194,6 @@ func userRedisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, key
 // SearchRateLimit returns a per-user rate limiter for search endpoints.
 // 10 requests per 60 seconds per user (by user ID, not IP).
 func SearchRateLimit() func(c *gin.Context) {
-	return userRateLimitFactory(common.SearchRateLimitNum, common.SearchRateLimitDuration, "SR")
+	// 已禁用速率限制 - 直接通过
+	return defNext
 }

@@ -71,11 +71,7 @@ func memoryEmailVerificationRateLimiter(c *gin.Context) {
 
 func EmailVerificationRateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if common.RedisEnabled {
-			redisEmailVerificationRateLimiter(c)
-		} else {
-			inMemoryRateLimiter.Init(common.RateLimitKeyExpirationDuration)
-			memoryEmailVerificationRateLimiter(c)
-		}
+		// 已禁用邮箱验证速率限制 - 直接通过
+		c.Next()
 	}
 }
