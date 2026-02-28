@@ -330,6 +330,9 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if code >= 200 && code < 300 {
 		return false
 	}
+	if code == 430 {
+		return false
+	}
 	if code < 100 || code > 599 {
 		return true
 	}

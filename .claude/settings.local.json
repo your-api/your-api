@@ -10,7 +10,8 @@
       "Bash(~/.bun/bin/bun install)",
       "Bash(bun install:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(go test -v ./relay/channel/gemini/... -run TestGemini)"
     ]
   }
 }

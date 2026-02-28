@@ -1333,6 +1333,16 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 	}
 
+	// Check if we received any valid response data
+	// ReceivedResponseCount is incremented in StreamScannerHandler when valid data is received
+	if info.ReceivedResponseCount == 0 {
+		return nil, types.NewOpenAIError(
+			errors.New("no valid response received from Gemini API"),
+			types.ErrorCodeEmptyResponse,
+			http.StatusInternalServerError,
+		)
+	}
+
 	return usage, nil
 }
 
