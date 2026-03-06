@@ -40,11 +40,12 @@ const NoticeModal = ({
   visible,
   onClose,
   isMobile,
-  defaultTab = 'inApp',
+  defaultTab = 'system',
   unreadKeys = [],
 }) => {
   const { t } = useTranslation();
   const [noticeContent, setNoticeContent] = useState('');
+  const [noticeContentType, setNoticeContentType] = useState('markdown'); // 'url' | 'html' | 'markdown'
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -89,10 +90,23 @@ const NoticeModal = ({
       const { success, message, data } = res.data;
       if (success) {
         if (data !== '') {
-          const htmlNotice = marked.parse(data);
-          setNoticeContent(htmlNotice);
+          const isFullHtmlDoc =
+            data.trim().startsWith('<!DOCTYPE') ||
+            data.trim().startsWith('<html');
+          if (data.startsWith('https://')) {
+            setNoticeContent(data);
+            setNoticeContentType('url');
+          } else if (isFullHtmlDoc) {
+            const blob = new Blob([data], { type: 'text/html' });
+            setNoticeContent(URL.createObjectURL(blob));
+            setNoticeContentType('html');
+          } else {
+            setNoticeContent(marked.parse(data));
+            setNoticeContentType('markdown');
+          }
         } else {
           setNoticeContent('');
+          setNoticeContentType('markdown');
         }
       } else {
         showError(message);
@@ -138,6 +152,17 @@ const NoticeModal = ({
             description={t('暂无公告')}
           />
         </div>
+      );
+    }
+
+    if (noticeContentType === 'url' || noticeContentType === 'html') {
+      return (
+        <iframe
+          src={noticeContent}
+          className='w-full border-0'
+          style={{ height: '55vh' }}
+          sandbox='allow-scripts allow-same-origin'
+        />
       );
     }
 

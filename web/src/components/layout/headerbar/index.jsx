@@ -70,7 +70,7 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
         visible={noticeVisible}
         onClose={handleNoticeClose}
         isMobile={isMobile}
-        defaultTab={unreadCount > 0 ? 'system' : 'inApp'}
+        defaultTab='system'
         unreadKeys={getUnreadKeys()}
       />
 
