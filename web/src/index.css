@@ -251,77 +251,6 @@ code {
   }
 }
 
-/* ==================== 聊天界面样式 ==================== */
-.semi-chat {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  height: 100%;
-  max-width: 100% !important;
-  width: 100% !important;
-  overflow: hidden !important;
-}
-
-.semi-chat-chatBox {
-  max-width: 100% !important;
-  overflow: hidden !important;
-}
-
-.semi-chat-chatBox-wrap {
-  max-width: 100% !important;
-  overflow: hidden !important;
-}
-
-.semi-chat-chatBox-content {
-  min-width: auto;
-  word-break: break-word;
-  max-width: 100% !important;
-  overflow-wrap: break-word !important;
-}
-
-.semi-chat-content {
-  max-width: 100% !important;
-  overflow: hidden !important;
-}
-
-.semi-chat-list {
-  max-width: 100% !important;
-  overflow-x: hidden !important;
-}
-
-.semi-chat-container {
-  overflow-x: hidden !important;
-}
-
-.semi-chat-chatBox-action {
-  column-gap: 0 !important;
-}
-
-.semi-chat-inputBox-clearButton.semi-button .semi-icon {
-  font-size: 20px !important;
-}
-
-/* 隐藏所有聊天相关区域的滚动条 */
-.semi-chat::-webkit-scrollbar,
-.semi-chat-chatBox::-webkit-scrollbar,
-.semi-chat-chatBox-wrap::-webkit-scrollbar,
-.semi-chat-chatBox-content::-webkit-scrollbar,
-.semi-chat-content::-webkit-scrollbar,
-.semi-chat-list::-webkit-scrollbar,
-.semi-chat-container::-webkit-scrollbar {
-  display: none;
-}
-
-.semi-chat,
-.semi-chat-chatBox,
-.semi-chat-chatBox-wrap,
-.semi-chat-chatBox-content,
-.semi-chat-content,
-.semi-chat-list,
-.semi-chat-container {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 /* ==================== 组件特定样式 ==================== */
 /* SelectableButtonGroup */
 .sbg-button .semi-button-content {
@@ -392,22 +321,6 @@ code {
   transition: opacity 0.3s ease;
 }
 
-/* ==================== 调试面板特定样式 ==================== */
-.debug-panel .semi-tabs {
-  height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.debug-panel .semi-tabs-bar {
-  flex-shrink: 0 !important;
-}
-
-.debug-panel .semi-tabs-content {
-  flex: 1 !important;
-  overflow: hidden !important;
-}
-
 /* ==================== 滚动条样式统一管理 ==================== */
 /* 通用隐藏滚动条工具类 */
 .scrollbar-hide {
@@ -463,114 +376,17 @@ code {
 }
 
 /* 隐藏内容区域滚动条 */
-.pricing-scroll-hide,
 .model-test-scroll,
 .card-content-scroll,
-.model-settings-scroll,
-.thinking-content-scroll,
-.custom-request-textarea .semi-input,
-.custom-request-textarea textarea,
 .notice-content-scroll {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-.pricing-scroll-hide::-webkit-scrollbar,
 .model-test-scroll::-webkit-scrollbar,
 .card-content-scroll::-webkit-scrollbar,
-.model-settings-scroll::-webkit-scrollbar,
-.thinking-content-scroll::-webkit-scrollbar,
-.custom-request-textarea .semi-input::-webkit-scrollbar,
-.custom-request-textarea textarea::-webkit-scrollbar,
 .notice-content-scroll::-webkit-scrollbar {
   display: none;
-}
-
-/* 图片列表滚动条样式 */
-.image-list-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.image-list-scroll::-webkit-scrollbar-thumb {
-  background: var(--semi-color-tertiary-light-default);
-  border-radius: 3px;
-}
-
-.image-list-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--semi-color-tertiary);
-}
-
-.image-list-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* ==================== 同步倍率 - 渠道选择器 ==================== */
-
-.components-transfer-source-item,
-.components-transfer-selected-item {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-}
-
-.semi-transfer-left-list,
-.semi-transfer-right-list {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.semi-transfer-left-list::-webkit-scrollbar,
-.semi-transfer-right-list::-webkit-scrollbar {
-  display: none;
-}
-
-.components-transfer-source-item .semi-checkbox,
-.components-transfer-selected-item .semi-checkbox {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.components-transfer-source-item .semi-avatar,
-.components-transfer-selected-item .semi-avatar {
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-.components-transfer-source-item .info,
-.components-transfer-selected-item .info {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.components-transfer-source-item .name,
-.components-transfer-selected-item .name {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.components-transfer-source-item .email,
-.components-transfer-selected-item .email {
-  font-size: 12px;
-  color: var(--semi-color-text-2);
-  display: flex;
-  align-items: center;
-}
-
-.components-transfer-selected-item .semi-icon-close {
-  margin-left: 8px;
-  cursor: pointer;
-  color: var(--semi-color-text-2);
-}
-
-.components-transfer-selected-item .semi-icon-close:hover {
-  color: var(--semi-color-text-0);
 }
 
 /* ==================== 未读通知闪光效果 ==================== */
@@ -732,97 +548,6 @@ html.dark .with-pastel-balls {
 /* 暗黑模式下用更柔和的混合模式避免突兀的高亮 */
 html.dark .with-pastel-balls::before {
   mix-blend-mode: screen;
-}
-
-/* ==================== 表格卡片滚动设置 ==================== */
-.table-scroll-card {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 110px);
-  max-height: calc(100vh - 110px);
-}
-
-.table-scroll-card .semi-card-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-}
-
-.table-scroll-card .semi-card-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.table-scroll-card .semi-card-body::-webkit-scrollbar-thumb {
-  background: rgba(var(--semi-grey-2), 0.3);
-  border-radius: 2px;
-}
-
-.table-scroll-card .semi-card-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--semi-grey-2), 0.5);
-}
-
-.table-scroll-card .semi-card-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-@media (max-width: 767px) {
-  .table-scroll-card {
-    height: calc(100vh - 77px);
-    max-height: calc(100vh - 77px);
-  }
-}
-
-/* ==================== 模型定价页面布局 ==================== */
-.pricing-layout {
-  height: calc(100vh - 60px);
-  overflow: hidden;
-  margin-top: 60px;
-}
-
-.pricing-sidebar {
-  width: clamp(280px, 24vw, 520px) !important;
-  min-width: clamp(280px, 24vw, 520px) !important;
-  max-width: clamp(280px, 24vw, 520px) !important;
-  height: calc(100vh - 60px);
-  background-color: var(--semi-color-bg-0);
-  overflow: auto;
-}
-
-.pricing-content {
-  height: calc(100vh - 60px);
-  background-color: var(--semi-color-bg-0);
-  display: flex;
-  flex-direction: column;
-}
-
-.pricing-pagination-divider {
-  border-color: var(--semi-color-border);
-}
-
-.pricing-content-mobile {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
-}
-
-.pricing-search-header {
-  padding: 0.5rem;
-  background-color: var(--semi-color-bg-0);
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-}
-
-.pricing-view-container {
-  flex: 1;
-  overflow: auto;
-}
-
-.pricing-view-container-mobile {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
 }
 
 /* ==================== semi-ui 组件自定义样式 ==================== */

@@ -27,7 +27,6 @@ import RehypeKatex from 'rehype-katex';
 import RemarkGfm from 'remark-gfm';
 import RehypeHighlight from 'rehype-highlight';
 import { useRef, useState, useEffect, useMemo } from 'react';
-import mermaid from 'mermaid';
 import React from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import clsx from 'clsx';
@@ -36,28 +35,44 @@ import { copy, rehypeSplitWordsIntoSpans } from '../../../helpers';
 import { IconCopy } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-});
-
 export function Mermaid(props) {
   const ref = useRef(null);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (props.code && ref.current) {
-      mermaid
-        .run({
+    let disposed = false;
+
+    async function renderMermaid() {
+      if (!props.code || !ref.current) return;
+
+      try {
+        const mermaidModule = await import('mermaid');
+        const mermaid = mermaidModule.default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+        });
+
+        if (disposed || !ref.current) return;
+
+        await mermaid.run({
           nodes: [ref.current],
           suppressErrors: true,
-        })
-        .catch((e) => {
+        });
+      } catch (e) {
+        if (!disposed) {
           setHasError(true);
           console.error('[Mermaid] ', e.message);
-        });
+        }
+      }
     }
+
+    renderMermaid();
+
+    return () => {
+      disposed = true;
+    };
   }, [props.code]);
 
   function viewSvgInNewWindow() {

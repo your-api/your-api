@@ -21,27 +21,69 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-import enTranslation from './locales/en.json';
-import frTranslation from './locales/fr.json';
 import zhCNTranslation from './locales/zh-CN.json';
-import zhTWTranslation from './locales/zh-TW.json';
-import ruTranslation from './locales/ru.json';
-import jaTranslation from './locales/ja.json';
-import viTranslation from './locales/vi.json';
+const localeLoaders = {
+  en: () => import('./locales/en.json'),
+  fr: () => import('./locales/fr.json'),
+  'zh-TW': () => import('./locales/zh-TW.json'),
+  ru: () => import('./locales/ru.json'),
+  ja: () => import('./locales/ja.json'),
+  vi: () => import('./locales/vi.json'),
+};
+
+const loadedLanguages = new Set(['zh-CN']);
+
+function normalizeLanguage(language = 'zh-CN') {
+  if (!language) return 'zh-CN';
+
+  const lower = language.toLowerCase();
+  if (lower.startsWith('zh-tw') || lower.startsWith('zh-hk')) {
+    return 'zh-TW';
+  }
+  if (lower.startsWith('zh')) {
+    return 'zh-CN';
+  }
+
+  const baseLanguage = lower.split('-')[0];
+  return localeLoaders[baseLanguage] ? baseLanguage : 'zh-CN';
+}
+
+async function ensureLocaleLoaded(language) {
+  const normalizedLanguage = normalizeLanguage(language);
+
+  if (loadedLanguages.has(normalizedLanguage)) {
+    return normalizedLanguage;
+  }
+
+  const loader = localeLoaders[normalizedLanguage];
+  if (!loader) {
+    return 'zh-CN';
+  }
+
+  const module = await loader();
+  i18n.addResourceBundle(
+    normalizedLanguage,
+    'translation',
+    module.default ?? module,
+    true,
+    true,
+  );
+  loadedLanguages.add(normalizedLanguage);
+
+  return normalizedLanguage;
+}
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     load: 'currentOnly',
+    supportedLngs: Object.keys(localeLoaders),
+    nonExplicitSupportedLngs: true,
     resources: {
-      en: enTranslation,
-      'zh-CN': zhCNTranslation,
-      'zh-TW': zhTWTranslation,
-      fr: frTranslation,
-      ru: ruTranslation,
-      ja: jaTranslation,
-      vi: viTranslation,
+      'zh-CN': {
+        translation: zhCNTranslation,
+      },
     },
     fallbackLng: 'zh-CN',
     nsSeparator: false,
@@ -49,5 +91,22 @@ i18n
       escapeValue: false,
     },
   });
+
+ensureLocaleLoaded(i18n.resolvedLanguage || i18n.language).then(
+  (normalizedLanguage) => {
+    const currentLanguage = i18n.resolvedLanguage || i18n.language;
+    if (normalizedLanguage !== currentLanguage) {
+      i18n.changeLanguage(normalizedLanguage);
+    }
+  },
+);
+
+i18n.on('languageChanged', (language) => {
+  ensureLocaleLoaded(language).then((normalizedLanguage) => {
+    if (normalizedLanguage !== language) {
+      i18n.changeLanguage(normalizedLanguage);
+    }
+  });
+});
 
 export default i18n;

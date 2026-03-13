@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Layout, TabPane, Tabs } from '@douyinfe/semi-ui';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -36,19 +36,34 @@ import {
   Activity,
 } from 'lucide-react';
 
-import SystemSetting from '../../components/settings/SystemSetting';
 import { isRoot } from '../../helpers';
-import OtherSetting from '../../components/settings/OtherSetting';
-import OperationSetting from '../../components/settings/OperationSetting';
-import RateLimitSetting from '../../components/settings/RateLimitSetting';
-import ModelSetting from '../../components/settings/ModelSetting';
-import DashboardSetting from '../../components/settings/DashboardSetting';
-import RatioSetting from '../../components/settings/RatioSetting';
-import ChatsSetting from '../../components/settings/ChatsSetting';
-import DrawingSetting from '../../components/settings/DrawingSetting';
-import PaymentSetting from '../../components/settings/PaymentSetting';
-import ModelDeploymentSetting from '../../components/settings/ModelDeploymentSetting';
-import PerformanceSetting from '../../components/settings/PerformanceSetting';
+
+const SystemSetting = lazy(() => import('../../components/settings/SystemSetting'));
+const OtherSetting = lazy(() => import('../../components/settings/OtherSetting'));
+const OperationSetting = lazy(
+  () => import('../../components/settings/OperationSetting'),
+);
+const RateLimitSetting = lazy(
+  () => import('../../components/settings/RateLimitSetting'),
+);
+const ModelSetting = lazy(() => import('../../components/settings/ModelSetting'));
+const DashboardSetting = lazy(
+  () => import('../../components/settings/DashboardSetting'),
+);
+const RatioSetting = lazy(() => import('../../components/settings/RatioSetting'));
+const ChatsSetting = lazy(() => import('../../components/settings/ChatsSetting'));
+const DrawingSetting = lazy(
+  () => import('../../components/settings/DrawingSetting'),
+);
+const PaymentSetting = lazy(
+  () => import('../../components/settings/PaymentSetting'),
+);
+const ModelDeploymentSetting = lazy(
+  () => import('../../components/settings/ModelDeploymentSetting'),
+);
+const PerformanceSetting = lazy(
+  () => import('../../components/settings/PerformanceSetting'),
+);
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -65,7 +80,7 @@ const Setting = () => {
           {t('运营设置')}
         </span>
       ),
-      content: <OperationSetting />,
+      component: OperationSetting,
       itemKey: 'operation',
     });
     panes.push({
@@ -75,7 +90,7 @@ const Setting = () => {
           {t('仪表盘设置')}
         </span>
       ),
-      content: <DashboardSetting />,
+      component: DashboardSetting,
       itemKey: 'dashboard',
     });
     panes.push({
@@ -85,7 +100,7 @@ const Setting = () => {
           {t('聊天设置')}
         </span>
       ),
-      content: <ChatsSetting />,
+      component: ChatsSetting,
       itemKey: 'chats',
     });
     panes.push({
@@ -95,7 +110,7 @@ const Setting = () => {
           {t('绘图设置')}
         </span>
       ),
-      content: <DrawingSetting />,
+      component: DrawingSetting,
       itemKey: 'drawing',
     });
     panes.push({
@@ -105,7 +120,7 @@ const Setting = () => {
           {t('支付设置')}
         </span>
       ),
-      content: <PaymentSetting />,
+      component: PaymentSetting,
       itemKey: 'payment',
     });
     panes.push({
@@ -115,7 +130,7 @@ const Setting = () => {
           {t('分组与模型定价设置')}
         </span>
       ),
-      content: <RatioSetting />,
+      component: RatioSetting,
       itemKey: 'ratio',
     });
     panes.push({
@@ -125,7 +140,7 @@ const Setting = () => {
           {t('速率限制设置')}
         </span>
       ),
-      content: <RateLimitSetting />,
+      component: RateLimitSetting,
       itemKey: 'ratelimit',
     });
     panes.push({
@@ -135,7 +150,7 @@ const Setting = () => {
           {t('模型相关设置')}
         </span>
       ),
-      content: <ModelSetting />,
+      component: ModelSetting,
       itemKey: 'models',
     });
     panes.push({
@@ -145,7 +160,7 @@ const Setting = () => {
           {t('模型部署设置')}
         </span>
       ),
-      content: <ModelDeploymentSetting />,
+      component: ModelDeploymentSetting,
       itemKey: 'model-deployment',
     });
     panes.push({
@@ -155,7 +170,7 @@ const Setting = () => {
           {t('性能设置')}
         </span>
       ),
-      content: <PerformanceSetting />,
+      component: PerformanceSetting,
       itemKey: 'performance',
     });
     panes.push({
@@ -165,7 +180,7 @@ const Setting = () => {
           {t('系统设置')}
         </span>
       ),
-      content: <SystemSetting />,
+      component: SystemSetting,
       itemKey: 'system',
     });
     panes.push({
@@ -175,7 +190,7 @@ const Setting = () => {
           {t('其他设置')}
         </span>
       ),
-      content: <OtherSetting />,
+      component: OtherSetting,
       itemKey: 'other',
     });
   }
@@ -204,7 +219,11 @@ const Setting = () => {
           >
             {panes.map((pane) => (
               <TabPane itemKey={pane.itemKey} tab={pane.tab} key={pane.itemKey}>
-                {tabActiveKey === pane.itemKey && pane.content}
+                {tabActiveKey === pane.itemKey && (
+                  <Suspense fallback={null}>
+                    <pane.component />
+                  </Suspense>
+                )}
               </TabPane>
             ))}
           </Tabs>

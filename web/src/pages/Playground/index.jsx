@@ -21,6 +21,7 @@ import React, { useContext, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Layout, Toast, Modal } from '@douyinfe/semi-ui';
+import '../../styles/playground-overrides.css';
 
 // Context
 import { UserContext } from '../../context/User';

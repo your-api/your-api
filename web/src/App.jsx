@@ -20,34 +20,8 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { lazy, Suspense, useContext, useMemo } from 'react';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
-import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
-import RegisterForm from './components/auth/RegisterForm';
-import LoginForm from './components/auth/LoginForm';
-import NotFound from './pages/NotFound';
-import Forbidden from './pages/Forbidden';
-import Setting from './pages/Setting';
 import { StatusContext } from './context/Status';
-
-import PasswordResetForm from './components/auth/PasswordResetForm';
-import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
-import Channel from './pages/Channel';
-import Token from './pages/Token';
-import Redemption from './pages/Redemption';
-import TopUp from './pages/TopUp';
-import Log from './pages/Log';
-import Chat from './pages/Chat';
-import Chat2Link from './pages/Chat2Link';
-import Midjourney from './pages/Midjourney';
-import Pricing from './pages/Pricing';
-import Task from './pages/Task';
-import ModelPage from './pages/Model';
-import ModelDeploymentPage from './pages/ModelDeployment';
-import Playground from './pages/Playground';
-import Subscription from './pages/Subscription';
-import OAuth2Callback from './components/auth/OAuth2Callback';
-import PersonalSetting from './components/settings/PersonalSetting';
-import Setup from './pages/Setup';
 import SetupCheck from './components/layout/SetupCheck';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -55,6 +29,33 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const User = lazy(() => import('./pages/User'));
+const RegisterForm = lazy(() => import('./components/auth/RegisterForm'));
+const LoginForm = lazy(() => import('./components/auth/LoginForm'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const Forbidden = lazy(() => import('./pages/Forbidden'));
+const Setting = lazy(() => import('./pages/Setting'));
+const PasswordResetForm = lazy(() => import('./components/auth/PasswordResetForm'));
+const PasswordResetConfirm = lazy(
+  () => import('./components/auth/PasswordResetConfirm'),
+);
+const Channel = lazy(() => import('./pages/Channel'));
+const Token = lazy(() => import('./pages/Token'));
+const Redemption = lazy(() => import('./pages/Redemption'));
+const TopUp = lazy(() => import('./pages/TopUp'));
+const Log = lazy(() => import('./pages/Log'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Chat2Link = lazy(() => import('./pages/Chat2Link'));
+const Midjourney = lazy(() => import('./pages/Midjourney'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const Task = lazy(() => import('./pages/Task'));
+const ModelPage = lazy(() => import('./pages/Model'));
+const ModelDeploymentPage = lazy(() => import('./pages/ModelDeployment'));
+const Playground = lazy(() => import('./pages/Playground'));
+const Subscription = lazy(() => import('./pages/Subscription'));
+const OAuth2Callback = lazy(() => import('./components/auth/OAuth2Callback'));
+const PersonalSetting = lazy(() => import('./components/settings/PersonalSetting'));
+const Setup = lazy(() => import('./pages/Setup'));
 
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
@@ -89,7 +90,8 @@ function App() {
 
   return (
     <SetupCheck>
-      <Routes>
+      <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+        <Routes>
         <Route
           path='/'
           element={
@@ -377,8 +379,9 @@ function App() {
             </PrivateRoute>
           }
         />
-        <Route path='*' element={<NotFound />} />
-      </Routes>
+          <Route path='*' element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </SetupCheck>
   );
 }

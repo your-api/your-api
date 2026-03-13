@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Banner } from '@douyinfe/semi-ui';
 import { IconAlertTriangle } from '@douyinfe/semi-icons';
 import CardPro from '../../common/ui/CardPro';
@@ -27,13 +27,14 @@ import ChannelsFilters from './ChannelsFilters';
 import ChannelsTabs from './ChannelsTabs';
 import { useChannelsData } from '../../../hooks/channels/useChannelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
-import BatchTagModal from './modals/BatchTagModal';
-import ModelTestModal from './modals/ModelTestModal';
-import ColumnSelectorModal from './modals/ColumnSelectorModal';
-import EditChannelModal from './modals/EditChannelModal';
-import EditTagModal from './modals/EditTagModal';
-import MultiKeyManageModal from './modals/MultiKeyManageModal';
 import { createCardProPagination } from '../../../helpers/utils';
+
+const BatchTagModal = lazy(() => import('./modals/BatchTagModal'));
+const ModelTestModal = lazy(() => import('./modals/ModelTestModal'));
+const ColumnSelectorModal = lazy(() => import('./modals/ColumnSelectorModal'));
+const EditChannelModal = lazy(() => import('./modals/EditChannelModal'));
+const EditTagModal = lazy(() => import('./modals/EditTagModal'));
+const MultiKeyManageModal = lazy(() => import('./modals/MultiKeyManageModal'));
 
 const ChannelsPage = () => {
   const channelsData = useChannelsData();
@@ -42,27 +43,35 @@ const ChannelsPage = () => {
   return (
     <>
       {/* Modals */}
-      <ColumnSelectorModal {...channelsData} />
-      <EditTagModal
-        visible={channelsData.showEditTag}
-        tag={channelsData.editingTag}
-        handleClose={() => channelsData.setShowEditTag(false)}
-        refresh={channelsData.refresh}
-      />
-      <EditChannelModal
-        refresh={channelsData.refresh}
-        visible={channelsData.showEdit}
-        handleClose={channelsData.closeEdit}
-        editingChannel={channelsData.editingChannel}
-      />
-      <BatchTagModal {...channelsData} />
-      <ModelTestModal {...channelsData} />
-      <MultiKeyManageModal
-        visible={channelsData.showMultiKeyManageModal}
-        onCancel={() => channelsData.setShowMultiKeyManageModal(false)}
-        channel={channelsData.currentMultiKeyChannel}
-        onRefresh={channelsData.refresh}
-      />
+      <Suspense fallback={null}>
+        {channelsData.showColumnSelector && <ColumnSelectorModal {...channelsData} />}
+        {channelsData.showEditTag && (
+          <EditTagModal
+            visible={channelsData.showEditTag}
+            tag={channelsData.editingTag}
+            handleClose={() => channelsData.setShowEditTag(false)}
+            refresh={channelsData.refresh}
+          />
+        )}
+        {channelsData.showEdit && (
+          <EditChannelModal
+            refresh={channelsData.refresh}
+            visible={channelsData.showEdit}
+            handleClose={channelsData.closeEdit}
+            editingChannel={channelsData.editingChannel}
+          />
+        )}
+        {channelsData.showBatchSetTag && <BatchTagModal {...channelsData} />}
+        {channelsData.showModelTestModal && <ModelTestModal {...channelsData} />}
+        {channelsData.showMultiKeyManageModal && (
+          <MultiKeyManageModal
+            visible={channelsData.showMultiKeyManageModal}
+            onCancel={() => channelsData.setShowMultiKeyManageModal(false)}
+            channel={channelsData.currentMultiKeyChannel}
+            onRefresh={channelsData.refresh}
+          />
+        )}
+      </Suspense>
 
       {/* Main Content */}
       {channelsData.globalPassThroughEnabled ? (

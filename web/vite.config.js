@@ -19,17 +19,47 @@ For commercial licensing, please contact support@quantumnous.com
 
 import react from '@vitejs/plugin-react';
 import { defineConfig, transformWithEsbuild } from 'vite';
-import pkg from '@douyinfe/vite-plugin-semi';
 import path from 'path';
 import { codeInspectorPlugin } from 'code-inspector-plugin';
-const { vitePluginSemi } = pkg;
+
+function semiCssNoopPlugin() {
+  const semiCssPattern =
+    /^@douyinfe\/semi-(foundation|ui)\/lib\/(cjs|es)\/.+\.css$/;
+  const semiCssPathPattern =
+    /[/\\]node_modules[/\\]@douyinfe[/\\]semi-(foundation|ui)[/\\]lib[/\\](cjs|es)[/\\].+\.css(?:\?.*)?$/;
+  const prefix = '\0semi-empty-style:';
+
+  return {
+    name: 'semi-css-noop',
+    enforce: 'pre',
+    resolveId(source) {
+      if (semiCssPattern.test(source)) {
+        return `${prefix}${source}`;
+      }
+      return null;
+    },
+    load(id) {
+      if (id.startsWith(prefix) || semiCssPathPattern.test(id)) {
+        return '';
+      }
+      return null;
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      {
+        find: '@',
+        replacement: path.resolve(__dirname, './src'),
+      },
+      {
+        find: /^@douyinfe\/semi-ui$/,
+        replacement: path.resolve(__dirname, './src/lib/semi-ui.js'),
+      },
+    ],
   },
   plugins: [
     codeInspectorPlugin({
@@ -51,9 +81,7 @@ export default defineConfig({
       },
     },
     react(),
-    vitePluginSemi({
-      cssLayer: true,
-    }),
+    semiCssNoopPlugin(),
   ],
   optimizeDeps: {
     force: true,

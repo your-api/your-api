@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useContext, useRef } from 'react';
 import {
   API,
   showError,
@@ -32,13 +32,18 @@ import { Modal, Toast } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
-import { QRCodeSVG } from 'qrcode.react';
 
 import RechargeCard from './RechargeCard';
 import InvitationCard from './InvitationCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
+
+const QRCodeSVG = lazy(() =>
+  import('qrcode.react').then((module) => ({
+    default: module.QRCodeSVG,
+  })),
+);
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -906,12 +911,14 @@ const TopUp = () => {
                     border: '2px solid #1677FF',
                     borderRadius: '8px'
                   }}>
-                    <QRCodeSVG
-                      value={qrCodeUrl}
-                      size={200}
-                      level="H"
-                      includeMargin={true}
-                    />
+                    <Suspense fallback={null}>
+                      <QRCodeSVG
+                        value={qrCodeUrl}
+                        size={200}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </Suspense>
                   </div>
                 ) : (
                   <div style={{
