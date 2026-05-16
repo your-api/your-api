@@ -23,11 +23,11 @@ var orderHttpClient = &http.Client{
 }
 
 // 支付网关地址 - 可以通过环境变量配置
-// const paymentGatewayURL = "https://api.aicnn.cn/app-api/pay/getTradeAll"
+// const paymentGatewayURL = "http://38.147.106.148:9293/app-api/pay/getTradeAll"
 // const paymentGatewayURL = "http://localhost:31020/app-api/pay/getTradeAll"
 // const queryGatewayURL = "http://localhost:31020/app-api/pay/queryQRStatusAll"
-const paymentGatewayURL = "https://api.aicnn.cn/app-api/pay/getTradeAll"
-const queryGatewayURL = "https://api.aicnn.cn/app-api/pay/queryQRStatusAll"
+const paymentGatewayURL = "http://38.147.106.148:9293/app-api/pay/getTradeAll"
+const queryGatewayURL = "http://38.147.106.148:9293/app-api/pay/queryQRStatusAll"
 
 // 鉴权 Token
 const authToken = "zzzqqqfsadfsa"
