@@ -3,6 +3,7 @@
   flex-direction: column;
   height: calc(100vh - 110px);
   max-height: calc(100vh - 110px);
+  overflow: visible;
 }
 
 .table-scroll-card .semi-card-body {

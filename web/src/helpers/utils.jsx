@@ -778,6 +778,7 @@ export const createCardProPagination = ({
         size={isMobile ? 'small' : 'default'}
         showQuickJumper={isMobile}
         showTotal
+        popoverZIndex={1050}
       />
     </>
   );

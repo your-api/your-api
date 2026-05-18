@@ -39,6 +39,10 @@ import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
 const { Sider, Content, Header } = Layout;
 
+const HEADER_Z_INDEX = 900;
+const SIDEBAR_Z_INDEX = 800;
+const MOBILE_SIDEBAR_MASK_Z_INDEX = SIDEBAR_Z_INDEX - 1;
+
 const PageLayout = () => {
   const [, userDispatch] = useContext(UserContext);
   const [, statusDispatch] = useContext(StatusContext);
@@ -136,7 +140,7 @@ const PageLayout = () => {
           position: 'fixed',
           width: '100%',
           top: 0,
-          zIndex: 100,
+          zIndex: HEADER_Z_INDEX,
         }}
       >
         <HeaderBar
@@ -151,6 +155,25 @@ const PageLayout = () => {
           flexDirection: 'column',
         }}
       >
+        {isMobile && drawerOpen && (
+          <button
+            type='button'
+            aria-label='Close sidebar'
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              top: '64px',
+              bottom: 0,
+              zIndex: MOBILE_SIDEBAR_MASK_Z_INDEX,
+              background: 'rgba(0, 0, 0, 0.35)',
+              backdropFilter: 'blur(2px)',
+              border: 0,
+              padding: 0,
+            }}
+          />
+        )}
         {showSider && (
           <Sider
             className='app-sider'
@@ -158,7 +181,7 @@ const PageLayout = () => {
               position: 'fixed',
               left: 0,
               top: '64px',
-              zIndex: 99,
+              zIndex: SIDEBAR_Z_INDEX,
               border: 'none',
               paddingRight: '0',
               width: 'var(--sidebar-current-width)',
