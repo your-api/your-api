@@ -59,6 +59,9 @@ func CompleteOrder(outTradeNo string) error {
 	if err := DB.Where("out_trade_no = ?", outTradeNo).First(&order).Error; err != nil {
 		return errors.New("订单未找到: " + err.Error())
 	}
+	if order.Status == 2 {
+		return nil
+	}
 
 	user, err := GetUserById(order.UserId, true)
 	if err != nil {

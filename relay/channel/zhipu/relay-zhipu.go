@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -98,7 +99,7 @@ func requestOpenAI2Zhipu(request dto.GeneralOpenAIRequest) *ZhipuRequest {
 	return &ZhipuRequest{
 		Prompt:      messages,
 		Temperature: request.Temperature,
-		TopP:        request.TopP,
+		TopP:        lo.FromPtrOr(request.TopP, 0),
 		Incremental: false,
 	}
 }
@@ -156,7 +157,7 @@ func streamMetaResponseZhipu2OpenAI(zhipuResponse *ZhipuStreamMetaResponse) (*dt
 
 func zhipuStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	var usage *dto.Usage
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := helper.NewStreamScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 	dataChan := make(chan string)
 	metaChan := make(chan string)
@@ -178,6 +179,9 @@ func zhipuStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 					metaChan <- line[5:]
 				}
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			common.SysLog("error reading stream: " + err.Error())
 		}
 		stopChan <- true
 	}()

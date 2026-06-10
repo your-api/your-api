@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 const (
@@ -43,6 +44,8 @@ var claudeModelMap = map[string]string{
 	"claude-haiku-4-5-20251001":  "claude-haiku-4-5@20251001",
 	"claude-opus-4-5-20251101":   "claude-opus-4-5@20251101",
 	"claude-opus-4-6":            "claude-opus-4-6",
+	"claude-opus-4-7":            "claude-opus-4-7",
+	"claude-opus-4-8":            "claude-opus-4-8",
 }
 
 const anthropicVersion = "vertex-2023-10-16"
@@ -132,47 +135,11 @@ func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix s
 		a.AccountCredentials = *adc
 
 		if a.RequestMode == RequestModeGemini {
-			if region == "global" {
-				return fmt.Sprintf(
-					"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/%s:%s",
-					adc.ProjectID,
-					modelName,
-					suffix,
-				), nil
-			} else {
-				return fmt.Sprintf(
-					"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
-					region,
-					adc.ProjectID,
-					region,
-					modelName,
-					suffix,
-				), nil
-			}
+			return BuildGoogleModelURL(info.ChannelBaseUrl, DefaultAPIVersion, adc.ProjectID, region, modelName, suffix), nil
 		} else if a.RequestMode == RequestModeClaude {
-			if region == "global" {
-				return fmt.Sprintf(
-					"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/anthropic/models/%s:%s",
-					adc.ProjectID,
-					modelName,
-					suffix,
-				), nil
-			} else {
-				return fmt.Sprintf(
-					"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:%s",
-					region,
-					adc.ProjectID,
-					region,
-					modelName,
-					suffix,
-				), nil
-			}
+			return BuildAnthropicModelURL(info.ChannelBaseUrl, DefaultAPIVersion, adc.ProjectID, region, modelName, suffix), nil
 		} else if a.RequestMode == RequestModeOpenSource {
-			return fmt.Sprintf(
-				"https://aiplatform.googleapis.com/v1beta1/projects/%s/locations/%s/endpoints/openapi/chat/completions",
-				adc.ProjectID,
-				region,
-			), nil
+			return BuildOpenSourceChatCompletionsURL(info.ChannelBaseUrl, adc.ProjectID, region), nil
 		}
 	} else {
 		var keyPrefix string
@@ -181,20 +148,17 @@ func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix s
 		} else {
 			keyPrefix = "?"
 		}
-		if region == "global" {
+		if a.RequestMode == RequestModeGemini {
 			return fmt.Sprintf(
-				"https://aiplatform.googleapis.com/v1/publishers/google/models/%s:%s%skey=%s",
-				modelName,
-				suffix,
+				"%s%skey=%s",
+				BuildGoogleModelURL(info.ChannelBaseUrl, DefaultAPIVersion, "", region, modelName, suffix),
 				keyPrefix,
 				info.ApiKey,
 			), nil
-		} else {
+		} else if a.RequestMode == RequestModeClaude {
 			return fmt.Sprintf(
-				"https://%s-aiplatform.googleapis.com/v1/publishers/google/models/%s:%s%skey=%s",
-				region,
-				modelName,
-				suffix,
+				"%s%skey=%s",
+				BuildAnthropicModelURL(info.ChannelBaseUrl, DefaultAPIVersion, "", region, modelName, suffix),
 				keyPrefix,
 				info.ApiKey,
 			), nil
@@ -292,11 +256,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		imgReq := dto.ImageRequest{
 			Model:  request.Model,
 			Prompt: prompt,
-			N:      1,
+			N:      lo.ToPtr(uint(1)),
 			Size:   "1024x1024",
 		}
-		if request.N > 0 {
-			imgReq.N = uint(request.N)
+		if request.N != nil && *request.N > 0 {
+			imgReq.N = lo.ToPtr(uint(*request.N))
 		}
 		if request.Size != "" {
 			imgReq.Size = request.Size
@@ -305,7 +269,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			var extra map[string]any
 			if err := json.Unmarshal(request.ExtraBody, &extra); err == nil {
 				if n, ok := extra["n"].(float64); ok && n > 0 {
-					imgReq.N = uint(n)
+					imgReq.N = lo.ToPtr(uint(n))
 				}
 				if size, ok := extra["size"].(string); ok {
 					imgReq.Size = size

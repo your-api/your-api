@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -77,7 +76,7 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 			if !strings.Contains(info.OriginModelName, "-nothinking") {
 				// try to get no thinking model price
 				noThinkingModelName := info.OriginModelName + "-nothinking"
-				containPrice := helper.ContainPriceOrRatio(noThinkingModelName)
+				containPrice := helper.HasModelBillingConfig(noThinkingModelName)
 				if containPrice {
 					info.OriginModelName = noThinkingModelName
 					info.UpstreamModelName = noThinkingModelName
@@ -157,15 +156,22 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 
 		// apply param override
 		if len(info.ParamOverride) > 0 {
-			jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+			jsonData, err = relaycommon.ApplyParamOverrideWithRelayInfo(jsonData, info)
 			if err != nil {
-				return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
+				return newAPIErrorFromParamOverride(err)
 			}
 		}
 
-		logger.LogDebug(c, "Gemini request body: "+string(jsonData))
+		logger.LogDebug(c, "Gemini request body: %s", jsonData)
 
-		requestBody = bytes.NewReader(jsonData)
+		body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+		defer closer.Close()
+		jsonData = nil
+		info.UpstreamRequestBodySize = size
+		requestBody = body
 	}
 
 	resp, err := adaptor.DoRequest(c, info, requestBody)
@@ -194,7 +200,7 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		return openaiErr
 	}
 
-	postConsumeQuota(c, info, usage.(*dto.Usage))
+	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
 	return nil
 }
 
@@ -257,18 +263,20 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 
 	// apply param override
 	if len(info.ParamOverride) > 0 {
-		reqMap := make(map[string]interface{})
-		_ = common.Unmarshal(jsonData, &reqMap)
-		for key, value := range info.ParamOverride {
-			reqMap[key] = value
-		}
-		jsonData, err = common.Marshal(reqMap)
+		jsonData, err = relaycommon.ApplyParamOverrideWithRelayInfo(jsonData, info)
 		if err != nil {
-			return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
+			return newAPIErrorFromParamOverride(err)
 		}
 	}
-	logger.LogDebug(c, "Gemini embedding request body: "+string(jsonData))
-	requestBody = bytes.NewReader(jsonData)
+	logger.LogDebug(c, "Gemini embedding request body: %s", jsonData)
+	body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+	}
+	defer closer.Close()
+	jsonData = nil
+	info.UpstreamRequestBodySize = size
+	requestBody = body
 
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
@@ -293,6 +301,6 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 		return openaiErr
 	}
 
-	postConsumeQuota(c, info, usage.(*dto.Usage))
+	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
 	return nil
 }

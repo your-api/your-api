@@ -1,7 +1,7 @@
 package relay
 
 import (
-	"bytes"
+	"io"
 	"net/http"
 	"strings"
 
@@ -70,7 +70,6 @@ func applySystemPromptIfNeeded(c *gin.Context, info *relaycommon.RelayInfo, requ
 }
 
 func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, adaptor channel.Adaptor, request *dto.GeneralOpenAIRequest) (*dto.Usage, *types.NewAPIError) {
-	overrideCtx := relaycommon.BuildParamOverrideContext(info)
 	chatJSON, err := common.Marshal(request)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
@@ -82,9 +81,9 @@ func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, ad
 	}
 
 	if len(info.ParamOverride) > 0 {
-		chatJSON, err = relaycommon.ApplyParamOverride(chatJSON, info.ParamOverride, overrideCtx)
+		chatJSON, err = relaycommon.ApplyParamOverrideWithRelayInfo(chatJSON, info)
 		if err != nil {
-			return nil, types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
+			return nil, newAPIErrorFromParamOverride(err)
 		}
 	}
 
@@ -125,8 +124,17 @@ func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, ad
 		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
 
+	body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+	}
+	defer closer.Close()
+	jsonData = nil
+	info.UpstreamRequestBodySize = size
+	var requestBody io.Reader = body
+
 	var httpResp *http.Response
-	resp, err := adaptor.DoRequest(c, info, bytes.NewBuffer(jsonData))
+	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
 	}

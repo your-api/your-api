@@ -13,11 +13,13 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	relaychannel "github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type OpenAIModel struct {
@@ -67,11 +69,33 @@ func clearChannelInfo(channel *model.Channel) {
 	}
 }
 
+func applyChannelStatusFilter(query *gorm.DB, statusFilter int) *gorm.DB {
+	if statusFilter == common.ChannelStatusEnabled {
+		return query.Where("status = ?", common.ChannelStatusEnabled)
+	}
+	if statusFilter == 0 {
+		return query.Where("status != ?", common.ChannelStatusEnabled)
+	}
+	return query
+}
+
+func buildChannelListQuery(group string, statusFilter int, typeFilter int) *gorm.DB {
+	query := model.DB.Model(&model.Channel{})
+	query = model.ApplyChannelGroupFilter(query, group)
+	query = applyChannelStatusFilter(query, statusFilter)
+	if typeFilter >= 0 {
+		query = query.Where("type = ?", typeFilter)
+	}
+	return query
+}
+
 func GetAllChannels(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	channelData := make([]*model.Channel, 0)
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
+	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
+	groupFilter := model.NormalizeChannelGroupFilter(c.Query("group"))
 	statusParam := c.Query("status")
 	// statusFilter: -1 all, 1 enabled, 0 disabled (include auto & manual)
 	statusFilter := parseStatusFilter(statusParam)
@@ -87,55 +111,45 @@ func GetAllChannels(c *gin.Context) {
 	var total int64
 
 	if enableTagMode {
-		tags, err := model.GetPaginatedTags(pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 		if err != nil {
 			common.SysError("failed to get paginated tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
+			return
+		}
+		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
+		if err != nil {
+			common.SysError("failed to count tags: " + err.Error())
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签数量失败，请稍后重试"})
 			return
 		}
 		for _, tag := range tags {
 			if tag == nil || *tag == "" {
 				continue
 			}
-			tagChannels, err := model.GetChannelsByTag(*tag, idSort, false)
+			var tagChannels []*model.Channel
+			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag = ?", *tag)).
+				Omit("key").
+				Find(&tagChannels).Error
 			if err != nil {
-				continue
+				common.SysError("failed to get channels by tag: " + err.Error())
+				c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签渠道失败，请稍后重试"})
+				return
 			}
-			filtered := make([]*model.Channel, 0)
-			for _, ch := range tagChannels {
-				if statusFilter == common.ChannelStatusEnabled && ch.Status != common.ChannelStatusEnabled {
-					continue
-				}
-				if statusFilter == 0 && ch.Status == common.ChannelStatusEnabled {
-					continue
-				}
-				if typeFilter >= 0 && ch.Type != typeFilter {
-					continue
-				}
-				filtered = append(filtered, ch)
-			}
-			channelData = append(channelData, filtered...)
+			channelData = append(channelData, tagChannels...)
 		}
-		total, _ = model.CountAllTags()
 	} else {
-		baseQuery := model.DB.Model(&model.Channel{})
-		if typeFilter >= 0 {
-			baseQuery = baseQuery.Where("type = ?", typeFilter)
-		}
-		if statusFilter == common.ChannelStatusEnabled {
-			baseQuery = baseQuery.Where("status = ?", common.ChannelStatusEnabled)
-		} else if statusFilter == 0 {
-			baseQuery = baseQuery.Where("status != ?", common.ChannelStatusEnabled)
+		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter).Count(&total).Error; err != nil {
+			common.SysError("failed to count channels: " + err.Error())
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道数量失败，请稍后重试"})
+			return
 		}
 
-		baseQuery.Count(&total)
-
-		order := "priority desc"
-		if idSort {
-			order = "id desc"
-		}
-
-		err := baseQuery.Order(order).Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Omit("key").Find(&channelData).Error
+		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter)).
+			Limit(pageInfo.GetPageSize()).
+			Offset(pageInfo.GetStartIdx()).
+			Omit("key").
+			Find(&channelData).Error
 		if err != nil {
 			common.SysError("failed to get channels: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道列表失败，请稍后重试"})
@@ -147,17 +161,16 @@ func GetAllChannels(c *gin.Context) {
 		clearChannelInfo(datum)
 	}
 
-	countQuery := model.DB.Model(&model.Channel{})
-	if statusFilter == common.ChannelStatusEnabled {
-		countQuery = countQuery.Where("status = ?", common.ChannelStatusEnabled)
-	} else if statusFilter == 0 {
-		countQuery = countQuery.Where("status != ?", common.ChannelStatusEnabled)
-	}
+	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1)
 	var results []struct {
 		Type  int64
 		Count int64
 	}
-	_ = countQuery.Select("type, count(*) as count").Group("type").Find(&results).Error
+	if err := countQuery.Select("type, count(*) as count").Group("type").Find(&results).Error; err != nil {
+		common.SysError("failed to count channel types: " + err.Error())
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道类型统计失败，请稍后重试"})
+		return
+	}
 	typeCounts := make(map[int64]int64)
 	for _, r := range results {
 		typeCounts[r.Type] = r.Count
@@ -183,6 +196,9 @@ func buildFetchModelsHeaders(channel *model.Channel, key string) (http.Header, e
 
 	headerOverride := channel.GetHeaderOverride()
 	for k, v := range headerOverride {
+		if relaychannel.IsHeaderPassthroughRuleKey(k) {
+			continue
+		}
 		str, ok := v.(string)
 		if !ok {
 			return nil, fmt.Errorf("invalid header override for key %s", k)
@@ -209,156 +225,13 @@ func FetchUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	baseURL := constant.ChannelBaseURLs[channel.Type]
-	if channel.GetBaseURL() != "" {
-		baseURL = channel.GetBaseURL()
-	}
-
-	// 对于 Ollama 渠道，使用特殊处理
-	if channel.Type == constant.ChannelTypeOllama {
-		key := strings.Split(channel.Key, "\n")[0]
-		models, err := ollama.FetchOllamaModels(baseURL, key)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": fmt.Sprintf("获取Ollama模型失败: %s", err.Error()),
-			})
-			return
-		}
-
-		result := OpenAIModelsResponse{
-			Data: make([]OpenAIModel, 0, len(models)),
-		}
-
-		for _, modelInfo := range models {
-			metadata := map[string]any{}
-			if modelInfo.Size > 0 {
-				metadata["size"] = modelInfo.Size
-			}
-			if modelInfo.Digest != "" {
-				metadata["digest"] = modelInfo.Digest
-			}
-			if modelInfo.ModifiedAt != "" {
-				metadata["modified_at"] = modelInfo.ModifiedAt
-			}
-			details := modelInfo.Details
-			if details.ParentModel != "" || details.Format != "" || details.Family != "" || len(details.Families) > 0 || details.ParameterSize != "" || details.QuantizationLevel != "" {
-				metadata["details"] = modelInfo.Details
-			}
-			if len(metadata) == 0 {
-				metadata = nil
-			}
-
-			result.Data = append(result.Data, OpenAIModel{
-				ID:       modelInfo.Name,
-				Object:   "model",
-				Created:  0,
-				OwnedBy:  "ollama",
-				Metadata: metadata,
-			})
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data":    result.Data,
-		})
-		return
-	}
-
-	// 对于 Gemini 渠道，使用特殊处理
-	if channel.Type == constant.ChannelTypeGemini {
-		// 获取用于请求的可用密钥（多密钥渠道优先使用启用状态的密钥）
-		key, _, apiErr := channel.GetNextEnabledKey()
-		if apiErr != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": fmt.Sprintf("获取渠道密钥失败: %s", apiErr.Error()),
-			})
-			return
-		}
-		key = strings.TrimSpace(key)
-		models, err := gemini.FetchGeminiModels(baseURL, key, channel.GetSetting().Proxy)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": fmt.Sprintf("获取Gemini模型失败: %s", err.Error()),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "",
-			"data":    models,
-		})
-		return
-	}
-
-	var url string
-	switch channel.Type {
-	case constant.ChannelTypeAli:
-		url = fmt.Sprintf("%s/compatible-mode/v1/models", baseURL)
-	case constant.ChannelTypeZhipu_v4:
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/api/paas/v4/models", baseURL)
-		}
-	case constant.ChannelTypeVolcEngine:
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/v1/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/v1/models", baseURL)
-		}
-	case constant.ChannelTypeMoonshot:
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/v1/models", baseURL)
-		}
-	default:
-		url = fmt.Sprintf("%s/v1/models", baseURL)
-	}
-
-	// 获取用于请求的可用密钥（多密钥渠道优先使用启用状态的密钥）
-	key, _, apiErr := channel.GetNextEnabledKey()
-	if apiErr != nil {
+	ids, err := fetchChannelUpstreamModelIDs(channel)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": fmt.Sprintf("获取渠道密钥失败: %s", apiErr.Error()),
+			"message": fmt.Sprintf("获取模型列表失败: %s", err.Error()),
 		})
 		return
-	}
-	key = strings.TrimSpace(key)
-
-	headers, err := buildFetchModelsHeaders(channel, key)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	body, err := GetResponseBody("GET", url, channel, headers)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	var result OpenAIModelsResponse
-	if err = json.Unmarshal(body, &result); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("解析响应失败: %s", err.Error()),
-		})
-		return
-	}
-
-	var ids []string
-	for _, model := range result.Data {
-		id := model.ID
-		if channel.Type == constant.ChannelTypeGemini {
-			id = strings.TrimPrefix(id, "models/")
-		}
-		ids = append(ids, id)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -391,6 +264,7 @@ func SearchChannels(c *gin.Context) {
 	statusParam := c.Query("status")
 	statusFilter := parseStatusFilter(statusParam)
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
+	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
 	channelData := make([]*model.Channel, 0)
 	if enableTagMode {
@@ -404,14 +278,22 @@ func SearchChannels(c *gin.Context) {
 		}
 		for _, tag := range tags {
 			if tag != nil && *tag != "" {
-				tagChannel, err := model.GetChannelsByTag(*tag, idSort, false)
-				if err == nil {
-					channelData = append(channelData, tagChannel...)
+				var tagChannels []*model.Channel
+				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1).Where("tag = ?", *tag)).
+					Omit("key").
+					Find(&tagChannels).Error
+				if err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": err.Error(),
+					})
+					return
 				}
+				channelData = append(channelData, tagChannels...)
 			}
 		}
 	} else {
-		channels, err := model.SearchChannels(keyword, group, modelKeyword, idSort)
+		channels, err := model.SearchChannels(keyword, group, modelKeyword, idSort, sortOptions)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1336,7 +1218,7 @@ func CopyChannel(c *gin.Context) {
 	}
 
 	// insert
-	if err := model.BatchInsertChannels([]model.Channel{clone}); err != nil {
+	if err := clone.Insert(); err != nil {
 		common.SysError("failed to clone channel: " + err.Error())
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "复制渠道失败，请稍后重试"})
 		return

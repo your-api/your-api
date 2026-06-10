@@ -3,14 +3,15 @@ package controller
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
@@ -159,7 +160,10 @@ func fetchTrade(ctx context.Context, req *OrderReq) (*tradeData, error) {
 		"payWay":   req.PayWay,
 		"platform": req.Platform,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := common.Marshal(payload)
+	if err != nil {
+		return nil, errors.New("构建支付请求失败: " + err.Error())
+	}
 
 	// NewRequestWithContext 绑定 gin 的 Context
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
@@ -183,7 +187,7 @@ func fetchTrade(ctx context.Context, req *OrderReq) (*tradeData, error) {
 
 	// 解析
 	var pr payResp
-	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+	if err := common.DecodeJson(resp.Body, &pr); err != nil {
 		return nil, errors.New("解析支付响应失败: " + err.Error())
 	}
 
@@ -199,15 +203,15 @@ func fetchTrade(ctx context.Context, req *OrderReq) (*tradeData, error) {
 
 func queryQRStatusAll(ctx context.Context, outTradeNo string, payWay string) (*qrStatusData, error) {
 	// 构建 URL 带参数
-	url := fmt.Sprintf("%s?outTradeNo=%s&payWay=%s", queryGatewayURL, outTradeNo, payWay)
+	requestURL := fmt.Sprintf("%s?outTradeNo=%s&payWay=%s", queryGatewayURL, url.QueryEscape(outTradeNo), url.QueryEscape(payWay))
 
 	// 创建 GET 请求
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	// 设置头
-	req.Header.Set("Authorization", "Bearer "+authToken)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, errors.New("构建支付状态请求失败: " + err.Error())
 	}
+	// 设置头
+	req.Header.Set("Authorization", "Bearer "+authToken)
 
 	// 发送请求
 	resp, err := orderHttpClient.Do(req)
@@ -218,7 +222,7 @@ func queryQRStatusAll(ctx context.Context, outTradeNo string, payWay string) (*q
 
 	// 解析响应
 	var qrResp qrStatusResp
-	if err := json.NewDecoder(resp.Body).Decode(&qrResp); err != nil {
+	if err := common.DecodeJson(resp.Body, &qrResp); err != nil {
 		return nil, errors.New("解析支付状态响应失败: " + err.Error())
 	}
 

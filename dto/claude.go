@@ -98,6 +98,20 @@ func (c *ClaudeMediaMessage) ParseMediaContent() []ClaudeMediaMessage {
 	return mediaContent
 }
 
+func (m *ClaudeMediaMessage) ToFileSource() types.FileSource {
+	if m.Source == nil {
+		return nil
+	}
+	data := m.Source.Url
+	if data == "" {
+		data = common.Interface2String(m.Source.Data)
+	}
+	if data == "" {
+		return nil
+	}
+	return types.NewFileSourceFromData(data, m.Source.MediaType)
+}
+
 type ClaudeMessageSource struct {
 	Type      string `json:"type"`
 	MediaType string `json:"media_type,omitempty"`
@@ -190,20 +204,21 @@ type ClaudeToolChoice struct {
 }
 
 type ClaudeRequest struct {
-	Model    string          `json:"model"`
-	Prompt   string          `json:"prompt,omitempty"`
-	System   any             `json:"system,omitempty"`
-	Messages []ClaudeMessage `json:"messages,omitempty"`
+	Model        string          `json:"model"`
+	Prompt       string          `json:"prompt,omitempty"`
+	System       any             `json:"system,omitempty"`
+	Messages     []ClaudeMessage `json:"messages,omitempty"`
+	CacheControl json.RawMessage `json:"cache_control,omitempty"`
 	// InferenceGeo controls Claude data residency region.
 	// This field is filtered by default and can be enabled via channel setting allow_inference_geo.
 	InferenceGeo      string          `json:"inference_geo,omitempty"`
-	MaxTokens         uint            `json:"max_tokens,omitempty"`
-	MaxTokensToSample uint            `json:"max_tokens_to_sample,omitempty"`
+	MaxTokens         *uint           `json:"max_tokens,omitempty"`
+	MaxTokensToSample *uint           `json:"max_tokens_to_sample,omitempty"`
 	StopSequences     []string        `json:"stop_sequences,omitempty"`
 	Temperature       *float64        `json:"temperature,omitempty"`
-	TopP              float64         `json:"top_p,omitempty"`
-	TopK              int             `json:"top_k,omitempty"`
-	Stream            bool            `json:"stream,omitempty"`
+	TopP              *float64        `json:"top_p,omitempty"`
+	TopK              *int            `json:"top_k,omitempty"`
+	Stream            *bool           `json:"stream,omitempty"`
 	Tools             any             `json:"tools,omitempty"`
 	ContextManagement json.RawMessage `json:"context_management,omitempty"`
 	OutputConfig      json.RawMessage `json:"output_config,omitempty"`
@@ -213,23 +228,27 @@ type ClaudeRequest struct {
 	Thinking          *Thinking       `json:"thinking,omitempty"`
 	McpServers        json.RawMessage `json:"mcp_servers,omitempty"`
 	Metadata          json.RawMessage `json:"metadata,omitempty"`
+	// Speed specifies the Claude inference speed mode.
+	// This field is filtered by default and can be enabled via channel setting allow_speed.
+	Speed json.RawMessage `json:"speed,omitempty"`
 	// ServiceTier specifies upstream service level and may affect billing.
 	// This field is filtered by default and can be enabled via channel setting allow_service_tier.
 	ServiceTier string `json:"service_tier,omitempty"`
 }
 
-// createClaudeFileSource 根据数据内容创建正确类型的 FileSource
-func createClaudeFileSource(data string) *types.FileSource {
-	if strings.HasPrefix(data, "http://") || strings.HasPrefix(data, "https://") {
-		return types.NewURLFileSource(data)
-	}
-	return types.NewBase64FileSource(data, "")
+// OutputConfigForEffort just for extract effort
+type OutputConfigForEffort struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
+	maxTokens := 0
+	if c.MaxTokens != nil {
+		maxTokens = int(*c.MaxTokens)
+	}
 	var tokenCountMeta = types.TokenCountMeta{
 		TokenType: types.TokenTypeTokenizer,
-		MaxTokens: int(c.MaxTokens),
+		MaxTokens: maxTokens,
 	}
 
 	var texts = make([]string, 0)
@@ -249,17 +268,11 @@ func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
 				case "text":
 					texts = append(texts, media.GetText())
 				case "image":
-					if media.Source != nil {
-						data := media.Source.Url
-						if data == "" {
-							data = common.Interface2String(media.Source.Data)
-						}
-						if data != "" {
-							fileMeta = append(fileMeta, &types.FileMeta{
-								FileType: types.FileTypeImage,
-								Source:   createClaudeFileSource(data),
-							})
-						}
+					if source := media.ToFileSource(); source != nil {
+						fileMeta = append(fileMeta, &types.FileMeta{
+							FileType: types.FileTypeImage,
+							Source:   source,
+						})
 					}
 				}
 			}
@@ -284,17 +297,11 @@ func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
 			case "text":
 				texts = append(texts, media.GetText())
 			case "image":
-				if media.Source != nil {
-					data := media.Source.Url
-					if data == "" {
-						data = common.Interface2String(media.Source.Data)
-					}
-					if data != "" {
-						fileMeta = append(fileMeta, &types.FileMeta{
-							FileType: types.FileTypeImage,
-							Source:   createClaudeFileSource(data),
-						})
-					}
+				if source := media.ToFileSource(); source != nil {
+					fileMeta = append(fileMeta, &types.FileMeta{
+						FileType: types.FileTypeImage,
+						Source:   source,
+					})
 				}
 			case "tool_use":
 				if media.Name != "" {
@@ -352,7 +359,10 @@ func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
 }
 
 func (c *ClaudeRequest) IsStream(ctx *gin.Context) bool {
-	return c.Stream
+	if c.Stream == nil {
+		return false
+	}
+	return *c.Stream
 }
 
 func (c *ClaudeRequest) SetModelName(modelName string) {
@@ -402,6 +412,15 @@ func (c *ClaudeRequest) GetTools() []any {
 	}
 }
 
+func (c *ClaudeRequest) GetEfforts() string {
+	var OutputConfig OutputConfigForEffort
+	if err := json.Unmarshal(c.OutputConfig, &OutputConfig); err == nil {
+		effort := OutputConfig.Effort
+		return effort
+	}
+	return ""
+}
+
 // ProcessTools 处理工具列表，支持类型断言
 func ProcessTools(tools []any) ([]*Tool, []*ClaudeWebSearchTool) {
 	var normalTools []*Tool
@@ -427,8 +446,13 @@ func ProcessTools(tools []any) ([]*Tool, []*ClaudeWebSearchTool) {
 }
 
 type Thinking struct {
-	Type         string `json:"type"`
+	Type         string `json:"type,omitempty"`
 	BudgetTokens *int   `json:"budget_tokens,omitempty"`
+	// Display controls whether thinking content is returned in the response.
+	// Used with adaptive thinking on Claude Opus 4.7+: "summarized" restores
+	// the visible summary that was default on Opus 4.6; "omitted" (default on
+	// 4.7) suppresses it. Pass-through field from upstream Anthropic API.
+	Display string `json:"display,omitempty"`
 }
 
 func (c *Thinking) GetBudgetTokens() int {

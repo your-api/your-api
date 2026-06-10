@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
+	geminitask "github.com/QuantumNous/new-api/relay/channel/task/gemini"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	vertexcore "github.com/QuantumNous/new-api/relay/channel/vertex"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -26,9 +27,8 @@ import (
 // Request / Response structures
 // ============================
 
-type requestPayload struct {
-	Instances  []map[string]any `json:"instances"`
-	Parameters map[string]any   `json:"parameters,omitempty"`
+type fetchOperationPayload struct {
+	OperationName string `json:"operationName"`
 }
 
 type submitResponse struct {
@@ -95,20 +95,7 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if strings.TrimSpace(region) == "" {
 		region = "global"
 	}
-	if region == "global" {
-		return fmt.Sprintf(
-			"https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/%s:predictLongRunning",
-			adc.ProjectID,
-			modelName,
-		), nil
-	}
-	return fmt.Sprintf(
-		"https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predictLongRunning",
-		region,
-		adc.ProjectID,
-		region,
-		modelName,
-	), nil
+	return vertexcore.BuildGoogleModelURL(a.baseURL, vertexcore.DefaultAPIVersion, adc.ProjectID, region, modelName, "predictLongRunning"), nil
 }
 
 // BuildRequestHeader sets required headers.
@@ -134,25 +121,21 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 	return nil
 }
 
-// EstimateBilling 根据用户请求中的 sampleCount 计算 OtherRatios。
-func (a *TaskAdaptor) EstimateBilling(c *gin.Context, _ *relaycommon.RelayInfo) map[string]float64 {
-	sampleCount := 1
+// EstimateBilling returns OtherRatios based on durationSeconds and resolution.
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
 	v, ok := c.Get("task_request")
-	if ok {
-		req := v.(relaycommon.TaskSubmitReq)
-		if req.Metadata != nil {
-			if sc, exists := req.Metadata["sampleCount"]; exists {
-				if i, ok := sc.(int); ok && i > 0 {
-					sampleCount = i
-				}
-				if f, ok := sc.(float64); ok && int(f) > 0 {
-					sampleCount = int(f)
-				}
-			}
-		}
+	if !ok {
+		return nil
 	}
+	req := v.(relaycommon.TaskSubmitReq)
+
+	seconds := geminitask.ResolveVeoDuration(req.Metadata, req.Duration, req.Seconds)
+	resolution := geminitask.ResolveVeoResolution(req.Metadata, req.Size)
+	resRatio := geminitask.VeoResolutionRatio(info.UpstreamModelName, resolution)
+
 	return map[string]float64{
-		"sampleCount": float64(sampleCount),
+		"seconds":    float64(seconds),
+		"resolution": resRatio,
 	}
 }
 
@@ -164,29 +147,35 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 	req := v.(relaycommon.TaskSubmitReq)
 
-	body := requestPayload{
-		Instances:  []map[string]any{{"prompt": req.Prompt}},
-		Parameters: map[string]any{},
-	}
-	if req.Metadata != nil {
-		if v, ok := req.Metadata["storageUri"]; ok {
-			body.Parameters["storageUri"] = v
+	instance := geminitask.VeoInstance{Prompt: req.Prompt}
+	if img := geminitask.ExtractMultipartImage(c, info); img != nil {
+		instance.Image = img
+	} else if len(req.Images) > 0 {
+		if parsed := geminitask.ParseImageInput(req.Images[0]); parsed != nil {
+			instance.Image = parsed
+			info.Action = constant.TaskActionGenerate
 		}
-		if v, ok := req.Metadata["sampleCount"]; ok {
-			if i, ok := v.(int); ok {
-				body.Parameters["sampleCount"] = i
-			}
-			if f, ok := v.(float64); ok {
-				body.Parameters["sampleCount"] = int(f)
-			}
-		}
-	}
-	if _, ok := body.Parameters["sampleCount"]; !ok {
-		body.Parameters["sampleCount"] = 1
 	}
 
-	if body.Parameters["sampleCount"].(int) <= 0 {
-		return nil, fmt.Errorf("sampleCount must be greater than 0")
+	params := &geminitask.VeoParameters{}
+	if err := taskcommon.UnmarshalMetadata(req.Metadata, params); err != nil {
+		return nil, fmt.Errorf("unmarshal metadata failed: %w", err)
+	}
+	if params.DurationSeconds == 0 && req.Duration > 0 {
+		params.DurationSeconds = req.Duration
+	}
+	if params.Resolution == "" && req.Size != "" {
+		params.Resolution = geminitask.SizeToVeoResolution(req.Size)
+	}
+	if params.AspectRatio == "" && req.Size != "" {
+		params.AspectRatio = geminitask.SizeToVeoAspectRatio(req.Size)
+	}
+	params.Resolution = strings.ToLower(params.Resolution)
+	params.SampleCount = 1
+
+	body := geminitask.VeoRequestPayload{
+		Instances:  []geminitask.VeoInstance{instance},
+		Parameters: params,
 	}
 
 	data, err := common.Marshal(body)
@@ -226,8 +215,31 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	return localID, responseBody, nil
 }
 
-func (a *TaskAdaptor) GetModelList() []string { return []string{"veo-3.0-generate-001"} }
+func (a *TaskAdaptor) GetModelList() []string {
+	return []string{
+		"veo-3.0-generate-001",
+		"veo-3.0-fast-generate-001",
+		"veo-3.1-generate-preview",
+		"veo-3.1-fast-generate-preview",
+	}
+}
 func (a *TaskAdaptor) GetChannelName() string { return "vertex" }
+
+func buildFetchOperationURL(baseURL, upstreamName string) (string, error) {
+	region := extractRegionFromOperationName(upstreamName)
+	if region == "" {
+		region = "us-central1"
+	}
+	project := extractProjectFromOperationName(upstreamName)
+	modelName := extractModelFromOperationName(upstreamName)
+	if strings.TrimSpace(modelName) == "" {
+		return "", fmt.Errorf("cannot extract model from operation name")
+	}
+	if strings.TrimSpace(project) == "" {
+		return "", fmt.Errorf("cannot extract project from operation name")
+	}
+	return vertexcore.BuildGoogleModelURL(baseURL, vertexcore.DefaultAPIVersion, project, region, modelName, "fetchPredictOperation"), nil
+}
 
 // FetchTask fetch task status
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
@@ -239,22 +251,11 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if err != nil {
 		return nil, fmt.Errorf("decode task_id failed: %w", err)
 	}
-	region := extractRegionFromOperationName(upstreamName)
-	if region == "" {
-		region = "us-central1"
+	url, err := buildFetchOperationURL(baseUrl, upstreamName)
+	if err != nil {
+		return nil, err
 	}
-	project := extractProjectFromOperationName(upstreamName)
-	modelName := extractModelFromOperationName(upstreamName)
-	if project == "" || modelName == "" {
-		return nil, fmt.Errorf("cannot extract project/model from operation name")
-	}
-	var url string
-	if region == "global" {
-		url = fmt.Sprintf("https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/%s:fetchPredictOperation", project, modelName)
-	} else {
-		url = fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:fetchPredictOperation", region, project, region, modelName)
-	}
-	payload := map[string]string{"operationName": upstreamName}
+	payload := fetchOperationPayload{OperationName: upstreamName}
 	data, err := common.Marshal(payload)
 	if err != nil {
 		return nil, err

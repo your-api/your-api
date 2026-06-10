@@ -14,7 +14,16 @@ var Chats = []map[string]string{
 		"Cherry Studio": "cherrystudio://providers/api-keys?v=1&data={cherryConfig}",
 	},
 	{
+		"AionUI": "aionui://provider/add?v=1&data={aionuiConfig}",
+	},
+	{
 		"流畅阅读": "fluentread",
+	},
+	{
+		"CC Switch": "ccswitch",
+	},
+	{
+		"DeepChat": "deepchat://provider/install?v=1&data={deepchatConfig}",
 	},
 	{
 		"Lobe Chat 官方示例": "https://chat-preview.lobehub.com/?settings={\"keyVaults\":{\"openai\":{\"apiKey\":\"{key}\",\"baseURL\":\"{address}/v1\"}}}",

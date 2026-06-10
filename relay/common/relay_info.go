@@ -4,18 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
 )
 
 type ThinkingContentInfo struct {
@@ -101,6 +104,7 @@ type RelayInfo struct {
 	RelayMode              int
 	OriginModelName        string
 	RequestURLPath         string
+	RequestHeaders         map[string]string
 	ShouldIncludeUsage     bool
 	DisablePing            bool // 是否禁止向下游发送自定义 Ping
 	ClientWs               *websocket.Conn
@@ -144,8 +148,25 @@ type RelayInfo struct {
 	SubscriptionAmountUsedAfterPreConsume int64
 	IsClaudeBetaQuery                     bool // /v1/messages?beta=true
 	IsChannelTest                         bool // channel test request
+	RetryIndex                            int
+	LastError                             *types.NewAPIError
+	RuntimeHeadersOverride                map[string]interface{}
+	UseRuntimeHeadersOverride             bool
+	ParamOverrideAudit                    []string
+
+	// UpstreamRequestBodySize is the byte size of the marshaled upstream request
+	// body. It is set when the body is wrapped in a BodyStorage (see
+	// relay/common/outbound_body.go), so that DoApiRequest can populate
+	// http.Request.ContentLength manually (net/http only auto-detects it for
+	// *bytes.Reader/Buffer/strings.Reader). 0 means "let net/http decide".
+	UpstreamRequestBodySize int64
 
 	PriceData types.PriceData
+
+	// TieredBillingSnapshot is a frozen snapshot of tiered billing rules
+	// captured at pre-consume time. Non-nil only when billing mode is "tiered_expr".
+	TieredBillingSnapshot *billingexpr.BillingSnapshot
+	BillingRequestInput   *billingexpr.RequestInput
 
 	Request dto.Request
 
@@ -155,6 +176,8 @@ type RelayInfo struct {
 	// 最终请求到上游的格式。可由 adaptor 显式设置；
 	// 若为空，调用 GetFinalRequestRelayFormat 会回退到 RequestConversionChain 的最后一项或 RelayFormat。
 	FinalRequestRelayFormat types.RelayFormat
+
+	StreamStatus *StreamStatus
 
 	ThinkingContentInfo
 	TokenCountMeta
@@ -332,13 +355,8 @@ func GenRelayInfoClaude(c *gin.Context, request dto.Request) *RelayInfo {
 	info.ClaudeConvertInfo = &ClaudeConvertInfo{
 		LastMessagesType: LastMessageTypeNone,
 	}
-	info.IsClaudeBetaQuery = c.Query("beta") == "true" || isClaudeBetaForced(c)
+	info.IsClaudeBetaQuery = c.Query("beta") == "true"
 	return info
-}
-
-func isClaudeBetaForced(c *gin.Context) bool {
-	channelOtherSettings, ok := common.GetContextKeyType[dto.ChannelOtherSettings](c, constant.ContextKeyChannelOtherSetting)
-	return ok && channelOtherSettings.ClaudeBetaQuery
 }
 
 func GenRelayInfoRerank(c *gin.Context, request *dto.RerankRequest) *RelayInfo {
@@ -434,6 +452,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	if request != nil {
 		isStream = request.IsStream(c)
 	}
+	c.Set(string(constant.ContextKeyIsStream), isStream)
 
 	// firstResponseTime = time.Now() - 1 second
 
@@ -461,6 +480,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		isFirstResponse: true,
 		RelayMode:       relayconstant.Path2RelayMode(c.Request.URL.Path),
 		RequestURLPath:  c.Request.URL.String(),
+		RequestHeaders:  cloneRequestHeaders(c),
 		IsStream:        isStream,
 
 		StartTime:         startTime,
@@ -491,6 +511,27 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	}
 
 	return info
+}
+
+func cloneRequestHeaders(c *gin.Context) map[string]string {
+	if c == nil || c.Request == nil {
+		return nil
+	}
+	if len(c.Request.Header) == 0 {
+		return nil
+	}
+	headers := make(map[string]string, len(c.Request.Header))
+	for key := range c.Request.Header {
+		value := strings.TrimSpace(c.Request.Header.Get(key))
+		if value == "" {
+			continue
+		}
+		headers[key] = value
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
 }
 
 func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Request, ws *websocket.Conn) (*RelayInfo, error) {
@@ -665,6 +706,7 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	type Alias TaskSubmitReq
 	aux := &struct {
 		Metadata json.RawMessage `json:"metadata,omitempty"`
+		Duration json.RawMessage `json:"duration,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(t),
@@ -672,6 +714,20 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 
 	if err := common.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+
+	if len(aux.Duration) > 0 {
+		var durationInt int
+		if err := common.Unmarshal(aux.Duration, &durationInt); err == nil {
+			t.Duration = durationInt
+		} else {
+			var durationStr string
+			if err := common.Unmarshal(aux.Duration, &durationStr); err == nil && durationStr != "" {
+				if v, err := strconv.Atoi(durationStr); err == nil {
+					t.Duration = v
+				}
+			}
+		}
 	}
 
 	if len(aux.Metadata) > 0 {
@@ -729,11 +785,15 @@ func FailTaskInfo(reason string) *TaskInfo {
 // RemoveDisabledFields 从请求 JSON 数据中移除渠道设置中禁用的字段
 // service_tier: 服务层级字段，可能导致额外计费（OpenAI、Claude、Responses API 支持）
 // inference_geo: Claude 数据驻留推理区域字段（仅 Claude 支持，默认过滤）
+// speed: Claude 推理速度模式字段（仅 Claude 支持，默认过滤）
 // store: 数据存储授权字段，涉及用户隐私（仅 OpenAI、Responses API 支持，默认允许透传，禁用后可能导致 Codex 无法使用）
 // safety_identifier: 安全标识符，用于向 OpenAI 报告违规用户（仅 OpenAI 支持，涉及用户隐私）
 // stream_options.include_obfuscation: 响应流混淆控制字段（仅 OpenAI Responses API 支持）
 func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool) ([]byte, error) {
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled {
+		return jsonData, nil
+	}
+	if !hasRemovableDisabledField(jsonData, channelOtherSettings) {
 		return jsonData, nil
 	}
 
@@ -754,6 +814,13 @@ func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOther
 	if !channelOtherSettings.AllowInferenceGeo {
 		if _, exists := data["inference_geo"]; exists {
 			delete(data, "inference_geo")
+		}
+	}
+
+	// 默认移除 speed，除非明确允许（避免意外切换 Claude 推理速度模式）
+	if !channelOtherSettings.AllowSpeed {
+		if _, exists := data["speed"]; exists {
+			delete(data, "speed")
 		}
 	}
 
@@ -793,6 +860,25 @@ func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOther
 		return jsonData, nil
 	}
 	return jsonDataAfter, nil
+}
+
+func hasRemovableDisabledField(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings) bool {
+	values := gjson.GetManyBytes(
+		jsonData,
+		"service_tier",
+		"inference_geo",
+		"speed",
+		"store",
+		"safety_identifier",
+		"stream_options.include_obfuscation",
+	)
+
+	return (!channelOtherSettings.AllowServiceTier && values[0].Exists()) ||
+		(!channelOtherSettings.AllowInferenceGeo && values[1].Exists()) ||
+		(!channelOtherSettings.AllowSpeed && values[2].Exists()) ||
+		(channelOtherSettings.DisableStore && values[3].Exists()) ||
+		(!channelOtherSettings.AllowSafetyIdentifier && values[4].Exists()) ||
+		(!channelOtherSettings.AllowIncludeObfuscation && values[5].Exists())
 }
 
 // RemoveGeminiDisabledFields removes disabled fields from Gemini request JSON data

@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	appconstant "github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -96,16 +96,21 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 
 		// apply param override
 		if len(info.ParamOverride) > 0 {
-			jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
+			jsonData, err = relaycommon.ApplyParamOverrideWithRelayInfo(jsonData, info)
 			if err != nil {
-				return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
+				return newAPIErrorFromParamOverride(err)
 			}
 		}
 
-		if common.DebugEnabled {
-			println("requestBody: ", string(jsonData))
+		logger.LogDebug(c, "requestBody: %s", jsonData)
+		body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
-		requestBody = bytes.NewBuffer(jsonData)
+		defer closer.Close()
+		jsonData = nil
+		info.UpstreamRequestBodySize = size
+		requestBody = body
 	}
 
 	var httpResp *http.Response
@@ -143,9 +148,9 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		if err != nil {
 			info.OriginModelName = originModelName
 			info.PriceData = originPriceData
-			return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry())
+			return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry(), types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		}
-		postConsumeQuota(c, info, usageDto)
+		service.PostTextConsumeQuota(c, info, usageDto, nil)
 
 		info.OriginModelName = originModelName
 		info.PriceData = originPriceData
@@ -155,7 +160,7 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	if strings.HasPrefix(info.OriginModelName, "gpt-4o-audio") {
 		service.PostAudioConsumeQuota(c, info, usageDto, "")
 	} else {
-		postConsumeQuota(c, info, usageDto)
+		service.PostTextConsumeQuota(c, info, usageDto, nil)
 	}
 	return nil
 }

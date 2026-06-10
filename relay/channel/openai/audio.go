@@ -30,26 +30,29 @@ func OpenaiTTSHandler(c *gin.Context, resp *http.Response, info *relaycommon.Rel
 	usage.PromptTokens = info.GetEstimatePromptTokens()
 	usage.TotalTokens = info.GetEstimatePromptTokens()
 	for k, v := range resp.Header {
+		if !service.ShouldCopyUpstreamHeader(c, k, v) {
+			continue
+		}
 		c.Writer.Header().Set(k, v[0])
 	}
 	c.Writer.WriteHeader(resp.StatusCode)
 
 	if info.IsStream {
-		helper.StreamScannerHandler(c, resp, info, func(data string) bool {
+		helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 			if service.SundaySearch(data, "usage") {
 				var simpleResponse dto.SimpleResponse
-				err := common.Unmarshal([]byte(data), &simpleResponse)
-				if err != nil {
+				if err := common.Unmarshal([]byte(data), &simpleResponse); err != nil {
 					logger.LogError(c, err.Error())
-				}
-				if simpleResponse.Usage.TotalTokens != 0 {
+					sr.Error(err)
+				} else if simpleResponse.Usage.TotalTokens != 0 {
 					usage.PromptTokens = simpleResponse.Usage.InputTokens
 					usage.CompletionTokens = simpleResponse.OutputTokens
 					usage.TotalTokens = simpleResponse.TotalTokens
 				}
 			}
-			_ = helper.StringData(c, data)
-			return true
+			if err := helper.StringData(c, data); err != nil {
+				sr.Error(err)
+			}
 		})
 	} else {
 		common.SetContextKey(c, constant.ContextKeyLocalCountTokens, true)

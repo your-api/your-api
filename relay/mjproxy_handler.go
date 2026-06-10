@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -48,6 +49,13 @@ func RelayMidjourneyImage(c *gin.Context) {
 	}
 	if httpClient == nil {
 		httpClient = service.GetHttpClient()
+	}
+	fetchSetting := system_setting.GetFetchSetting()
+	if err := common.ValidateURLWithFetchSetting(midjourneyTask.ImageUrl, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, fetchSetting.ApplyIPFilterForDomain); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": fmt.Sprintf("request blocked: %v", err),
+		})
+		return
 	}
 	resp, err := httpClient.Get(midjourneyTask.ImageUrl)
 	if err != nil {
@@ -186,7 +194,13 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	}
 	modelName := service.CovertMjpActionToModelName(constant.MjActionSwapFace)
 
-	priceData := helper.ModelPriceHelperPerCall(c, info)
+	priceData, err := helper.ModelPriceHelperPerCall(c, info)
+	if err != nil {
+		return &dto.MidjourneyResponse{
+			Code:        4,
+			Description: err.Error(),
+		}
+	}
 
 	userQuota, err := model.GetUserQuota(info.UserId, false)
 	if err != nil {
@@ -460,7 +474,7 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			c.Set("base_url", channel.GetBaseURL())
 			c.Set("channel_id", originTask.ChannelId)
 			c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", channel.Key))
-			log.Printf("检测到此操作为放大、变换、重绘，获取原channel信息: %s,%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL())
+			logger.LogDebug(c, "Midjourney action uses origin channel: id=%s, base_url=%s", strconv.Itoa(originTask.ChannelId), channel.GetBaseURL())
 		}
 		midjRequest.Prompt = originTask.Prompt
 
@@ -487,7 +501,13 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 
 	modelName := service.CovertMjpActionToModelName(midjRequest.Action)
 
-	priceData := helper.ModelPriceHelperPerCall(c, relayInfo)
+	priceData, err := helper.ModelPriceHelperPerCall(c, relayInfo)
+	if err != nil {
+		return &dto.MidjourneyResponse{
+			Code:        4,
+			Description: err.Error(),
+		}
+	}
 
 	userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
 	if err != nil {

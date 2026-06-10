@@ -173,7 +173,8 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 	properties := Properties{}
 	privateData := TaskPrivateData{}
 	if relayInfo != nil && relayInfo.ChannelMeta != nil {
-		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini {
+		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini ||
+			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi {
 			privateData.Key = relayInfo.ChannelMeta.ApiKey
 		}
 		if relayInfo.UpstreamModelName != "" {
@@ -413,6 +414,17 @@ func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
 		return false, result.Error
 	}
 	return result.RowsAffected > 0, nil
+}
+
+// TaskBulkUpdate performs an unconditional bulk UPDATE by upstream task_id strings.
+// Same caveats as TaskBulkUpdateByID — no CAS guard.
+func TaskBulkUpdate(taskIds []string, params map[string]any) error {
+	if len(taskIds) == 0 {
+		return nil
+	}
+	return DB.Model(&Task{}).
+		Where("task_id in (?)", taskIds).
+		Updates(params).Error
 }
 
 // TaskBulkUpdateByID performs an unconditional bulk UPDATE by primary key IDs.

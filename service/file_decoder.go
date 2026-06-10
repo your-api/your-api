@@ -85,7 +85,7 @@ func GetFileTypeFromUrl(c *gin.Context, url string, reason ...string) (string, e
 	var readData []byte
 	limits := []int{512, 8 * 1024, 24 * 1024, 64 * 1024}
 	for _, limit := range limits {
-		logger.LogDebug(c, fmt.Sprintf("Trying to read %d bytes to determine file type", limit))
+		logger.LogDebug(c, "Trying to read %d bytes to determine file type", limit)
 		if len(readData) < limit {
 			need := limit - len(readData)
 			tmp := make([]byte, need)
@@ -102,6 +102,11 @@ func GetFileTypeFromUrl(c *gin.Context, url string, reason ...string) (string, e
 		sniffed := http.DetectContentType(readData)
 		if sniffed != "" && sniffed != "application/octet-stream" {
 			return sniffed, nil
+		}
+
+		// Try HEIF/HEIC detection (Go standard library doesn't recognize it)
+		if heifMime := detectHEIF(readData); heifMime != "" {
+			return heifMime, nil
 		}
 
 		if _, format, err := image.DecodeConfig(bytes.NewReader(readData)); err == nil {
@@ -168,6 +173,10 @@ func GetMimeTypeByExtension(ext string) string {
 		return "image/gif"
 	case "jfif":
 		return "image/jpeg"
+	case "heic":
+		return "image/heic"
+	case "heif":
+		return "image/heif"
 
 	// Audio files
 	case "mp3":

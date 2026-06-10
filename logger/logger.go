@@ -29,6 +29,15 @@ const maxLogCount = 1000000
 var logCount int
 var setupLogLock sync.Mutex
 var setupLogWorking bool
+var currentLogPath string
+var currentLogPathMu sync.RWMutex
+var currentLogFile *os.File
+
+func GetCurrentLogPath() string {
+	currentLogPathMu.RLock()
+	defer currentLogPathMu.RUnlock()
+	return currentLogPath
+}
 
 func SetupLogger() {
 	defer func() {
@@ -48,8 +57,19 @@ func SetupLogger() {
 		if err != nil {
 			log.Fatal("failed to open log file")
 		}
+		currentLogPathMu.Lock()
+		oldFile := currentLogFile
+		currentLogPath = logPath
+		currentLogFile = fd
+		currentLogPathMu.Unlock()
+
+		common.LogWriterMu.Lock()
 		gin.DefaultWriter = io.MultiWriter(os.Stdout, fd)
 		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, fd)
+		if oldFile != nil {
+			_ = oldFile.Close()
+		}
+		common.LogWriterMu.Unlock()
 	}
 }
 
@@ -75,16 +95,20 @@ func LogDebug(ctx context.Context, msg string, args ...any) {
 }
 
 func logHelper(ctx context.Context, level string, msg string) {
+	var id any = "SYSTEM"
+	if ctx != nil {
+		if requestID := ctx.Value(common.RequestIdKey); requestID != nil {
+			id = requestID
+		}
+	}
+	now := time.Now()
+	common.LogWriterMu.RLock()
 	writer := gin.DefaultErrorWriter
 	if level == loggerINFO {
 		writer = gin.DefaultWriter
 	}
-	id := ctx.Value(common.RequestIdKey)
-	if id == nil {
-		id = "SYSTEM"
-	}
-	now := time.Now()
 	_, _ = fmt.Fprintf(writer, "[%s] %v | %s | %s \n", level, now.Format("2006/01/02 - 15:04:05"), id, msg)
+	common.LogWriterMu.RUnlock()
 	logCount++ // we don't need accurate count, so no lock here
 	if logCount > maxLogCount && !setupLogWorking {
 		logCount = 0
@@ -150,10 +174,13 @@ func FormatQuota(quota int) string {
 
 // LogJson 仅供测试使用 only for test
 func LogJson(ctx context.Context, msg string, obj any) {
+	if !common.DebugEnabled {
+		return
+	}
 	jsonStr, err := common.Marshal(obj)
 	if err != nil {
 		LogError(ctx, fmt.Sprintf("json marshal failed: %s", err.Error()))
 		return
 	}
-	LogDebug(ctx, fmt.Sprintf("%s | %s", msg, string(jsonStr)))
+	LogDebug(ctx, "%s | %s", msg, jsonStr)
 }
